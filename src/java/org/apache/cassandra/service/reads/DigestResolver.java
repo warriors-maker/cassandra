@@ -25,9 +25,13 @@ import com.google.common.base.Preconditions;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
+import org.apache.cassandra.db.rows.Cell;
+import org.apache.cassandra.db.rows.RowIterator;
 import org.apache.cassandra.net.MessageIn;
+import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.tracing.TraceState;
+import org.apache.cassandra.utils.ByteBufferUtil;
 
 public class DigestResolver extends ResponseResolver
 {
@@ -76,6 +80,48 @@ public class DigestResolver extends ResponseResolver
             logger.trace("responsesMatch: {} ms.", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
 
         return true;
+    }
+
+    public ReadResponse extractMaxZResponse()
+    {
+        // check all data responses,
+        // extract the one with max z value
+        int maxZ = -1;
+        ReadResponse maxZResponse = null;
+        for (MessageIn<ReadResponse> message : responses)
+        {
+            ReadResponse response = message.payload;
+
+            // check if the response is indeed a data response
+            // we shouldn't get a digest response here
+            assert response.isDigestResponse() == false;
+
+            // get the partition iterator corresponding to the
+            // current data response
+            PartitionIterator pi = UnfilteredPartitionIterators.filter(response.makeIterator(command), command.nowInSec());
+
+            // get the z value column
+            while(pi.hasNext())
+            {
+                // zValueReadResult.next() returns a RowIterator
+                RowIterator ri = pi.next();
+                while(ri.hasNext())
+                {
+                    // todo: the entire row is read for the sake of development
+                    // future improvement could be made
+                    ColumnMetadata colMeta = command.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
+                    Cell c = ri.next().getCell(colMeta);
+                    int currentZ = ByteBufferUtil.toInt(c.value());
+                    if(currentZ > maxZ)
+                    {
+                        maxZ = currentZ;
+                        maxZResponse = response;
+                    }
+                }
+            }
+        }
+
+        return maxZResponse;
     }
 
     public boolean isDataPresent()

@@ -31,9 +31,11 @@ import org.apache.cassandra.db.ColumnFamilyStore;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.ReadCommand;
+import org.apache.cassandra.db.ReadResponse;
 import org.apache.cassandra.db.SinglePartitionReadCommand;
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.db.partitions.PartitionIterator;
+import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
 import org.apache.cassandra.exceptions.ReadFailureException;
 import org.apache.cassandra.exceptions.ReadTimeoutException;
 import org.apache.cassandra.exceptions.UnavailableException;
@@ -158,6 +160,13 @@ public abstract class AbstractReadExecutor
      * send the initial set of requests
      */
     public abstract void executeAsync();
+
+    public void executeAsyncAbd()
+    {
+        // we don't need digest read for ABD,
+        // all read requests issued are data requests
+        makeDataRequests(targetReplicas);
+    }
 
     /**
      * @return an executor appropriate for the configured speculative read policy
@@ -404,6 +413,46 @@ public abstract class AbstractReadExecutor
         }
     }
 
+    public ReadResponse awaitResponsesAbd() throws ReadTimeoutException
+    {
+        try
+        {
+            // the awaitResults function is exactly the same as the original
+            handler.awaitResults();
+        }
+        catch (ReadTimeoutException e)
+        {
+            try
+            {
+                onReadTimeout();
+            }
+            finally
+            {
+                throw e;
+            }
+        }
+
+        // when we get here, the consistency level must have been satisfied
+        // this function is implemented in digest resolver because the data
+        // responses are in it
+        ReadResponse maxZResponse = digestResolver.extractMaxZResponse();
+
+        if(maxZResponse != null)
+        {
+            setResult(UnfilteredPartitionIterators.filter(maxZResponse.makeIterator(command), command.nowInSec()));
+        }
+        else
+        {
+            // maxZResponse is null, which is possible
+            // when the key we're trying to fetch doesn't
+            // even exist, use the default data result from
+            // digestResolver, which will be empty in this case
+            setResult(digestResolver.getData());
+        }
+
+        return maxZResponse;
+    }
+
     public void awaitReadRepair() throws ReadTimeoutException
     {
         try
@@ -426,6 +475,11 @@ public abstract class AbstractReadExecutor
     public void maybeRepairAdditionalReplicas()
     {
         // TODO: this
+    }
+
+    public boolean isResultPresent()
+    {
+        return result != null;
     }
 
     public PartitionIterator getResult() throws ReadFailureException, ReadTimeoutException
