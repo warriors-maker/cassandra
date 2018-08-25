@@ -719,6 +719,8 @@ public class StorageProxy implements StorageProxyMBean
             RowIterator ri = zValueReadResult.next();
             while(ri.hasNext())
             {
+                // we don't need to extract the writer id here
+                // because it doesn't matter in mutate
                 ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
                 Cell c = ri.next().getCell(colMeta);
                 int maxZ = ByteBufferUtil.toInt(c.value());
@@ -738,7 +740,7 @@ public class StorageProxy implements StorageProxyMBean
         {
             Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
 
-            mutationBuilder.update(mutation.getPartitionUpdates().iterator().next().metadata()).timestamp(FBUtilities.timestampMicros()).row().add("z_value", maxZMap.containsKey(mutation.key().toString()) ? maxZMap.get(mutation.key().toString())+1 : 0);
+            mutationBuilder.update(mutation.getPartitionUpdates().iterator().next().metadata()).timestamp(FBUtilities.timestampMicros()).row().add("z_value", maxZMap.containsKey(mutation.key().toString()) ? maxZMap.get(mutation.key().toString())+1 : 0).add("writer_id", FBUtilities.getBroadcastAddressAndPort().toString());
 
             Mutation zValueMutation = mutationBuilder.build();
 
@@ -2006,14 +2008,16 @@ public class StorageProxy implements StorageProxyMBean
         {
             DecoratedKey key;
             TableMetadata metadata;
-            int tag;
+            int tagZvalue;
+            String tagWriterId;
             int value;
 
-            public Result(DecoratedKey key, TableMetadata metadata, int tag, int value)
+            public Result(DecoratedKey key, TableMetadata metadata, int z, String writerId, int value)
             {
                 this.key = key;
                 this.metadata = metadata;
-                this.tag = tag;
+                this.tagZvalue = z;
+                this.tagWriterId = writerId;
                 this.value = value;
             }
         }
@@ -2026,19 +2030,29 @@ public class StorageProxy implements StorageProxyMBean
             RowIterator ri = tagValueResult.next();
             while(ri.hasNext())
             {
-                ColumnMetadata tagMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
+                ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
+                ColumnMetadata writerIdMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
                 ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("score"));
 
-                assert tagMetadata != null && valueMetadata != null;
+                assert zValueMetadata != null && writerIdMetadata != null && valueMetadata != null;
 
                 Row r = ri.next();
 
-                Cell c = r.getCell(tagMetadata);
-                int tag = ByteBufferUtil.toInt(c.value());
+                Cell c = r.getCell(zValueMetadata);
+                int z = ByteBufferUtil.toInt(c.value());
                 c = r.getCell(valueMetadata);
                 int value = ByteBufferUtil.toInt(c.value());
+                c = r.getCell(writerIdMetadata);
+                String writerId = "";
+                try
+                {
+                    writerId = ByteBufferUtil.string(c.value());
+                }
+                catch (Exception e)
+                {
+                }
 
-               result.add(new Result(ri.partitionKey(), ri.metadata(), tag, value));
+               result.add(new Result(ri.partitionKey(), ri.metadata(), z, writerId, value));
             }
         }
 
@@ -2049,7 +2063,7 @@ public class StorageProxy implements StorageProxyMBean
         {
             Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(r.metadata.keyspace, r.key);
 
-            mutationBuilder.update(r.metadata).timestamp(FBUtilities.timestampMicros()).row().add("z_value", r.tag).add("score", r.value);
+            mutationBuilder.update(r.metadata).timestamp(FBUtilities.timestampMicros()).row().add("z_value", r.tagZvalue).add("writer_id", r.tagWriterId).add("score", r.value);
 
             Mutation tagValueMutation = mutationBuilder.build();
 

@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Preconditions;
 
+import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
@@ -87,6 +88,7 @@ public class DigestResolver extends ResponseResolver
         // check all data responses,
         // extract the one with max z value
         int maxZ = -1;
+        String maxWriterId = ""; // when we compare writer id, we use lexicographical order
         ReadResponse maxZResponse = null;
         for (MessageIn<ReadResponse> message : responses)
         {
@@ -109,13 +111,46 @@ public class DigestResolver extends ResponseResolver
                 {
                     // todo: the entire row is read for the sake of development
                     // future improvement could be made
+
+                    int currentZ = -1;
+                    String writerId = "";
+                    for(Cell c : ri.next().cells())
+                    {
+                        if(c.column().name.equals(new ColumnIdentifier("z_value", true)))
+                        {
+                            currentZ = ByteBufferUtil.toInt(c.value());
+                        }
+                        else if(c.column().name.equals(new ColumnIdentifier("writer_id", true)))
+                        {
+                            try
+                            {
+                                writerId = ByteBufferUtil.string(c.value());
+                            }
+                            catch(Exception e)
+                            {}
+                        }
+                    }
+
+                    /*
                     ColumnMetadata colMeta = command.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
                     Cell c = ri.next().getCell(colMeta);
                     int currentZ = ByteBufferUtil.toInt(c.value());
+                    */
+
                     if(currentZ > maxZ)
                     {
                         maxZ = currentZ;
+                        maxWriterId = writerId;
                         maxZResponse = response;
+                    }
+                    else if(currentZ == maxZ)
+                    {
+                        // compare writer id if z value is the same
+                        if(writerId.compareTo(maxWriterId) > 0)
+                        {
+                            maxWriterId = writerId;
+                            maxZResponse = response;
+                        }
                     }
                 }
             }
