@@ -70,7 +70,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         try
         {
-            System.out.println("conditional update");
             // first we have to create a read request out of the current mutation
             SinglePartitionReadCommand localRead =
             SinglePartitionReadCommand.fullPartitionRead(
@@ -84,16 +83,13 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
             // execute the read request locally to obtain the tag of the key
             // and extract tag information from the local read
-            //ReadResponse response;
             try (ReadExecutionController executionController = localRead.executionController();
                  UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
             {
                 // first we have to transform it into a PartitionIterator
                 PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
-                //response = localRead.createResponse(iterator);
                 while(pi.hasNext())
                 {
-                    // zValueReadResult.next() returns a RowIterator
                     RowIterator ri = pi.next();
                     while(ri.hasNext())
                     {
@@ -127,8 +123,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                 }
             }
 
-            System.out.printf("local z:%d %s request z:%d %s\n", z_value_local, writer_id_local, z_value_request, writer_id_request);
-
+            //System.out.printf("local z:%d %s request z:%d %s\n", z_value_local, writer_id_local, z_value_request, writer_id_request);
 
             // comparing the tag and the one in mutation, act accordingly
             if (z_value_request > z_value_local || (z_value_request == z_value_local && writer_id_request.compareTo(writer_id_local) > 0))
