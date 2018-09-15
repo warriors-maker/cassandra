@@ -20,10 +20,22 @@ package org.apache.cassandra.db;
 import java.io.IOException;
 import java.util.Iterator;
 
+import org.apache.cassandra.cql3.ColumnIdentifier;
+import org.apache.cassandra.db.partitions.PartitionIterator;
+import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
+import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
+import org.apache.cassandra.db.rows.Cell;
+import org.apache.cassandra.db.rows.Row;
+import org.apache.cassandra.db.rows.RowIterator;
+import org.apache.cassandra.db.rows.Unfiltered;
+import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.exceptions.WriteTimeoutException;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
+import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.tracing.Tracing;
+import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.cassandra.utils.FBUtilities;
 
 public class MutationVerbHandler implements IVerbHandler<Mutation>
 {
@@ -58,10 +70,66 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         try
         {
-            message.payload.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
-                failed();
-                return null;
-            });
+            // first we have to create a read request out of the current mutation
+            SinglePartitionReadCommand localRead =
+            SinglePartitionReadCommand.fullPartitionRead(
+            message.payload.getPartitionUpdates().iterator().next().metadata(),
+            FBUtilities.nowInSeconds(),
+            message.payload.key()
+            );
+
+            int z_value_local = -1;
+            //String write_id = "";
+
+            // execute the read request locally to obtain the tag of the key
+            // and extract tag information from the local read
+            //ReadResponse response;
+            try (ReadExecutionController executionController = localRead.executionController();
+                 UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
+            {
+                // first we have to transform it into a PartitionIterator
+                PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
+                //response = localRead.createResponse(iterator);
+                while(pi.hasNext())
+                {
+                    // zValueReadResult.next() returns a RowIterator
+                    RowIterator ri = pi.next();
+                    while(ri.hasNext())
+                    {
+                        // we don't need to extract the writer id here
+                        // because it doesn't matter in mutate
+                        ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
+
+                        Cell c = ri.next().getCell(colMeta);
+                        z_value_local = ByteBufferUtil.toInt(c.value());
+                    }
+                }
+            }
+
+            // extract the tag information from the mutation
+            int z_value_request = 0;
+            Row data = message.payload.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+            for (Cell c : data.cells())
+            {
+                if(c.column().name.equals(new ColumnIdentifier("z_value", true)))
+                {
+                    z_value_request = ByteBufferUtil.toInt(c.value());
+                }
+            }
+
+            // comparing the tag and the one in mutation, act accordingly
+            if (z_value_request > z_value_local)
+            {
+                //message.payload.getPartitionUpdate().columns().regulars.
+                message.payload.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
+                    failed();
+                    return null;
+                });
+            }
+            else
+            {
+                reply(id, replyTo);
+            }
         }
         catch (WriteTimeoutException wto)
         {
