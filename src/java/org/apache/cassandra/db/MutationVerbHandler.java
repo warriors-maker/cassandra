@@ -70,6 +70,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         try
         {
+            System.out.println("conditional update");
             // first we have to create a read request out of the current mutation
             SinglePartitionReadCommand localRead =
             SinglePartitionReadCommand.fullPartitionRead(
@@ -116,6 +117,9 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                     z_value_request = ByteBufferUtil.toInt(c.value());
                 }
             }
+
+            System.out.printf("local z:%d request z:%d\n", z_value_local, z_value_request);
+
 
             // comparing the tag and the one in mutation, act accordingly
             if (z_value_request > z_value_local)
