@@ -734,7 +734,7 @@ public class StorageProxy implements StorageProxyMBean
         // please note that we have 2 assumptions
         // 1. we have an explicit column named z_value in the table
         // 2. we assume there's only 1 column for each key
-        List<IMutation> mutationList = new ArrayList<>(mutations);
+        List<IMutation> mutationList = new ArrayList<>();
 
         for (IMutation mutation : mutations)
         {
@@ -744,7 +744,13 @@ public class StorageProxy implements StorageProxyMBean
 
             Mutation zValueMutation = mutationBuilder.build();
 
-            mutationList.add(zValueMutation);
+            // merge the tag mutation and the original mutation
+            List<Mutation> mutationMergeList = new ArrayList<>();
+            mutationMergeList.add(zValueMutation);
+            mutationMergeList.add((Mutation)mutation);
+            Mutation newMutation = Mutation.merge(mutationMergeList);
+
+            mutationList.add(newMutation);
         }
 
         mutations = mutationList;
