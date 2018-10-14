@@ -2202,7 +2202,7 @@ public class StorageProxy implements StorageProxyMBean
         List<PartitionIterator> results = new ArrayList<PartitionIterator>();
 
         for (int i=0; i<cmdCount; i++){
-            if (needUpdate.get(i)){
+            if (needUpdate[i]){
                 results.add(reads[i].getResult());
             }
         }
