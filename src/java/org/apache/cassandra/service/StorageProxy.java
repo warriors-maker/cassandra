@@ -2040,7 +2040,7 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
                     ColumnMetadata writerIdMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
-                    ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("score"));
+                    ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("field0"));
 
                     assert zValueMetadata != null && writerIdMetadata != null && valueMetadata != null;
 
@@ -2071,7 +2071,7 @@ public class StorageProxy implements StorageProxyMBean
             {
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(r.metadata.keyspace, r.key);
 
-                mutationBuilder.update(r.metadata).timestamp(FBUtilities.timestampMicros()).row().add("z_value", r.tagZvalue).add("writer_id", r.tagWriterId).add("score", r.value);
+                mutationBuilder.update(r.metadata).timestamp(FBUtilities.timestampMicros()).row().add("z_value", r.tagZvalue).add("writer_id", r.tagWriterId).add("field0", r.value);
 
                 Mutation tagValueMutation = mutationBuilder.build();
 
