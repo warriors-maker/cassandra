@@ -2103,7 +2103,7 @@ public class StorageProxy implements StorageProxyMBean
             tagValueReadList.add(tagValueRead);
         }
 
-        PartitionIterator tagValueResult = fetchTagValue(tagValueReadList, consistencyLevel, System.nanoTime()); 
+        tagValueResult = fetchTagValue(tagValueReadList, consistencyLevel, System.nanoTime()); 
 
         return tagValueResult;
     }
