@@ -2009,77 +2009,81 @@ public class StorageProxy implements StorageProxyMBean
         
         PartitionIterator tagValueResult = fetchTagValueNeedUpd(tagValueReadList, consistencyLevel, System.nanoTime());
 
-        // write the tag value pair with the largest tag to
-        // all servers
-        class Result
-        {
-            DecoratedKey key;
-            TableMetadata metadata;
-            int tagZvalue;
-            String tagWriterId;
-            int value;
-
-            public Result(DecoratedKey key, TableMetadata metadata, int z, String writerId, int value)
+        if (tagValueResult != null){
+            // write the tag value pair with the largest tag to
+            // all servers
+            class Result
             {
-                this.key = key;
-                this.metadata = metadata;
-                this.tagZvalue = z;
-                this.tagWriterId = writerId;
-                this.value = value;
-            }
-        }
+                DecoratedKey key;
+                TableMetadata metadata;
+                int tagZvalue;
+                String tagWriterId;
+                int value;
 
-        List<Result> result = new ArrayList<>();
-        while(tagValueResult.hasNext())
-        {
-            // first we have to parse the value and tag from the result
-            // tagValueResult.next() returns a RowIterator
-            RowIterator ri = tagValueResult.next();
-            while(ri.hasNext())
+                public Result(DecoratedKey key, TableMetadata metadata, int z, String writerId, int value)
+                {
+                    this.key = key;
+                    this.metadata = metadata;
+                    this.tagZvalue = z;
+                    this.tagWriterId = writerId;
+                    this.value = value;
+                }
+            }
+
+            List<Result> result = new ArrayList<>();
+            while(tagValueResult.hasNext())
             {
-                ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
-                ColumnMetadata writerIdMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
-                ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("score"));
-
-                assert zValueMetadata != null && writerIdMetadata != null && valueMetadata != null;
-
-                Row r = ri.next();
-
-                Cell c = r.getCell(zValueMetadata);
-                int z = ByteBufferUtil.toInt(c.value());
-                c = r.getCell(valueMetadata);
-                int value = ByteBufferUtil.toInt(c.value());
-                c = r.getCell(writerIdMetadata);
-                String writerId = "";
-                try
+                // first we have to parse the value and tag from the result
+                // tagValueResult.next() returns a RowIterator
+                RowIterator ri = tagValueResult.next();
+                while(ri.hasNext())
                 {
-                    writerId = ByteBufferUtil.string(c.value());
-                }
-                catch (Exception e)
-                {
-                }
+                    ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
+                    ColumnMetadata writerIdMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
+                    ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("score"));
 
-               result.add(new Result(ri.partitionKey(), ri.metadata(), z, writerId, value));
+                    assert zValueMetadata != null && writerIdMetadata != null && valueMetadata != null;
+
+                    Row r = ri.next();
+
+                    Cell c = r.getCell(zValueMetadata);
+                    int z = ByteBufferUtil.toInt(c.value());
+                    c = r.getCell(valueMetadata);
+                    int value = ByteBufferUtil.toInt(c.value());
+                    c = r.getCell(writerIdMetadata);
+                    String writerId = "";
+                    try
+                    {
+                        writerId = ByteBufferUtil.string(c.value());
+                    }
+                    catch (Exception e)
+                    {
+                    }
+
+                result.add(new Result(ri.partitionKey(), ri.metadata(), z, writerId, value));
+                }
             }
+
+            // next we will have to generate a mutation to write
+            // the max tag and its corresponding value to all servers
+            List<IMutation> updateTagValueMutationList = new ArrayList<>();
+            for (Result r : result)
+            {
+                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(r.metadata.keyspace, r.key);
+
+                mutationBuilder.update(r.metadata).timestamp(FBUtilities.timestampMicros()).row().add("z_value", r.tagZvalue).add("writer_id", r.tagWriterId).add("score", r.value);
+
+                Mutation tagValueMutation = mutationBuilder.build();
+
+                updateTagValueMutationList.add(tagValueMutation);
+            }
+
+            // then we will have to perform the mutatation we've
+            // just generated
+            mutateWithTag(updateTagValueMutationList, consistencyLevel, System.nanoTime());
         }
 
-        // next we will have to generate a mutation to write
-        // the max tag and its corresponding value to all servers
-        List<IMutation> updateTagValueMutationList = new ArrayList<>();
-        for (Result r : result)
-        {
-            Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(r.metadata.keyspace, r.key);
-
-            mutationBuilder.update(r.metadata).timestamp(FBUtilities.timestampMicros()).row().add("z_value", r.tagZvalue).add("writer_id", r.tagWriterId).add("score", r.value);
-
-            Mutation tagValueMutation = mutationBuilder.build();
-
-            updateTagValueMutationList.add(tagValueMutation);
-        }
-
-        // then we will have to perform the mutatation we've
-        // just generated
-        mutateWithTag(updateTagValueMutationList, consistencyLevel, System.nanoTime());
+        
 
         // right here we have to conduct the read again because of a
         // technical issue: the PartitionIterator cannot be reused after
@@ -2147,8 +2151,7 @@ public class StorageProxy implements StorageProxyMBean
         {
             reads[i].awaitReadRepair();
         }
-
-        
+    
         List<PartitionIterator> results = new ArrayList<PartitionIterator>();
 
         for (int i=0; i<cmdCount; i++)
@@ -2169,49 +2172,48 @@ public class StorageProxy implements StorageProxyMBean
         AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
         boolean[] needUpdate = new boolean[cmdCount];
 
-        for (int i=0; i<cmdCount; i++)
-        {
+        for (int i=0; i<cmdCount; i++){
             reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
         }
 
-        for (int i=0; i<cmdCount; i++)
-        {
+        for (int i=0; i<cmdCount; i++){
             reads[i].executeAsyncAbd();
         }
 
         // todo: this is not needed
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].maybeTryAdditionalReplicas();
-        }
+        // for (int i=0; i<cmdCount; i++){
+        //     reads[i].maybeTryAdditionalReplicas();
+        // }
 
-        for (int i=0; i<cmdCount; i++)
-        {
+        for (int i=0; i<cmdCount; i++){
             needUpdate[i] = reads[i].awaitResponsesAbd().needWriteBack;
         }
 
         // todo: this is not needed
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].maybeRepairAdditionalReplicas();
-        }
+        // for (int i=0; i<cmdCount; i++){
+        //     reads[i].maybeRepairAdditionalReplicas();
+        // }
 
         // todo: this is not needed
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].awaitReadRepair();
+        // for (int i=0; i<cmdCount; i++){
+        //     reads[i].awaitReadRepair();
+        // }
+
+        List<PartitionIterator> results = new ArrayList<PartitionIterator>();
+
+        for (int i=0; i<cmdCount; i++){
+            if (needUpdate.get(i)){
+                results.add(reads[i].getResult());
+            }
+        }
+
+        if (results.size() > 0){
+            return PartitionIterators.concat(results);
+        } else{
+            return null;
         }
 
         
-        List<PartitionIterator> results = new ArrayList<PartitionIterator>();
-
-        for (int i=0; i<cmdCount; i++)
-        {
-            if (needUpdate[i])
-                results.add(reads[i].getResult());
-        }
-
-        return PartitionIterators.concat(results);
     }
 
     public static class LocalReadRunnable extends DroppableRunnable
