@@ -2006,7 +2006,10 @@ public class StorageProxy implements StorageProxyMBean
 
         // execute the tag value read, the result will be the
         // tag value pair with the largest tag
-        PartitionIterator tagValueResult = fetchTagValue(tagValueReadList, consistencyLevel, System.nanoTime());
+        // PartitionIterator tagValueResult = fetchTagValue(tagValueReadList, consistencyLevel, System.nanoTime());
+        
+        Map<Boolean, List<PartitionIterator>> tmp = fetchTagValue(tagValueReadList, consistencyLevel, System.nanoTime());
+        PartitionIterator tagValueResult = PartitionIterators.concat(tmp.get(true));     
 
         // write the tag value pair with the largest tag to
         // all servers
@@ -2101,17 +2104,25 @@ public class StorageProxy implements StorageProxyMBean
             );
             tagValueReadList.add(tagValueRead);
         }
-        tagValueResult = fetchTagValue(tagValueReadList, ConsistencyLevel.ONE, System.nanoTime());
+        // tagValueResult = fetchTagValue(tagValueReadList, ConsistencyLevel.ONE, System.nanoTime());
+        Map<Boolean, List<PartitionIterator>> tmp = fetchTagValue(tagValueReadList, consistencyLevel, System.nanoTime());
+        List<PartitionIterator> res = tmp.get(true);
+        res.addAll(tmp.get(false));
+        PartitionIterator tagValueResult = PartitionIterators.concat(res);     
 
         return tagValueResult;
     }
 
-    private static PartitionIterator fetchTagValue(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    // private static PartitionIterator fetchTagValue(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    // throws UnavailableException, ReadFailureException, ReadTimeoutException
+    // {
+    private static Map<Boolean, List<PartitionIterator>> fetchTagValue(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         int cmdCount = commands.size();
 
         AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
+        boolean[] needUpdate = new int[cmdCount];
 
         for (int i=0; i<cmdCount; i++)
         {
@@ -2131,7 +2142,7 @@ public class StorageProxy implements StorageProxyMBean
 
         for (int i=0; i<cmdCount; i++)
         {
-            reads[i].awaitResponsesAbd();
+            needUpdate[i] = reads[i].awaitResponsesAbd().needWriteBack;
         }
 
         // todo: this is not needed
@@ -2146,13 +2157,24 @@ public class StorageProxy implements StorageProxyMBean
             reads[i].awaitReadRepair();
         }
 
-        List<PartitionIterator> results = new ArrayList<>(cmdCount);
+        
+        List<PartitionIterator> need = new ArrayList<PartitionIterator>();
+        List<PartitionIterator> dont = new ArrayList<PartitionIterator>();
+
         for (int i=0; i<cmdCount; i++)
         {
-            results.add(reads[i].getResult());
+            if (needUpdate[i]){
+                need.add(reads[i].getResult());
+            } else{
+                dont.add(reads[i].getResult());
+            }
         }
 
-        return PartitionIterators.concat(results);
+        Map<Boolean, List<PartitionIterator>> results = new HashMap<Boolean,List<PartitionIterator>>();
+        results.put(true, need);
+        results.put(false, dont);
+        return results;
+        // return PartitionIterators.concat(results);
     }
 
     public static class LocalReadRunnable extends DroppableRunnable
