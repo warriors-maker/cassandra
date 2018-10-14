@@ -2167,7 +2167,7 @@ public class StorageProxy implements StorageProxyMBean
         int cmdCount = commands.size();
 
         AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
-        boolean[] needUpdate = new int[cmdCount];
+        boolean[] needUpdate = new boolean[cmdCount];
 
         for (int i=0; i<cmdCount; i++)
         {
