@@ -40,7 +40,8 @@ public abstract class ReadResponse
 {
     // Serializer for single partition read response
     public static final IVersionedSerializer<ReadResponse> serializer = new Serializer();
-
+    public boolean needWriteBack = false;
+    
     protected ReadResponse()
     {
     }
