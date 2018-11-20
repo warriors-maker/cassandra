@@ -91,7 +91,7 @@ public class DigestResolver extends ResponseResolver
         String maxWriterId = ""; // when we compare writer id, we use lexicographical order
         ReadResponse maxZResponse = null;
 
-        int numMaxZChange = 0; // measure the number of times maxZchange value
+        int numMaxZDiff = 0; // measure the number of times maxZchange value
         for (MessageIn<ReadResponse> message : responses)
         {
             ReadResponse response = message.payload;
@@ -142,7 +142,7 @@ public class DigestResolver extends ResponseResolver
                     if(currentZ > maxZ)
                     {
                         maxZ = currentZ;
-                        numMaxZChange += 1; // increment number of times maxZ change
+                        numMaxZDiff += 1; // increment number different maxZ
                         maxWriterId = writerId;
                         maxZResponse = response;
                     }
@@ -155,11 +155,14 @@ public class DigestResolver extends ResponseResolver
                             maxZResponse = response;
                         }
                     }
+                    else{
+                        numMaxZDiff += 1;
+                    }
                 }
             }
         }
 
-        if (numMaxZChange > 1)
+        if (numMaxZDiff > 1)
             maxZResponse.needWriteBack = true;
 
         return maxZResponse;
