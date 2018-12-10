@@ -19,6 +19,7 @@ package org.apache.cassandra.service;
 
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
+import com.datastax.driver.core.Metadata;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.cache.CacheLoader;
@@ -37,6 +39,8 @@ import com.google.common.util.concurrent.Uninterruptibles;
 
 import org.apache.commons.lang3.StringUtils;
 
+import org.apache.commons.net.ntp.TimeStamp;
+import org.hsqldb.Trace;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -701,12 +705,16 @@ public class StorageProxy implements StorageProxyMBean
             // todo: please note that this is not optimal,
             // fullPartitionRead generates a read that reading ALL
             // columns of the key, while all we need is z value
-            SinglePartitionReadCommand zValueRead =
-                SinglePartitionReadCommand.fullPartitionRead(
-                mutation.getPartitionUpdates().iterator().next().metadata(),
-                FBUtilities.nowInSeconds(),
-                mutation.key()
-                );
+            TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+            int nowInSec = FBUtilities.nowInSeconds();
+            DecoratedKey  decoratedKey =  mutation.key();
+
+            SinglePartitionReadCommand zValueRead = SinglePartitionReadCommand.fullPartitionRead(
+                                                        tableMetadata,
+                                                        nowInSec,
+                                                        decoratedKey
+                                                        );
+
             zValueReadList.add(zValueRead);
         }
 
@@ -740,7 +748,18 @@ public class StorageProxy implements StorageProxyMBean
         {
             Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
 
-            mutationBuilder.update(mutation.getPartitionUpdates().iterator().next().metadata()).timestamp(FBUtilities.timestampMicros()).row().add("z_value", maxZMap.containsKey(mutation.key().toString()) ? maxZMap.get(mutation.key().toString())+1 : 0).add("writer_id", FBUtilities.getBroadcastAddressAndPort().toString());
+            TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+            long timeStamp = FBUtilities.timestampMicros();
+            boolean containsKey = maxZMap.containsKey(mutation.key().toString());
+            Object zValue =  containsKey ? maxZMap.get(mutation.key().toString())+1 : 0;
+            String writerId =  FBUtilities.getBroadcastAddressAndPort().toString();
+
+            mutationBuilder
+                    .update(tableMetadata)
+                    .timestamp(timeStamp)
+                    .row()
+                    .add("z_value",zValue)
+                    .add("writer_id",writerId);
 
             Mutation zValueMutation = mutationBuilder.build();
 
@@ -788,6 +807,7 @@ public class StorageProxy implements StorageProxyMBean
             }
             else
             {
+
                 if (ex instanceof WriteFailureException)
                 {
                     writeMetrics.failures.mark();
@@ -1988,8 +2008,7 @@ public class StorageProxy implements StorageProxyMBean
     }
 
     private static PartitionIterator fetchRowsAbd(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
-    throws UnavailableException, ReadFailureException, ReadTimeoutException
-    {
+            throws UnavailableException, ReadFailureException, ReadTimeoutException {
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and z_value column
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
@@ -2008,42 +2027,28 @@ public class StorageProxy implements StorageProxyMBean
         // tag value pair with the largest tag
         
         PartitionIterator tagValueResult = fetchTagValueNeedUpd(tagValueReadList, consistencyLevel, System.nanoTime());
-
+        // next we will have to generate a mutation to write
+        // the max tag and its corresponding value to all servers
+        List<IMutation> updateTagValueMutationList = new ArrayList<>();
         if (tagValueResult != null){
             // write the tag value pair with the largest tag to
             // all servers
-            class Result
-            {
-                DecoratedKey key;
-                TableMetadata metadata;
-                int tagZvalue;
-                String tagWriterId;
-                int value;
 
-                public Result(DecoratedKey key, TableMetadata metadata, int z, String writerId, int value)
-                {
-                    this.key = key;
-                    this.metadata = metadata;
-                    this.tagZvalue = z;
-                    this.tagWriterId = writerId;
-                    this.value = value;
-                }
-            }
-
-            List<Result> result = new ArrayList<>();
             while(tagValueResult.hasNext())
             {
                 // first we have to parse the value and tag from the result
                 // tagValueResult.next() returns a RowIterator
+
                 RowIterator ri = tagValueResult.next();
+
+                ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
+                ColumnMetadata writerIdMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
+                ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("field0"));
+
+                assert zValueMetadata != null && writerIdMetadata != null && valueMetadata != null;
+
                 while(ri.hasNext())
                 {
-                    ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
-                    ColumnMetadata writerIdMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
-                    ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("field0"));
-
-                    assert zValueMetadata != null && writerIdMetadata != null && valueMetadata != null;
-
                     Row r = ri.next();
 
                     Cell c = r.getCell(zValueMetadata);
@@ -2056,27 +2061,28 @@ public class StorageProxy implements StorageProxyMBean
                     {
                         writerId = ByteBufferUtil.string(c.value());
                     }
-                    catch (Exception e)
+                    catch (CharacterCodingException e)
                     {
+                        logger.error("write Id could not be read");
                     }
+                    TableMetadata tableMetadata = ri.metadata();
 
-                result.add(new Result(ri.partitionKey(), ri.metadata(), z, writerId, value));
+                    Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(tableMetadata.keyspace, ri.partitionKey());
+
+
+                    mutationBuilder
+                            .update(tableMetadata)
+                            .timestamp(FBUtilities.timestampMicros()).row()
+                            .add("z_value", z)
+                            .add("writer_id", writerId)
+                            .add("field0", value);
+
+                    Mutation tagValueMutation = mutationBuilder.build();
+
+                    updateTagValueMutationList.add(tagValueMutation);
                 }
             }
 
-            // next we will have to generate a mutation to write
-            // the max tag and its corresponding value to all servers
-            List<IMutation> updateTagValueMutationList = new ArrayList<>();
-            for (Result r : result)
-            {
-                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(r.metadata.keyspace, r.key);
-
-                mutationBuilder.update(r.metadata).timestamp(FBUtilities.timestampMicros()).row().add("z_value", r.tagZvalue).add("writer_id", r.tagWriterId).add("field0", r.value);
-
-                Mutation tagValueMutation = mutationBuilder.build();
-
-                updateTagValueMutationList.add(tagValueMutation);
-            }
 
             // then we will have to perform the mutatation we've
             // just generated

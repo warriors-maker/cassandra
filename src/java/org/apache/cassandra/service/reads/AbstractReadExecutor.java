@@ -477,10 +477,6 @@ public abstract class AbstractReadExecutor
         // TODO: this
     }
 
-    public boolean isResultPresent()
-    {
-        return result != null;
-    }
 
     public PartitionIterator getResult() throws ReadFailureException, ReadTimeoutException
     {
