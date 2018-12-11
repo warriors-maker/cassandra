@@ -18,6 +18,7 @@
 package org.apache.cassandra.service.reads;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Preconditions;
@@ -128,8 +129,10 @@ public class DigestResolver extends ResponseResolver
                             {
                                 writerId = ByteBufferUtil.string(c.value());
                             }
-                            catch(Exception e)
-                            {}
+                            catch(CharacterCodingException e)
+                            {
+                                logger.error("Couldnt extract writer id");
+                            }
                         }
                     }
 
