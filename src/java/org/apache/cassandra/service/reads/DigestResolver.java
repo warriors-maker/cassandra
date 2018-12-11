@@ -31,6 +31,7 @@ import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.RowIterator;
 import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.service.ABDConstants;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.tracing.TraceState;
 import org.apache.cassandra.utils.ByteBufferUtil;
@@ -119,11 +120,11 @@ public class DigestResolver extends ResponseResolver
                     String writerId = "";
                     for(Cell c : ri.next().cells())
                     {
-                        if(c.column().name.equals(new ColumnIdentifier("z_value", true)))
+                        if(c.column().name.equals(new ColumnIdentifier(ABDConstants.Z_VALUE, true)))
                         {
                             currentZ = ByteBufferUtil.toInt(c.value());
                         }
-                        else if(c.column().name.equals(new ColumnIdentifier("writer_id", true)))
+                        else if(c.column().name.equals(new ColumnIdentifier(ABDConstants.WRITER_ID, true)))
                         {
                             try
                             {
