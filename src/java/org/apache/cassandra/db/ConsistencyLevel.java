@@ -47,7 +47,9 @@ public enum ConsistencyLevel
     EACH_QUORUM (7),
     SERIAL      (8),
     LOCAL_SERIAL(9),
-    LOCAL_ONE   (10, true);
+    LOCAL_ONE   (10, true),
+    CASTHREE    (11),
+    CASFIVE     (12);
 
     private static final Logger logger = LoggerFactory.getLogger(ConsistencyLevel.class);
 
@@ -92,6 +94,11 @@ public enum ConsistencyLevel
         return (keyspace.getReplicationStrategy().getReplicationFactor() / 2) + 1;
     }
 
+    private int casFor(Keyspace keyspace, int k)
+    {
+        return ((keyspace.getReplicationStrategy().getReplicationFactor()+k) / 2) + 1;
+    }
+
     private int localQuorumFor(Keyspace keyspace, String dc)
     {
         return (keyspace.getReplicationStrategy() instanceof NetworkTopologyStrategy)
@@ -103,6 +110,10 @@ public enum ConsistencyLevel
     {
         switch (this)
         {
+            case CASTHREE:
+                return casFor(keyspace,3);
+            case CASFIVE:
+                return casFor(keyspace,5);
             case ONE:
             case LOCAL_ONE:
                 return 1;
