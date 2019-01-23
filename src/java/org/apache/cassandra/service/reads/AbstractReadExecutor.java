@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -437,9 +438,11 @@ public abstract class AbstractReadExecutor
         // responses are in it
         ReadResponse maxZResponse = digestResolver.extractMaxZResponse();
 
-        if(maxZResponse != null)
-        {
-            setResult(UnfilteredPartitionIterators.filter(maxZResponse.makeIterator(command), command.nowInSec()));
+        if(maxZResponse != null){
+
+            UnfilteredPartitionIterator unfilteredPartitionIterator =  maxZResponse.makeIterator(command);
+            PartitionIterator result = UnfilteredPartitionIterators.filter(unfilteredPartitionIterator,command.nowInSec());
+            setResult(result);
         }
         else
         {

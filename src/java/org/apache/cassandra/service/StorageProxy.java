@@ -723,13 +723,14 @@ public class StorageProxy implements StorageProxyMBean
 
         while(zValueReadResult.hasNext())
         {
-            // zValueReadResult.next() returns a RowIterator
             RowIterator ri = zValueReadResult.next();
+
+            ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDConstants.Z_VALUE));
+
             while(ri.hasNext())
             {
                 // we don't need to extract the writer id here
                 // because it doesn't matter in mutate
-                ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
                 Cell c = ri.next().getCell(colMeta);
                 int maxZ = ByteBufferUtil.toInt(c.value());
                 maxZMap.put(ri.partitionKey().toString(), maxZ);
@@ -742,7 +743,7 @@ public class StorageProxy implements StorageProxyMBean
         // please note that we have 2 assumptions
         // 1. we have an explicit column named z_value in the table
         // 2. we assume there's only 1 column for each key
-        List<IMutation> mutationList = new ArrayList<>();
+        List<IMutation> newMutations = new ArrayList<>();
 
         for (IMutation mutation : mutations)
         {
@@ -758,8 +759,8 @@ public class StorageProxy implements StorageProxyMBean
                     .update(tableMetadata)
                     .timestamp(timeStamp)
                     .row()
-                    .add("z_value",zValue)
-                    .add("writer_id",writerId);
+                    .add(ABDConstants.Z_VALUE,zValue)
+                    .add(ABDConstants.WRITER_ID,writerId);
 
             Mutation zValueMutation = mutationBuilder.build();
 
@@ -769,18 +770,17 @@ public class StorageProxy implements StorageProxyMBean
             mutationMergeList.add((Mutation)mutation);
             Mutation newMutation = Mutation.merge(mutationMergeList);
 
-            mutationList.add(newMutation);
+            newMutations.add(newMutation);
         }
 
-        mutations = mutationList;
 
-        //mutations.
 
-        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
+
+        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(newMutations.size());
 
         try
         {
-            for (IMutation mutation : mutations)
+            for (IMutation mutation : newMutations)
             {
                 if (mutation instanceof CounterMutation)
                 {
@@ -788,7 +788,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 else
                 {
-                    WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+                    WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
                 }
             }
@@ -803,7 +803,7 @@ public class StorageProxy implements StorageProxyMBean
         {
             if (consistency_level == ConsistencyLevel.ANY)
             {
-                hintMutations(mutations);
+                hintMutations(newMutations);
             }
             else
             {
@@ -845,7 +845,7 @@ public class StorageProxy implements StorageProxyMBean
             long latency = System.nanoTime() - startTime;
             writeMetrics.addNano(latency);
             writeMetricsMap.get(consistency_level).addNano(latency);
-            updateCoordinatorWriteLatencyTableMetric(mutations, latency);
+            updateCoordinatorWriteLatencyTableMetric(newMutations, latency);
         }
     }
 
@@ -857,8 +857,6 @@ public class StorageProxy implements StorageProxyMBean
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();
-
-        //mutations.
 
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
 
@@ -1957,7 +1955,7 @@ public class StorageProxy implements StorageProxyMBean
         // the original fetchRows will be used, this is a workaround
         // to the initialization failure issue
         SinglePartitionReadCommand incomingRead = commands.iterator().next();
-        ColumnMetadata tagMetadata = incomingRead.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
+        ColumnMetadata tagMetadata = incomingRead.metadata().getColumn(ByteBufferUtil.bytes(ABDConstants.Z_VALUE));
         boolean isAbdRead = (tagMetadata != null);
         if(isAbdRead)
         {
@@ -2040,10 +2038,11 @@ public class StorageProxy implements StorageProxyMBean
                 // tagValueResult.next() returns a RowIterator
 
                 RowIterator ri = tagValueResult.next();
+                TableMetadata tableMetadata = ri.metadata();
 
-                ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
-                ColumnMetadata writerIdMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
-                ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("field0"));
+                ColumnMetadata zValueMetadata = tableMetadata.getColumn(ByteBufferUtil.bytes(ABDConstants.Z_VALUE));
+                ColumnMetadata writerIdMetadata = tableMetadata.getColumn(ByteBufferUtil.bytes(ABDConstants.WRITER_ID));
+                ColumnMetadata valueMetadata = tableMetadata.getColumn(ByteBufferUtil.bytes(ABDConstants.FIELD0));
 
                 assert zValueMetadata != null && writerIdMetadata != null && valueMetadata != null;
 
@@ -2065,7 +2064,6 @@ public class StorageProxy implements StorageProxyMBean
                     {
                         logger.error("write Id could not be read");
                     }
-                    TableMetadata tableMetadata = ri.metadata();
 
                     Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(tableMetadata.keyspace, ri.partitionKey());
 
@@ -2073,9 +2071,9 @@ public class StorageProxy implements StorageProxyMBean
                     mutationBuilder
                             .update(tableMetadata)
                             .timestamp(FBUtilities.timestampMicros()).row()
-                            .add("z_value", z)
-                            .add("writer_id", writerId)
-                            .add("field0", value);
+                            .add(ABDConstants.Z_VALUE, z)
+                            .add(ABDConstants.WRITER_ID, writerId)
+                            .add(ABDConstants.FIELD0, value);
 
                     Mutation tagValueMutation = mutationBuilder.build();
 
