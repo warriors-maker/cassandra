@@ -18,18 +18,25 @@
 package org.apache.cassandra.service.reads;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
+import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.ReadCommand;
 import org.apache.cassandra.db.ReadResponse;
 import org.apache.cassandra.db.SinglePartitionReadCommand;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
+import org.apache.cassandra.db.rows.Cell;
+import org.apache.cassandra.db.rows.RowIterator;
 import org.apache.cassandra.locator.Endpoints;
 import org.apache.cassandra.locator.Replica;
 import org.apache.cassandra.locator.InetAddressAndPort;
@@ -38,6 +45,8 @@ import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.service.reads.repair.NoopReadRepair;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.utils.ByteBufferUtil;
+
+import static com.google.common.collect.Iterables.any;
 
 public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>> extends ResponseResolver<E, P>
 {
@@ -129,11 +138,11 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
 
     public ReadResponse mergeResponse()
     {
-        ReadResponse result = responses.snapshot().get(0).payload;
+        ReadResponse result = responses.get(0).payload;
 
         ColumnIdentifier col = new ColumnIdentifier("Kishori", true);
 
-        Map<Integer,Map<Integer,List<String>>> partitionRes = new HashMap<>();
+        Map<Integer,Map<Integer, List<String>>> partitionRes = new HashMap<>();
         for (MessageIn<ReadResponse> msg : responses.snapshot()){
             ReadResponse readRes = msg.payload;
 

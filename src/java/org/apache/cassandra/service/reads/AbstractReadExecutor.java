@@ -22,6 +22,9 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.base.Preconditions;
 
 import com.google.common.base.Predicates;
+
+import org.apache.cassandra.db.ReadResponse;
+import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
 import org.apache.cassandra.locator.ReplicaPlan;
 import org.apache.cassandra.locator.ReplicaPlans;
 import org.slf4j.Logger;
@@ -49,8 +52,7 @@ import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.service.StorageProxy.LocalReadRunnable;
 import org.apache.cassandra.tracing.TraceState;
 import org.apache.cassandra.tracing.Tracing;
-import org.apache.cassandra.service.ReadResponse;
-import org.apache.cassandra.;
+
 
 import static com.google.common.collect.Iterables.all;
 
