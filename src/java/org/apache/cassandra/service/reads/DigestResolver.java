@@ -39,8 +39,6 @@ import org.apache.cassandra.service.reads.repair.NoopReadRepair;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-import static com.google.common.collect.Iterables.any;
-
 public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>> extends ResponseResolver<E, P>
 {
     private volatile MessageIn<ReadResponse> dataResponse;
@@ -129,18 +127,19 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
         return true;
     }
 
-    public ReadResponse mergedResponse()
+    public ReadResponse mergeResponse()
     {
-        ReadResponse result = responses.get(0).payload;
+        ReadResponse result = responses.snapshot().get(0).payload;
 
-        for (MessageIn<ReadResponse> msg : responses){
+        ColumnIdentifier col = new ColumnIdentifier("Kishori", true);
+
+        Map<Integer,Map<Integer,List<String>>> partitionRes = new HashMap<>();
+        for (MessageIn<ReadResponse> msg : responses.snapshot()){
             ReadResponse readRes = msg.payload;
 
             assert readRes.isDigestResponse() == false;
             PartitionIterator pi = UnfilteredPartitionIterators.filter(readRes.makeIterator(command), command.nowInSec());
-            ColumnIdentifier col = new ColumnIdentifier("Kishori", true);
             
-            Map<Integer,Map<Integer,List<String>>> partitionRes = new HashMap<>();
             int pId = 0;
             while(pi.hasNext())
             {   
@@ -176,18 +175,18 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
             }
         }
 
-        pi = UnfilteredPartitionIterators.filter(result.makeIterator(command), command.nowInSec());
+        PartitionIterator pi = UnfilteredPartitionIterators.filter(result.makeIterator(command), command.nowInSec());
         int pId = 0;
         while(pi.hasNext())
         {   
-            rowRes = partitionRes.get(pId);
+            Map<Integer,List<String>> rowRes = partitionRes.get(pId);
             if(rowRes == null)
                 rowRes = new HashMap<>();
             RowIterator ri = pi.next();
             int rowId = 0;
             while(ri.hasNext())
             {
-                dataRes = rowRes.get(rowId);
+                List<String> dataRes = rowRes.get(rowId);
                 if(dataRes == null)
                     dataRes = new ArrayList<>();
                 for(Cell c : ri.next().cells())
@@ -202,6 +201,7 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
             }
             pId++;
         }
+
 
         return result;
     }
