@@ -39,8 +39,6 @@ import org.apache.cassandra.service.reads.repair.NoopReadRepair;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
-import sun.jvm.hotspot.debugger.ReadResult;
-
 import static com.google.common.collect.Iterables.any;
 
 public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRead<E>> extends ResponseResolver<E, P>
