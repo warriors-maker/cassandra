@@ -77,7 +77,7 @@ import static org.apache.cassandra.tracing.Tracing.isTracing;
  *
  * * @param <T> The type of the message payload.
  */
-public class MessageOut<T> implements Serializable
+public class MessageOut<T>
 {
     private static final int SERIALIZED_SIZE_VERSION_UNDEFINED = -1;
     //Parameters are stored in an object array as tuples of size two

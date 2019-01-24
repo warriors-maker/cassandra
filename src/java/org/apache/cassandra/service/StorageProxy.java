@@ -48,6 +48,7 @@ import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.schema.TableId;
 import org.apache.cassandra.service.reads.AbstractReadExecutor;
 import org.apache.cassandra.service.reads.DataResolver;
 import org.apache.cassandra.service.reads.ReadCallback;
@@ -81,6 +82,7 @@ import org.apache.cassandra.service.paxos.ProposeVerbHandler;
 import org.apache.cassandra.net.MessagingService.Verb;
 // import org.apache.cassandra.stress.settings.SettingsRate;
 import org.apache.cassandra.tracing.Tracing;
+import org.apache.cassandra.transport.Message;
 import org.apache.cassandra.triggers.TriggerExecutor;
 import org.apache.cassandra.utils.*;
 import org.apache.cassandra.utils.AbstractIterator;
@@ -159,7 +161,7 @@ public class StorageProxy implements StorageProxyMBean
                         .execute(counterWriteTask(mutation, targets.withContact(selected), responseHandler, localDataCenter));
         };
 
-        for(ConsistencyLevel level : ConsistencyLevel.values())
+        for (ConsistencyLevel level : ConsistencyLevel.values())
         {
             readMetricsMap.put(level, new ClientRequestMetrics("Read-" + level.name()));
             writeMetricsMap.put(level, new ClientWriteRequestMetrics("Write-" + level.name()));
@@ -173,39 +175,38 @@ public class StorageProxy implements StorageProxyMBean
      * match the provided @param conditions.  The algorithm is "raw" Paxos: that is, Paxos
      * minus leader election -- any node in the cluster may propose changes for any row,
      * which (that is, the row) is the unit of values being proposed, not single columns.
-     *
+     * <p>
      * The Paxos cohort is only the replicas for the given key, not the entire cluster.
      * So we expect performance to be reasonable, but CAS is still intended to be used
      * "when you really need it," not for all your updates.
-     *
+     * <p>
      * There are three phases to Paxos:
-     *  1. Prepare: the coordinator generates a ballot (timeUUID in our case) and asks replicas to (a) promise
-     *     not to accept updates from older ballots and (b) tell us about the most recent update it has already
-     *     accepted.
-     *  2. Accept: if a majority of replicas reply, the coordinator asks replicas to accept the value of the
-     *     highest proposal ballot it heard about, or a new value if no in-progress proposals were reported.
-     *  3. Commit (Learn): if a majority of replicas acknowledge the accept request, we can commit the new
-     *     value.
+     * 1. Prepare: the coordinator generates a ballot (timeUUID in our case) and asks replicas to (a) promise
+     * not to accept updates from older ballots and (b) tell us about the most recent update it has already
+     * accepted.
+     * 2. Accept: if a majority of replicas reply, the coordinator asks replicas to accept the value of the
+     * highest proposal ballot it heard about, or a new value if no in-progress proposals were reported.
+     * 3. Commit (Learn): if a majority of replicas acknowledge the accept request, we can commit the new
+     * value.
+     * <p>
+     * Commit procedure is not covered in "Paxos Made Simple," and only briefly mentioned in "Paxos Made Live,"
+     * so here is our approach:
+     * 3a. The coordinator sends a commit message to all replicas with the ballot and value.
+     * 3b. Because of 1-2, this will be the highest-seen commit ballot.  The replicas will note that,
+     * and send it with subsequent promise replies.  This allows us to discard acceptance records
+     * for successfully committed replicas, without allowing incomplete proposals to commit erroneously
+     * later on.
+     * <p>
+     * Note that since we are performing a CAS rather than a simple update, we perform a read (of committed
+     * values) between the prepare and accept phases.  This gives us a slightly longer window for another
+     * coordinator to come along and trump our own promise with a newer one but is otherwise safe.
      *
-     *  Commit procedure is not covered in "Paxos Made Simple," and only briefly mentioned in "Paxos Made Live,"
-     *  so here is our approach:
-     *   3a. The coordinator sends a commit message to all replicas with the ballot and value.
-     *   3b. Because of 1-2, this will be the highest-seen commit ballot.  The replicas will note that,
-     *       and send it with subsequent promise replies.  This allows us to discard acceptance records
-     *       for successfully committed replicas, without allowing incomplete proposals to commit erroneously
-     *       later on.
-     *
-     *  Note that since we are performing a CAS rather than a simple update, we perform a read (of committed
-     *  values) between the prepare and accept phases.  This gives us a slightly longer window for another
-     *  coordinator to come along and trump our own promise with a newer one but is otherwise safe.
-     *
-     * @param keyspaceName the keyspace for the CAS
-     * @param cfName the column family for the CAS
-     * @param key the row key for the row to CAS
-     * @param request the conditions for the CAS to apply as well as the update to perform if the conditions hold.
-     * @param consistencyForPaxos the consistency for the paxos prepare and propose round. This can only be either SERIAL or LOCAL_SERIAL.
+     * @param keyspaceName         the keyspace for the CAS
+     * @param cfName               the column family for the CAS
+     * @param key                  the row key for the row to CAS
+     * @param request              the conditions for the CAS to apply as well as the update to perform if the conditions hold.
+     * @param consistencyForPaxos  the consistency for the paxos prepare and propose round. This can only be either SERIAL or LOCAL_SERIAL.
      * @param consistencyForCommit the consistency for write done during the commit phase. This can be anything, except SERIAL or LOCAL_SERIAL.
-     *
      * @return null if the operation succeeds in updating the row, or the current values corresponding to conditions.
      * (since, if the CAS doesn't succeed, it means the current value do not match the conditions).
      */
@@ -291,19 +292,19 @@ public class StorageProxy implements StorageProxyMBean
 
             throw new WriteTimeoutException(WriteType.CAS, consistencyForPaxos, 0, consistencyForPaxos.blockFor(Keyspace.open(keyspaceName)));
         }
-        catch (WriteTimeoutException|ReadTimeoutException e)
+        catch (WriteTimeoutException | ReadTimeoutException e)
         {
             casWriteMetrics.timeouts.mark();
             writeMetricsMap.get(consistencyForPaxos).timeouts.mark();
             throw e;
         }
-        catch (WriteFailureException|ReadFailureException e)
+        catch (WriteFailureException | ReadFailureException e)
         {
             casWriteMetrics.failures.mark();
             writeMetricsMap.get(consistencyForPaxos).failures.mark();
             throw e;
         }
-        catch(UnavailableException e)
+        catch (UnavailableException e)
         {
             casWriteMetrics.unavailables.mark();
             writeMetricsMap.get(consistencyForPaxos).unavailables.mark();
@@ -321,7 +322,7 @@ public class StorageProxy implements StorageProxyMBean
 
     private static void recordCasContention(int contentions)
     {
-        if(contentions > 0)
+        if (contentions > 0)
             casWriteMetrics.contention.update(contentions);
     }
 
@@ -378,7 +379,7 @@ public class StorageProxy implements StorageProxyMBean
             if (!inProgress.update.isEmpty() && inProgress.isAfter(mostRecent))
             {
                 Tracing.trace("Finishing incomplete paxos round {}", inProgress);
-                if(isWrite)
+                if (isWrite)
                     casWriteMetrics.unfinishedCommit.inc();
                 else
                     casReadMetrics.unfinishedCommit.inc();
@@ -445,7 +446,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         PrepareCallback callback = new PrepareCallback(toPrepare.update.partitionKey(), toPrepare.update.metadata(), replicaPlan.requiredParticipants(), replicaPlan.consistencyLevel(), queryStartNanoTime);
         MessageOut<Commit> message = new MessageOut<Commit>(MessagingService.Verb.PAXOS_PREPARE, toPrepare, Commit.serializer);
-        for (Replica replica: replicaPlan.contacts())
+        for (Replica replica : replicaPlan.contacts())
         {
             if (replica.isSelf())
             {
@@ -456,10 +457,10 @@ public class StorageProxy implements StorageProxyMBean
                         try
                         {
                             MessageIn<PrepareResponse> message = MessageIn.create(FBUtilities.getBroadcastAddressAndPort(),
-                                    PrepareVerbHandler.doPrepare(toPrepare),
-                                    Collections.emptyMap(),
-                                    MessagingService.Verb.INTERNAL_RESPONSE,
-                                    MessagingService.current_version);
+                                                                                  PrepareVerbHandler.doPrepare(toPrepare),
+                                                                                  Collections.emptyMap(),
+                                                                                  MessagingService.Verb.INTERNAL_RESPONSE,
+                                                                                  MessagingService.current_version);
                             callback.response(message);
                         }
                         catch (Exception ex)
@@ -494,10 +495,10 @@ public class StorageProxy implements StorageProxyMBean
                         try
                         {
                             MessageIn<Boolean> message = MessageIn.create(FBUtilities.getBroadcastAddressAndPort(),
-                                    ProposeVerbHandler.doPropose(proposal),
-                                    Collections.emptyMap(),
-                                    MessagingService.Verb.INTERNAL_RESPONSE,
-                                    MessagingService.current_version);
+                                                                          ProposeVerbHandler.doPropose(proposal),
+                                                                          Collections.emptyMap(),
+                                                                          MessagingService.Verb.INTERNAL_RESPONSE,
+                                                                          MessagingService.current_version);
                             callback.response(message);
                         }
                         catch (Exception ex)
@@ -616,8 +617,8 @@ public class StorageProxy implements StorageProxyMBean
      * of the possibility of a replica being down and hint
      * the data across to some other replica.
      *
-     * @param mutations the mutations to be applied across the replicas
-     * @param consistencyLevel the consistency level for the operation
+     * @param mutations          the mutations to be applied across the replicas
+     * @param consistencyLevel   the consistency level for the operation
      * @param queryStartNanoTime the value of System.nanoTime() when the query started to be processed
      */
     public static void mutate(List<? extends IMutation> mutations, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
@@ -636,13 +637,13 @@ public class StorageProxy implements StorageProxyMBean
             for (IMutation mutation : mutations)
             {
                 if (mutation instanceof CounterMutation)
-                    responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
+                    responseHandlers.add(mutateCounter((CounterMutation) mutation, localDataCenter, queryStartNanoTime));
                 else
                     responseHandlers.add(performWrite(mutation, consistencyLevel, localDataCenter, standardWritePerformer, null, plainWriteType, queryStartNanoTime));
             }
 
             // upgrade to full quorum any failed cheap quorums
-            for (int i = 0 ; i < mutations.size() ; ++i)
+            for (int i = 0; i < mutations.size(); ++i)
             {
                 if (!(mutations.get(i) instanceof CounterMutation)) // at the moment, only non-counter writes support cheap quorums
                     responseHandlers.get(i).maybeTryAdditionalReplicas(mutations.get(i), standardWritePerformer, localDataCenter);
@@ -652,7 +653,7 @@ public class StorageProxy implements StorageProxyMBean
             for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
                 responseHandler.get();
         }
-        catch (WriteTimeoutException|WriteFailureException ex)
+        catch (WriteTimeoutException | WriteFailureException ex)
         {
             if (consistencyLevel == ConsistencyLevel.ANY)
             {
@@ -664,7 +665,7 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     writeMetrics.failures.mark();
                     writeMetricsMap.get(consistencyLevel).failures.mark();
-                    WriteFailureException fe = (WriteFailureException)ex;
+                    WriteFailureException fe = (WriteFailureException) ex;
                     Tracing.trace("Write failure; received {} of {} required replies, failed {} requests",
                                   fe.received, fe.blockFor, fe.failureReasonByEndpoint.size());
                 }
@@ -672,7 +673,7 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     writeMetrics.timeouts.mark();
                     writeMetricsMap.get(consistencyLevel).timeouts.mark();
-                    WriteTimeoutException te = (WriteTimeoutException)ex;
+                    WriteTimeoutException te = (WriteTimeoutException) ex;
                     Tracing.trace("Write timeout; received {} of {} required replies", te.received, te.blockFor);
                 }
                 throw ex;
@@ -705,7 +706,7 @@ public class StorageProxy implements StorageProxyMBean
      * Hint all the mutations (except counters, which can't be safely retried).  This means
      * we'll re-hint any successful ones; doesn't seem worth it to track individual success
      * just for this unusual case.
-     *
+     * <p>
      * Only used for CL.ANY
      *
      * @param mutations the mutations that require hints
@@ -727,8 +728,8 @@ public class StorageProxy implements StorageProxyMBean
         // local writes can timeout, but cannot be dropped (see LocalMutationRunnable and CASSANDRA-6510),
         // so there is no need to hint or retry.
         EndpointsForToken replicasToHint = ReplicaLayout.forTokenWriteLiveAndDown(Keyspace.open(keyspaceName), token)
-                .all()
-                .filter(StorageProxy::shouldHint);
+                                                        .all()
+                                                        .filter(StorageProxy::shouldHint);
 
         submitHint(mutation, replicasToHint, null);
     }
@@ -740,16 +741,16 @@ public class StorageProxy implements StorageProxyMBean
         InetAddressAndPort local = FBUtilities.getBroadcastAddressAndPort();
 
         return ReplicaLayout.forTokenWriteLiveAndDown(Keyspace.open(keyspaceName), token)
-                .all().endpoints().contains(local);
+                            .all().endpoints().contains(local);
     }
 
     /**
      * Use this method to have these Mutations applied
      * across all replicas.
      *
-     * @param mutations the mutations to be applied across the replicas
-     * @param writeCommitLog if commitlog should be written
-     * @param baseComplete time from epoch in ms that the local base mutation was(or will be) completed
+     * @param mutations          the mutations to be applied across the replicas
+     * @param writeCommitLog     if commitlog should be written
+     * @param baseComplete       time from epoch in ms that the local base mutation was(or will be) completed
      * @param queryStartNanoTime the value of System.nanoTime() when the query started to be processed
      */
     public static void mutateMV(ByteBuffer dataKey, Collection<Mutation> mutations, boolean writeCommitLog, AtomicLong baseComplete, long queryStartNanoTime)
@@ -883,13 +884,13 @@ public class StorageProxy implements StorageProxyMBean
     /**
      * See mutate. Adds additional steps before and after writing a batch.
      * Before writing the batch (but after doing availability check against the FD for the row replicas):
-     *      write the entire batch to a batchlog elsewhere in the cluster.
+     * write the entire batch to a batchlog elsewhere in the cluster.
      * After: remove the batchlog entry (after writing hints for the batch rows, if necessary).
      *
-     * @param mutations the Mutations to be applied across the replicas
-     * @param consistency_level the consistency level for the operation
+     * @param mutations              the Mutations to be applied across the replicas
+     * @param consistency_level      the consistency level for the operation
      * @param requireQuorumForRemove at least a quorum of nodes will see update before deleting batchlog
-     * @param queryStartNanoTime the value of System.nanoTime() when the query started to be processed
+     * @param queryStartNanoTime     the value of System.nanoTime() when the query started to be processed
      */
     public static void mutateAtomically(Collection<Mutation> mutations,
                                         ConsistencyLevel consistency_level,
@@ -1076,12 +1077,12 @@ public class StorageProxy implements StorageProxyMBean
      * said write endpoint (deletaged to the actual WritePerformer) and wait for the
      * responses based on consistency level.
      *
-     * @param mutation the mutation to be applied
-     * @param consistencyLevel the consistency level for the write operation
-     * @param performer the WritePerformer in charge of appliying the mutation
-     * given the list of write endpoints (either standardWritePerformer for
-     * standard writes or counterWritePerformer for counter writes).
-     * @param callback an optional callback to be run if and when the write is
+     * @param mutation           the mutation to be applied
+     * @param consistencyLevel   the consistency level for the write operation
+     * @param performer          the WritePerformer in charge of appliying the mutation
+     *                           given the list of write endpoints (either standardWritePerformer for
+     *                           standard writes or counterWritePerformer for counter writes).
+     * @param callback           an optional callback to be run if and when the write is
      * @param queryStartNanoTime the value of System.nanoTime() when the query started to be processed
      */
     public static AbstractWriteResponseHandler<IMutation> performWrite(IMutation mutation,
@@ -1118,7 +1119,7 @@ public class StorageProxy implements StorageProxyMBean
         Token tk = mutation.key().getToken();
 
         ReplicaPlan.ForTokenWrite replicaPlan = ReplicaPlans.forWrite(keyspace, consistencyLevel, tk, ReplicaPlans.writeNormal);
-        AbstractWriteResponseHandler<IMutation> writeHandler = rs.getWriteResponseHandler(replicaPlan,null, writeType, queryStartNanoTime);
+        AbstractWriteResponseHandler<IMutation> writeHandler = rs.getWriteResponseHandler(replicaPlan, null, writeType, queryStartNanoTime);
         BatchlogResponseHandler<IMutation> batchHandler = new BatchlogResponseHandler<>(writeHandler, batchConsistencyLevel.blockFor(keyspace), cleanup, queryStartNanoTime);
         return new WriteResponseHandlerWrapper(batchHandler, mutation);
     }
@@ -1167,7 +1168,7 @@ public class StorageProxy implements StorageProxyMBean
     /**
      * Send the mutations to the right targets, write it locally if it corresponds or writes a hint when the node
      * is not available.
-     *
+     * <p>
      * Note about hints:
      * <pre>
      * {@code
@@ -1262,47 +1263,48 @@ public class StorageProxy implements StorageProxyMBean
                 }
             }
         }
-        List<PartitionUpdate> partitionUpdates =  mutation.getPartitionUpdates().asList();
-        Map<Integer,Map<Integer,Map<Integer,List<Character>>>> changes = new HashMap<>();
-        int partitionId =0;
+        List<PartitionUpdate> partitionUpdates = mutation.getPartitionUpdates().asList();
+        Map<Integer, Map<Integer, Map<Integer, List<Character>>>> changes = new HashMap<>();
+        int partitionId = 0;
         ColumnIdentifier columnIdentifier = new ColumnIdentifier("Kishori", true);
-        for(PartitionUpdate partitionUpdate:partitionUpdates){
+        for (PartitionUpdate partitionUpdate : partitionUpdates)
+        {
             Iterator<Row> rowIterator = partitionUpdate.iterator();
             int rowId = 0;
-            Map<Integer,Map<Integer,List<Character>>> partitionChages = new HashMap<>();
-            while(rowIterator.hasNext())
+            Map<Integer, Map<Integer, List<Character>>> partitionChages = new HashMap<>();
+            while (rowIterator.hasNext())
             {
-                    Map<Integer,List<Character>> rowChanges = new HashMap<>();
-                    Row row = rowIterator.next();
-                    int cellId = 0;
-                    for (Cell c : row.cells())
+                Map<Integer, List<Character>> rowChanges = new HashMap<>();
+                Row row = rowIterator.next();
+                int cellId = 0;
+                for (Cell c : row.cells())
 
+                {
+                    if (c.column().name.equals(columnIdentifier))
                     {
-                        if (c.column().name.equals(columnIdentifier))
+                        List<Character> dataSplits = new ArrayList<>();
+                        try
                         {
-                            List<Character> dataSplits = new ArrayList<>();
-                            try
-                            {
-                                String data = ByteBufferUtil.string(c.value());
-                                dataSplits.add(data.charAt(0));
-                                dataSplits.add(data.charAt(1));
-                            }
-                            catch (CharacterCodingException e){
-                                logger.error("Unable to parse string from bytes");
-
-                            }
-                            rowChanges.put(cellId,dataSplits);
+                            String data = ByteBufferUtil.string(c.value());
+                            dataSplits.add(data.charAt(0));
+                            dataSplits.add(data.charAt(1));
                         }
-                        cellId++;
+                        catch (CharacterCodingException e)
+                        {
+                            logger.error("Unable to parse string from bytes");
+                        }
+                        rowChanges.put(cellId, dataSplits);
                     }
-                    partitionChages.put(rowId,rowChanges);
-                    rowId++;
+                    cellId++;
                 }
-            changes.put(partitionId,partitionChages);
-            partitionId++;
+                partitionChages.put(rowId, rowChanges);
+                rowId++;
             }
+            changes.put(partitionId, partitionChages);
+            partitionId++;
+        }
         int nReplications = 2;
-        List<MessageOut<Mutation>> replications = createReplication(changes,message,nReplications,columnIdentifier);
+        List<MessageOut<Mutation>> replications = createDataPartitionMessages(changes, mutation, nReplications, columnIdentifier);
         Mutation localMutation = replications.get(0).payload;
 
         if (backPressureHosts != null)
@@ -1322,7 +1324,8 @@ public class StorageProxy implements StorageProxyMBean
         if (localDc != null)
         {
             logger.info("Starting to send messages to local dc");
-            for (Replica destination : localDc){
+            for (Replica destination : localDc)
+            {
                 logger.info("Sending to a foreign replica");
                 MessagingService.instance().sendWriteRR(replications.get(1), destination, responseHandler, true);
             }
@@ -1334,14 +1337,16 @@ public class StorageProxy implements StorageProxyMBean
                 sendMessagesToNonlocalDC(message, EndpointsForToken.copyOf(mutation.key().getToken(), dcTargets), responseHandler);
         }
     }
-    private static List<MessageOut<Mutation>> createReplication(Map<Integer,Map<Integer,Map<Integer,List<Character>>>> changes,
-                                                                MessageOut<Mutation> originalMessage, int nReplications,
+
+    private static List<MessageOut<Mutation>> createDataPartitionMessages(Map<Integer, Map<Integer, Map<Integer, List<Character>>>> changes,
+                                                                Mutation mutation, int nReplications,
                                                                 ColumnIdentifier columnIdentifier)
-        {
+    {
+
         List<MessageOut<Mutation>> dataPartitionMessages = new ArrayList<>();
         for (int r = 0; r < nReplications; r++)
         {
-            MessageOut<Mutation> dataPartitionMessage = SerializationUtils.clone(originalMessage);
+            MessageOut<Mutation> dataPartitionMessage = replicateMessage(mutation);
             List<PartitionUpdate> partitionUpdates = dataPartitionMessage.payload.getPartitionUpdates().asList();
             int partitionId = 0;
             for (PartitionUpdate partitionUpdate : partitionUpdates)
@@ -1358,10 +1363,10 @@ public class StorageProxy implements StorageProxyMBean
                         if (c.column().name.equals(columnIdentifier))
                         {
                             Character newValue = changes
-                                              .get(partitionId)
-                                              .get(rowId)
-                                              .get(cellId)
-                                              .get(r);
+                                                 .get(partitionId)
+                                                 .get(rowId)
+                                                 .get(cellId)
+                                                 .get(r);
                             c.withUpdatedValue(ByteBufferUtil.bytes(newValue));
                         }
                         cellId++;
@@ -1373,8 +1378,25 @@ public class StorageProxy implements StorageProxyMBean
             dataPartitionMessages.add(dataPartitionMessage);
         }
         return dataPartitionMessages;
+    }
+
+    private static MessageOut<Mutation> replicateMessage(Mutation mutation){
+        Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
+
+        PartitionUpdate update = mutation.getPartitionUpdates().iterator().next();
+        long timeStamp = FBUtilities.timestampMicros();
+        ImmutableMap.Builder<TableId, PartitionUpdate> modifications = new ImmutableMap.Builder<>();
+        for (PartitionUpdate partitionUpdate : mutation.getPartitionUpdates())
+        {
+            int version = 1;
+            ByteBuffer byteBuffer = PartitionUpdate.toBytes(partitionUpdate, 1);
+            PartitionUpdate newPartitionUpdate = PartitionUpdate.fromBytes(byteBuffer, version);
+            modifications.put(newPartitionUpdate.metadata().id, newPartitionUpdate);
         }
 
+        Mutation newMutation = new Mutation(update.metadata().keyspace, update.partitionKey(), modifications.build(), timeStamp);
+        return newMutation.createMessage();
+    }
 
     private static void checkHintOverload(Replica destination)
     {

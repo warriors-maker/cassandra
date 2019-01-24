@@ -168,7 +168,9 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
                         {
                             try
                             {
-                                dataRes.add(ByteBufferUtil.string(c.value()));
+                                String value  = ByteBufferUtil.string(c.value());
+                                logger.info("Retrieving the value: {}",value);
+                                dataRes.add(value);
                             }
                             catch(CharacterCodingException e)
                             {
@@ -186,23 +188,21 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
 
         PartitionIterator pi = UnfilteredPartitionIterators.filter(result.makeIterator(command), command.nowInSec());
         int pId = 0;
+        logger.info("Joining data partitions");
         while(pi.hasNext())
         {   
             Map<Integer,List<String>> rowRes = partitionRes.get(pId);
-            if(rowRes == null)
-                rowRes = new HashMap<>();
             RowIterator ri = pi.next();
             int rowId = 0;
             while(ri.hasNext())
             {
                 List<String> dataRes = rowRes.get(rowId);
-                if(dataRes == null)
-                    dataRes = new ArrayList<>();
                 for(Cell c : ri.next().cells())
                 {
                     if(c.column().name.equals(col))
                     {
                         String newVal = String.join("",dataRes);
+                        logger.info("Joined value now is: ",newVal);
                         c.withUpdatedValue(ByteBufferUtil.bytes(newVal));
                     }
                 }
