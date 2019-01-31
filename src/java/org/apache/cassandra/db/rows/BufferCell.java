@@ -34,7 +34,7 @@ public class BufferCell extends AbstractCell
     private final int ttl;
     private final int localDeletionTime;
 
-    private final ByteBuffer value;
+    private ByteBuffer value;
     private final CellPath path;
 
     public BufferCell(ColumnMetadata column, long timestamp, int ttl, int localDeletionTime, ByteBuffer value, CellPath path)
@@ -47,6 +47,11 @@ public class BufferCell extends AbstractCell
         this.localDeletionTime = localDeletionTime;
         this.value = value;
         this.path = path;
+    }
+
+    public void setValue(ByteBuffer newValue)
+    {
+        value = newValue;
     }
 
     public static BufferCell live(ColumnMetadata column, long timestamp, ByteBuffer value)

@@ -127,6 +127,7 @@ public class NativeCell extends AbstractCell
         int length = MemoryUtil.getInt(peer + LENGTH);
         return MemoryUtil.getByteBuffer(peer + VALUE, length, ByteOrder.BIG_ENDIAN);
     }
+    public void setValue(ByteBuffer newValue){};
 
     public CellPath path()
     {

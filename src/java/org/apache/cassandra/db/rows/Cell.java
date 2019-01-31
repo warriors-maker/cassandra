@@ -75,6 +75,8 @@ public abstract class Cell extends ColumnData
      */
     public abstract ByteBuffer value();
 
+    public abstract void setValue(ByteBuffer newValue);
+
     /**
      * The cell timestamp.
      * <p>
