@@ -86,7 +86,6 @@ import org.apache.cassandra.transport.Message;
 import org.apache.cassandra.triggers.TriggerExecutor;
 import org.apache.cassandra.utils.*;
 import org.apache.cassandra.utils.AbstractIterator;
-import org.hsqldb.Column;
 
 import org.apache.commons.lang3.SerializationUtils;
 
@@ -1794,30 +1793,31 @@ public class StorageProxy implements StorageProxyMBean
 
     private static PartitionIterator concatAndBlockOnRepair(List<PartitionIterator> iterators, List<ReadRepair> repairs)
     {
-        PartitionIterator concatenated = PartitionIterators.concat(iterators);
-
-        if (repairs.isEmpty())
-            return concatenated;
-
-        return new PartitionIterator()
-        {
-            public void close()
-            {
-                concatenated.close();
-                repairs.forEach(ReadRepair::maybeSendAdditionalWrites);
-                repairs.forEach(ReadRepair::awaitWrites);
-            }
-
-            public boolean hasNext()
-            {
-                return concatenated.hasNext();
-            }
-
-            public RowIterator next()
-            {
-                return concatenated.next();
-            }
-        };
+        return PartitionIterators.concat(iterators);
+//        PartitionIterator concatenated = PartitionIterators.concat(iterators);
+//
+//        if (repairs.isEmpty())
+//            return concatenated;
+//
+//        return new PartitionIterator()
+//        {
+//            public void close()
+//            {
+//                concatenated.close();
+//                repairs.forEach(ReadRepair::maybeSendAdditionalWrites);
+//                repairs.forEach(ReadRepair::awaitWrites);
+//            }
+//
+//            public boolean hasNext()
+//            {
+//                return concatenated.hasNext();
+//            }
+//
+//            public RowIterator next()
+//            {
+//                return concatenated.next();
+//            }
+//        };
     }
 
     /**
@@ -1842,13 +1842,13 @@ public class StorageProxy implements StorageProxyMBean
         // for type of speculation we'll use in this read
         for (int i=0; i<cmdCount; i++)
         {
-          SinglePartitionReadCommand tmp = commands.get(i);
-          SinglePartitionReadCommand cmd = SinglePartitionReadCommand.fullPartitionRead(
+            SinglePartitionReadCommand tmp = commands.get(i);
+            SinglePartitionReadCommand cmd = SinglePartitionReadCommand.fullPartitionRead(
               tmp.metadata(),
               FBUtilities.nowInSeconds(),
               tmp.partitionKey()
               );
-            
+            logger.info("created full partition read cmd");
             reads[i] = AbstractReadExecutor.getReadExecutor(cmd, consistencyLevel, queryStartNanoTime);
         }
 

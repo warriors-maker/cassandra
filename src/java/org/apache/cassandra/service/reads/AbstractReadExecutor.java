@@ -384,21 +384,8 @@ public abstract class AbstractReadExecutor
             }
         }
 
-        ReadResponse mergerdResponse = digestResolver.mergeResponse();
-
-        // return immediately, or begin a read repair
-        if (mergerdResponse != null)
-        {
-          logger.info("using merged");
-            setResult(UnfilteredPartitionIterators.filter(mergerdResponse.makeIterator(command), command.nowInSec()));
-        }
-        else
-        {
-          logger.info("using getData");
-            // Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
-            // readRepair.startRepair(digestResolver, this::setResult);
-            setResult(digestResolver.getData());
-        }
+        // return immediately
+        setResult(digestResolver.mergeResponse());
     }
 
     public void awaitReadRepair() throws ReadTimeoutException

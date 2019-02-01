@@ -110,6 +110,7 @@ public class SinglePartitionReadCommand extends ReadCommand implements SinglePar
                                                     ClusteringIndexFilter clusteringIndexFilter,
                                                     IndexMetadata indexMetadata)
     {
+        logger.info("isDigest=false, transient=false");
         return new SinglePartitionReadCommand(false,
                                               0,
                                               false,

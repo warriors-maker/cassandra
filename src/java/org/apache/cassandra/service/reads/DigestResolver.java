@@ -34,6 +34,7 @@ import org.apache.cassandra.db.ReadCommand;
 import org.apache.cassandra.db.ReadResponse;
 import org.apache.cassandra.db.SinglePartitionReadCommand;
 import org.apache.cassandra.db.partitions.PartitionIterator;
+import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.RowIterator;
@@ -136,19 +137,25 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
         return true;
     }
 
-    public ReadResponse mergeResponse()
+    public PartitionIterator mergeResponse()
     {
-        ReadResponse result = responses.get(0).payload;
+        Collection<MessageIn<ReadResponse>> rsps = this.responses.snapshot();
+        ReadResponse result = null;
 
         ColumnIdentifier col = new ColumnIdentifier("kishori", true);
 
         Map<Integer,Map<Integer, List<String>>> partitionRes = new HashMap<>();
-        for (MessageIn<ReadResponse> msg : responses.snapshot()){
+        for (MessageIn<ReadResponse> msg : rsps){
             ReadResponse readRes = msg.payload;
+            if(readRes.isDigestResponse())
+            {
+                logger.info("exist digest response");
+                continue;
+            }
+            if (result == null)
+                result = readRes;
 
-            assert readRes.isDigestResponse() == false;
             PartitionIterator pi = UnfilteredPartitionIterators.filter(readRes.makeIterator(command), command.nowInSec());
-            
             int pId = 0;
             while(pi.hasNext())
             {   
@@ -162,9 +169,7 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
                     List<String> dataRes = rowRes.get(rowId);
                     if(dataRes == null)
                         dataRes = new ArrayList<>();
-                    Row r = ri.next();
-                    logger.info(r.toString());
-                    for(Cell c : r.cells())
+                    for(Cell c : ri.next().cells())
                     {
                         if(c.column().name.equals(col))
                         {
@@ -172,10 +177,11 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
                             {
                                 String value  = ByteBufferUtil.string(c.value());
                                 dataRes.add(value);
+                                logger.info("extract value {}",value);
                             }
                             catch(CharacterCodingException e)
                             {
-                                logger.error("Couldnt extract writer id");
+                                logger.error("Couldnt extract");
                             }
                         }
                     }
@@ -189,7 +195,6 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
 
         PartitionIterator pi = UnfilteredPartitionIterators.filter(result.makeIterator(command), command.nowInSec());
         int pId = 0;
-        logger.info("Joining data partitions");
         while(pi.hasNext())
         {   
             Map<Integer,List<String>> rowRes = partitionRes.get(pId);
@@ -203,8 +208,13 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
                     if(c.column().name.equals(col))
                     {
                         String newVal = String.join("",dataRes);
-                        logger.info("Joined value now is: {}", newVal);
                         c.setValue(ByteBufferUtil.bytes(newVal));
+                        try {
+                            String after = ByteBufferUtil.string(c.value());
+                            logger.info("Joined value now is: {}", after);
+                        } catch(CharacterCodingException e){
+                            logger.info("sth is wrong");
+                        }
                     }
                 }
                 rowId++;
@@ -212,8 +222,7 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
             pId++;
         }
 
-
-        return result;
+        return UnfilteredPartitionIterators.filter(result.makeIterator(command), command.nowInSec());
     }
 
     public boolean isDataPresent()
