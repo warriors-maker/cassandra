@@ -389,10 +389,12 @@ public abstract class AbstractReadExecutor
         // return immediately, or begin a read repair
         if (mergerdResponse != null)
         {
+          logger.info("using merged");
             setResult(UnfilteredPartitionIterators.filter(mergerdResponse.makeIterator(command), command.nowInSec()));
         }
         else
         {
+          logger.info("using getData");
             // Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
             // readRepair.startRepair(digestResolver, this::setResult);
             setResult(digestResolver.getData());

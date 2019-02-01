@@ -44,8 +44,8 @@ public enum ConsistencyLevel
     LOCAL_SERIAL(9),
     LOCAL_ONE   (10, true),
     NODE_LOCAL  (11, true),
-    CASTHREE    (11),
-    CASFIVE     (12);
+    CASTHREE    (12),
+    CASFIVE     (13);
 
     // Used by the binary protocol
     public final int code;

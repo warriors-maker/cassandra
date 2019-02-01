@@ -45,6 +45,7 @@ import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.service.reads.repair.NoopReadRepair;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.cassandra.db.rows.Row;
 
 import static com.google.common.collect.Iterables.any;
 
@@ -113,26 +114,25 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
 
     public boolean responsesMatch()
     {
-        long start = System.nanoTime();
+    //    long start = System.nanoTime();
 
         // validate digests against each other; return false immediately on mismatch.
-        ByteBuffer digest = null;
-        for (MessageIn<ReadResponse> message : responses.snapshot())
-        {
-            if (replicaPlan().getReplicaFor(message.from).isTransient())
-                continue;
+      //  ByteBuffer digest = null;
+       // for (MessageIn<ReadResponse> message : responses.snapshot())
+       // {
+         //   if (replicaPlan().getReplicaFor(message.from).isTransient())
+           //     continue;
 
-            ByteBuffer newDigest = message.payload.digest(command);
-            if (digest == null)
-                digest = newDigest;
-            else if (!digest.equals(newDigest))
+          //  ByteBuffer newDigest = message.payload.digest(command);
+          //  if (digest == null)
+            //    digest = newDigest;
+          //  else if (!digest.equals(newDigest))
                 // rely on the fact that only single partition queries use digests
-                return false;
-        }
+            //    return false;
+      //  }
 
-        if (logger.isTraceEnabled())
-            logger.trace("responsesMatch: {} ms.", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
-
+       // if (logger.isTraceEnabled())
+         //   logger.trace("responsesMatch: {} ms.", TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
         return true;
     }
 
@@ -140,7 +140,7 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
     {
         ReadResponse result = responses.get(0).payload;
 
-        ColumnIdentifier col = new ColumnIdentifier("Kishori", true);
+        ColumnIdentifier col = new ColumnIdentifier("kishori", true);
 
         Map<Integer,Map<Integer, List<String>>> partitionRes = new HashMap<>();
         for (MessageIn<ReadResponse> msg : responses.snapshot()){
@@ -162,14 +162,15 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
                     List<String> dataRes = rowRes.get(rowId);
                     if(dataRes == null)
                         dataRes = new ArrayList<>();
-                    for(Cell c : ri.next().cells())
+                    Row r = ri.next();
+                    logger.info(r.toString());
+                    for(Cell c : r.cells())
                     {
                         if(c.column().name.equals(col))
                         {
                             try
                             {
                                 String value  = ByteBufferUtil.string(c.value());
-                                logger.info("Retrieving the value: {}",value);
                                 dataRes.add(value);
                             }
                             catch(CharacterCodingException e)
@@ -202,8 +203,8 @@ public class DigestResolver<E extends Endpoints<E>, P extends ReplicaPlan.ForRea
                     if(c.column().name.equals(col))
                     {
                         String newVal = String.join("",dataRes);
-                        logger.info("Joined value now is: ",newVal);
-                        c.withUpdatedValue(ByteBufferUtil.bytes(newVal));
+                        logger.info("Joined value now is: {}", newVal);
+                        c.setValue(ByteBufferUtil.bytes(newVal));
                     }
                 }
                 rowId++;

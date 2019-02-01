@@ -1264,30 +1264,33 @@ public class StorageProxy implements StorageProxyMBean
             }
         }
         List<PartitionUpdate> partitionUpdates = mutation.getPartitionUpdates().asList();
-        Map<Integer, Map<Integer, Map<Integer, List<Character>>>> changes = new HashMap<>();
+        Map<Integer, Map<Integer, Map<Integer, List<String>>>> changes = new HashMap<>();
         int partitionId = 0;
-        ColumnIdentifier columnIdentifier = new ColumnIdentifier("Kishori", true);
+        ColumnIdentifier columnIdentifier = new ColumnIdentifier("kishori", true);
         for (PartitionUpdate partitionUpdate : partitionUpdates)
         {
             Iterator<Row> rowIterator = partitionUpdate.iterator();
             int rowId = 0;
-            Map<Integer, Map<Integer, List<Character>>> partitionChages = new HashMap<>();
+            Map<Integer, Map<Integer, List<String>>> partitionChages = new HashMap<>();
             while (rowIterator.hasNext())
             {
-                Map<Integer, List<Character>> rowChanges = new HashMap<>();
+                Map<Integer, List<String>> rowChanges = new HashMap<>();
                 Row row = rowIterator.next();
                 int cellId = 0;
                 for (Cell c : row.cells())
 
                 {
+                    logger.info(c.column().name.toString());
+
                     if (c.column().name.equals(columnIdentifier))
                     {
-                        List<Character> dataSplits = new ArrayList<>();
+                        logger.info("in Kishori");
+                        List<String> dataSplits = new ArrayList<>();
                         try
                         {
                             String data = ByteBufferUtil.string(c.value());
-                            dataSplits.add(data.charAt(0));
-                            dataSplits.add(data.charAt(1));
+                            dataSplits.add(data.substring(0,2));
+                            dataSplits.add(data.substring(2,4));
                         }
                         catch (CharacterCodingException e)
                         {
@@ -1323,7 +1326,6 @@ public class StorageProxy implements StorageProxyMBean
 
         if (localDc != null)
         {
-            logger.info("Starting to send messages to local dc");
             for (Replica destination : localDc)
             {
                 logger.info("Sending to a foreign replica");
@@ -1332,13 +1334,14 @@ public class StorageProxy implements StorageProxyMBean
         }
         if (dcGroups != null)
         {
+          logger.info("warning: non local group");
             // for each datacenter, send the message to one node to relay the write to other replicas
             for (Collection<Replica> dcTargets : dcGroups.values())
                 sendMessagesToNonlocalDC(message, EndpointsForToken.copyOf(mutation.key().getToken(), dcTargets), responseHandler);
         }
     }
 
-    private static List<MessageOut<Mutation>> createDataPartitionMessages(Map<Integer, Map<Integer, Map<Integer, List<Character>>>> changes,
+    private static List<MessageOut<Mutation>> createDataPartitionMessages(Map<Integer, Map<Integer, Map<Integer, List<String>>>> changes,
                                                                 Mutation mutation, int nReplications,
                                                                 ColumnIdentifier columnIdentifier)
     {
@@ -1362,12 +1365,20 @@ public class StorageProxy implements StorageProxyMBean
                     {
                         if (c.column().name.equals(columnIdentifier))
                         {
-                            Character newValue = changes
+                          try{
+                            String tmp = ByteBufferUtil.string(c.value());
+                          } catch (CharacterCodingException e){}
+                           
+                            String newValue = changes
                                                  .get(partitionId)
                                                  .get(rowId)
                                                  .get(cellId)
                                                  .get(r);
-                            c.withUpdatedValue(ByteBufferUtil.bytes(newValue));
+                            //c.withUpdatedValue(ByteBufferUtil.bytes(newValue));
+                            c.setValue(ByteBufferUtil.bytes(newValue));
+                          try{  
+                            String data = ByteBufferUtil.string(c.value());
+                          } catch (CharacterCodingException e){}
                         }
                         cellId++;
                     }
@@ -1375,6 +1386,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 partitionId++;
             }
+            logger.info(dataPartitionMessage.payload.toString());
             dataPartitionMessages.add(dataPartitionMessage);
         }
         return dataPartitionMessages;
@@ -1830,7 +1842,14 @@ public class StorageProxy implements StorageProxyMBean
         // for type of speculation we'll use in this read
         for (int i=0; i<cmdCount; i++)
         {
-            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
+          SinglePartitionReadCommand tmp = commands.get(i);
+          SinglePartitionReadCommand cmd = SinglePartitionReadCommand.fullPartitionRead(
+              tmp.metadata(),
+              FBUtilities.nowInSeconds(),
+              tmp.partitionKey()
+              );
+            
+            reads[i] = AbstractReadExecutor.getReadExecutor(cmd, consistencyLevel, queryStartNanoTime);
         }
 
         // sends a data request to the closest replica, and a digest request to the others. If we have a speculating
