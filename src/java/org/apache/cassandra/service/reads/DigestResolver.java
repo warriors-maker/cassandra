@@ -54,10 +54,11 @@ public class DigestResolver extends ResponseResolver
             dataResponse = message.payload;
     }
 
-    public PartitionIterator getData()
+    public ReadResponse getData()
     {
         assert isDataPresent();
-        return UnfilteredPartitionIterators.filter(dataResponse.makeIterator(command), command.nowInSec());
+        return dataResponse;
+//        return UnfilteredPartitionIterators.filter(dataResponse.makeIterator(command), command.nowInSec());
     }
 
     public boolean responsesMatch()
@@ -89,10 +90,9 @@ public class DigestResolver extends ResponseResolver
         // check all data responses,
         // extract the one with max z value
         int maxZ = -1;
-        String maxWriterId = ""; // when we compare writer id, we use lexicographical order
         ReadResponse maxZResponse = null;
 
-        int numMaxZDiff = 0; // measure the number of times maxZchange value
+        ColumnIdentifier ci = new ColumnIdentifier("z_value", true);
         for (MessageIn<ReadResponse> message : responses)
         {
             ReadResponse response = message.payload;
@@ -116,58 +116,20 @@ public class DigestResolver extends ResponseResolver
                     // future improvement could be made
 
                     int currentZ = -1;
-                    String writerId = "";
                     for(Cell c : ri.next().cells())
                     {
-                        if(c.column().name.equals(new ColumnIdentifier("z_value", true)))
-                        {
+                        if(c.column().name.equals(ci))
                             currentZ = ByteBufferUtil.toInt(c.value());
-                        }
-                        else if(c.column().name.equals(new ColumnIdentifier("writer_id", true)))
-                        {
-                            try
-                            {
-                                writerId = ByteBufferUtil.string(c.value());
-                            }
-                            catch(CharacterCodingException e)
-                            {
-                                logger.error("Couldnt extract writer id");
-                            }
-                        }
                     }
-
-                    /*
-                    ColumnMetadata colMeta = command.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
-                    Cell c = ri.next().getCell(colMeta);
-                    int currentZ = ByteBufferUtil.toInt(c.value());
-                    */
 
                     if(currentZ > maxZ)
                     {
                         maxZ = currentZ;
-                        numMaxZDiff += 1; // increment number different maxZ
-                        maxWriterId = writerId;
                         maxZResponse = response;
-                    }
-                    else if(currentZ == maxZ)
-                    {
-                        // compare writer id if z value is the same
-                        if(writerId.compareTo(maxWriterId) > 0)
-                        {
-                            maxWriterId = writerId;
-                            maxZResponse = response;
-                        }
-                    }
-                    else{
-                        numMaxZDiff += 1;
                     }
                 }
             }
         }
-
-        if (numMaxZDiff > 1)
-            maxZResponse.needWriteBack = true;
-
         return maxZResponse;
     }
 

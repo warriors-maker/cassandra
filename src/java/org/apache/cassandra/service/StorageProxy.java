@@ -39,8 +39,6 @@ import com.google.common.util.concurrent.Uninterruptibles;
 
 import org.apache.commons.lang3.StringUtils;
 
-import org.apache.commons.net.ntp.TimeStamp;
-import org.hsqldb.Trace;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -719,7 +717,15 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         HashMap<String, Integer> maxZMap = new HashMap<>();
-        PartitionIterator zValueReadResult = fetchTagValue(zValueReadList, consistency_level, System.nanoTime());
+        List<ReadResponse> readList = fetchTagValue(zValueReadList, consistency_level, System.nanoTime());
+        List<PartitionIterator> piList = new ArrayList<>();
+        int idx = 0;
+        for(ReadResponse rr : readList){
+            SinglePartitionReadCommand command = zValueReadList.get(idx);
+            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command), command.nowInSec()));
+            idx++;
+        }
+        PartitionIterator zValueReadResult = PartitionIterators.concat(piList);
 
         while(zValueReadResult.hasNext())
         {
@@ -752,14 +758,12 @@ public class StorageProxy implements StorageProxyMBean
             long timeStamp = FBUtilities.timestampMicros();
             boolean containsKey = maxZMap.containsKey(mutation.key().toString());
             Object zValue =  containsKey ? maxZMap.get(mutation.key().toString())+1 : 0;
-            String writerId =  FBUtilities.getBroadcastAddressAndPort().toString();
 
             mutationBuilder
                     .update(tableMetadata)
                     .timestamp(timeStamp)
                     .row()
-                    .add("z_value",zValue)
-                    .add("writer_id",writerId);
+                    .add("z_value",zValue);
 
             Mutation zValueMutation = mutationBuilder.build();
 
@@ -1952,63 +1956,6 @@ public class StorageProxy implements StorageProxyMBean
     private static PartitionIterator fetchRows(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-        // check if the target table has the z_value column,
-        // if it doesn't, it means this is not an ABD read operation,
-        // the original fetchRows will be used, this is a workaround
-        // to the initialization failure issue
-        SinglePartitionReadCommand incomingRead = commands.iterator().next();
-        ColumnMetadata tagMetadata = incomingRead.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
-        boolean isAbdRead = (tagMetadata != null);
-        if(isAbdRead)
-        {
-            return fetchRowsAbd(commands, consistencyLevel, queryStartNanoTime);
-        }
-
-        int cmdCount = commands.size();
-
-        AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
-
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
-        }
-
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].executeAsync();
-        }
-
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].maybeTryAdditionalReplicas();
-        }
-
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].awaitResponses();
-        }
-
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].maybeRepairAdditionalReplicas();
-        }
-
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].awaitReadRepair();
-        }
-
-        List<PartitionIterator> results = new ArrayList<>(cmdCount);
-        for (int i=0; i<cmdCount; i++)
-        {
-            results.add(reads[i].getResult());
-        }
-
-        return PartitionIterators.concat(results);
-    }
-
-    private static PartitionIterator fetchRowsAbd(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
-            throws UnavailableException, ReadFailureException, ReadTimeoutException {
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and z_value column
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
@@ -2026,99 +1973,18 @@ public class StorageProxy implements StorageProxyMBean
         // execute the tag value read, the result will be the
         // tag value pair with the largest tag
         
-        PartitionIterator tagValueResult = fetchTagValueNeedUpd(tagValueReadList, consistencyLevel, System.nanoTime());
-        // next we will have to generate a mutation to write
-        // the max tag and its corresponding value to all servers
-        List<IMutation> updateTagValueMutationList = new ArrayList<>();
-        if (tagValueResult != null){
-            // write the tag value pair with the largest tag to
-            // all servers
-
-            while(tagValueResult.hasNext())
-            {
-                // first we have to parse the value and tag from the result
-                // tagValueResult.next() returns a RowIterator
-
-                RowIterator ri = tagValueResult.next();
-
-                ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
-                ColumnMetadata writerIdMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
-                ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("field0"));
-
-                assert zValueMetadata != null && writerIdMetadata != null && valueMetadata != null;
-
-                while(ri.hasNext())
-                {
-                    Row r = ri.next();
-
-                    Cell c = r.getCell(zValueMetadata);
-                    int z = ByteBufferUtil.toInt(c.value());
-                    c = r.getCell(valueMetadata);
-                    int value = ByteBufferUtil.toInt(c.value());
-                    c = r.getCell(writerIdMetadata);
-                    String writerId = "";
-                    try
-                    {
-                        writerId = ByteBufferUtil.string(c.value());
-                    }
-                    catch (CharacterCodingException e)
-                    {
-                        logger.error("write Id could not be read");
-                    }
-                    TableMetadata tableMetadata = ri.metadata();
-
-                    Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(tableMetadata.keyspace, ri.partitionKey());
-
-
-                    mutationBuilder
-                            .update(tableMetadata)
-                            .timestamp(FBUtilities.timestampMicros()).row()
-                            .add("z_value", z)
-                            .add("writer_id", writerId)
-                            .add("field0", value);
-
-                    Mutation tagValueMutation = mutationBuilder.build();
-
-                    updateTagValueMutationList.add(tagValueMutation);
-                }
-            }
-
-
-            // then we will have to perform the mutatation we've
-            // just generated
-            mutateWithTag(updateTagValueMutationList, consistencyLevel, System.nanoTime());
+        List<ReadResponse> tagValueResult = fetchTagValue(tagValueReadList, consistencyLevel, System.nanoTime());
+        List<PartitionIterator> piList = new ArrayList<>();
+        int idx = 0;
+        for(ReadResponse rr : tagValueResult){
+            SinglePartitionReadCommand command = commands.get(idx);
+            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command), command.nowInSec()));
+            idx++;
         }
-
-        
-
-        // right here we have to conduct the read again because of a
-        // technical issue: the PartitionIterator cannot be reused after
-        // consumption, hopefully since we're reading locally here
-        // the read operation should be fast
-        // note here that we regenerate the read commands again
-        // just to update the timestamp up to date,
-        // a lot of terrible things could happen if you don't take
-        // care of these timestamps carefully in Cassandra, like spending
-        // the entire Saturday afternoon scratching your head off
-        // and wondering why wouldn't a value be updated
-        tagValueReadList = new ArrayList<>(commands.size());
-        for (SinglePartitionReadCommand readCommand: commands)
-        {
-            SinglePartitionReadCommand tagValueRead =
-            SinglePartitionReadCommand.fullPartitionRead(
-                readCommand.metadata(),
-                FBUtilities.nowInSeconds(),
-                readCommand.partitionKey()
-            );
-            tagValueReadList.add(tagValueRead);
-        }
-
-        tagValueResult = fetchTagValue(tagValueReadList, consistencyLevel, System.nanoTime()); 
-
-        return tagValueResult;
+        return PartitionIterators.concat(piList);
     }
 
-    private static PartitionIterator fetchTagValue(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    private static List<ReadResponse> fetchTagValue(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         int cmdCount = commands.size();
@@ -2143,7 +2009,7 @@ public class StorageProxy implements StorageProxyMBean
 
         for (int i=0; i<cmdCount; i++)
         {
-            reads[i].awaitResponsesAbd();
+            reads[i].awaitResponses();
         }
 
         // todo: this is not needed
@@ -2158,68 +2024,13 @@ public class StorageProxy implements StorageProxyMBean
             reads[i].awaitReadRepair();
         }
     
-        List<PartitionIterator> results = new ArrayList<PartitionIterator>();
+        List<ReadResponse> results = new ArrayList<>();
 
         for (int i=0; i<cmdCount; i++)
         {
             results.add(reads[i].getResult());
         }
-        return PartitionIterators.concat(results);
-    }
-
-    // private static Map<Boolean, List<PartitionIterator>> fetchTagValue(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
-    // throws UnavailableException, ReadFailureException, ReadTimeoutException
-    // {
-    private static PartitionIterator fetchTagValueNeedUpd(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
-    throws UnavailableException, ReadFailureException, ReadTimeoutException
-    {
-        int cmdCount = commands.size();
-
-        AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
-        boolean[] needUpdate = new boolean[cmdCount];
-
-        for (int i=0; i<cmdCount; i++){
-            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
-        }
-
-        for (int i=0; i<cmdCount; i++){
-            reads[i].executeAsyncAbd();
-        }
-
-        // todo: this is not needed
-        // for (int i=0; i<cmdCount; i++){
-        //     reads[i].maybeTryAdditionalReplicas();
-        // }
-
-        for (int i=0; i<cmdCount; i++){
-            needUpdate[i] = reads[i].awaitResponsesAbd().needWriteBack;
-        }
-
-        // todo: this is not needed
-        // for (int i=0; i<cmdCount; i++){
-        //     reads[i].maybeRepairAdditionalReplicas();
-        // }
-
-        // todo: this is not needed
-        // for (int i=0; i<cmdCount; i++){
-        //     reads[i].awaitReadRepair();
-        // }
-
-        List<PartitionIterator> results = new ArrayList<PartitionIterator>();
-
-        for (int i=0; i<cmdCount; i++){
-            if (needUpdate[i]){
-                results.add(reads[i].getResult());
-            }
-        }
-
-        if (results.size() > 0){
-            return PartitionIterators.concat(results);
-        } else{
-            return null;
-        }
-
-        
+        return results;
     }
 
     public static class LocalReadRunnable extends DroppableRunnable
