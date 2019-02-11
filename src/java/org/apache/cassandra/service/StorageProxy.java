@@ -763,7 +763,8 @@ public class StorageProxy implements StorageProxyMBean
                     .update(tableMetadata)
                     .timestamp(timeStamp)
                     .row()
-                    .add("z_value",zValue);
+                    .add("z_value",zValue)
+                    .add("writer_id",FBUtilities.getBroadcastAddressAndPort().toString());
 
             Mutation zValueMutation = mutationBuilder.build();
 
@@ -1994,6 +1995,7 @@ public class StorageProxy implements StorageProxyMBean
                 RowIterator ri = pi.next();
 
                 ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
+                ColumnMetadata writerMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
                 ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("field0"));
 
                 assert zValueMetadata != null && valueMetadata != null;
@@ -2002,10 +2004,14 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     Row r = ri.next();
 
-                    Cell c = r.getCell(zValueMetadata);
-                    int z = ByteBufferUtil.toInt(c.value());
-                    c = r.getCell(valueMetadata);
-                    int value = ByteBufferUtil.toInt(c.value());
+                    int z = ByteBufferUtil.toInt(r.getCell(zValueMetadata).value());
+                    int value = ByteBufferUtil.toInt(r.getCell(valueMetadata).value());
+                    String writerId = "";
+                    try{
+                        writerId = ByteBufferUtil.string(r.getCell(writerMetadata).value());
+                    } catch(CharacterCodingException e){
+                        logger.info("unable to cast writer id");
+                    }
                     TableMetadata tableMetadata = ri.metadata();
 
                     Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(tableMetadata.keyspace, ri.partitionKey());
@@ -2014,6 +2020,7 @@ public class StorageProxy implements StorageProxyMBean
                             .update(tableMetadata)
                             .timestamp(FBUtilities.timestampMicros()).row()
                             .add("z_value", z)
+                            .add("writer_id",writerId)
                             .add("field0", value);
 
                     Mutation tvMutation = mutationBuilder.build();

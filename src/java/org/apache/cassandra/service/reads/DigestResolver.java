@@ -90,9 +90,11 @@ public class DigestResolver extends ResponseResolver
         // check all data responses,
         // extract the one with max z value
         int maxZ = -1;
+        String writerId = "";
         ReadResponse maxZResponse = null;
 
-        ColumnIdentifier ci = new ColumnIdentifier("z_value", true);
+        ColumnIdentifier zIdentifier = new ColumnIdentifier("z_value", true);
+        ColumnIdentifier wIdentifier = new ColumnIdentifier("writer_id",true);
         for (MessageIn<ReadResponse> message : responses)
         {
             ReadResponse response = message.payload;
@@ -116,16 +118,26 @@ public class DigestResolver extends ResponseResolver
                     // future improvement could be made
 
                     int currentZ = -1;
+                    String curWriter = "";
                     for(Cell c : ri.next().cells())
                     {
-                        if(c.column().name.equals(ci))
+                        if(c.column().name.equals(zIdentifier)) {
                             currentZ = ByteBufferUtil.toInt(c.value());
+                        } else if (c.column().name.equals(wIdentifier)){
+                            try{
+                                curWriter = ByteBufferUtil.string(c.value());
+                            } catch (CharacterCodingException e){
+                                logger.info("cannot cast to string");
+                            }
+                        }
                     }
 
                     if(currentZ > maxZ)
                     {
                         maxZ = currentZ;
                         maxZResponse = response;
+                    } else if (currentZ == maxZ){
+                        maxZResponse = curWriter.compareTo(writerId)>0 ? response : maxZResponse;
                     }
                 }
             }
