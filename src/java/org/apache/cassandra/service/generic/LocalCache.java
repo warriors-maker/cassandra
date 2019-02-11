@@ -25,7 +25,7 @@ import java.util.Map;
 public class LocalCache
 {
 
-    public static Map<String,VTS> map = Collections.synchronizedMap(new HashMap<>());
+    public static Map<String,VTS> cache = Collections.synchronizedMap(new HashMap<>());
 
 
 

@@ -70,7 +70,7 @@ public abstract class AbstractReadExecutor
     protected final TraceState traceState;
     protected final ColumnFamilyStore cfs;
     protected final long queryStartNanoTime;
-    protected volatile PartitionIterator result = null;
+    protected volatile ReadResponse result = null;
 
     AbstractReadExecutor(Keyspace keyspace, ColumnFamilyStore cfs, ReadCommand command, ConsistencyLevel consistency, List<InetAddressAndPort> targetReplicas, long queryStartNanoTime)
     {
@@ -375,7 +375,7 @@ public abstract class AbstractReadExecutor
         }
     }
 
-    public void setResult(PartitionIterator result)
+    public void setResult(ReadResponse result)
     {
         Preconditions.checkState(this.result == null, "Result can only be set once");
         this.result = result;
@@ -385,36 +385,6 @@ public abstract class AbstractReadExecutor
      * Wait for the CL to be satisfied by responses
      */
     public void awaitResponses() throws ReadTimeoutException
-    {
-        try
-        {
-            handler.awaitResults();
-        }
-        catch (ReadTimeoutException e)
-        {
-            try
-            {
-                onReadTimeout();
-            }
-            finally
-            {
-                throw e;
-            }
-        }
-
-        // return immediately, or begin a read repair
-        if (digestResolver.responsesMatch())
-        {
-            setResult(digestResolver.getData());
-        }
-        else
-        {
-            Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
-            readRepair.startRepair(digestResolver, handler.endpoints, getContactedReplicas(), this::setResult);
-        }
-    }
-
-    public ReadResponse awaitResponsesAbd() throws ReadTimeoutException
     {
         try
         {
@@ -438,11 +408,10 @@ public abstract class AbstractReadExecutor
         // responses are in it
         ReadResponse maxZResponse = digestResolver.extractMaxZResponse();
 
-        if(maxZResponse != null){
 
-            UnfilteredPartitionIterator unfilteredPartitionIterator =  maxZResponse.makeIterator(command);
-            PartitionIterator result = UnfilteredPartitionIterators.filter(unfilteredPartitionIterator,command.nowInSec());
-            setResult(result);
+        if(maxZResponse != null)
+        {
+            setResult(maxZResponse);
         }
         else
         {
@@ -452,8 +421,6 @@ public abstract class AbstractReadExecutor
             // digestResolver, which will be empty in this case
             setResult(digestResolver.getData());
         }
-
-        return maxZResponse;
     }
 
     public void awaitReadRepair() throws ReadTimeoutException
@@ -481,7 +448,7 @@ public abstract class AbstractReadExecutor
     }
 
 
-    public PartitionIterator getResult() throws ReadFailureException, ReadTimeoutException
+    public ReadResponse getResult() throws ReadFailureException, ReadTimeoutException
     {
         Preconditions.checkState(result != null, "Result must be set first");
         return result;
