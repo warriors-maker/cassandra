@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -406,6 +407,7 @@ public abstract class AbstractReadExecutor
         // this function is implemented in digest resolver because the data
         // responses are in it
         ReadResponse maxZResponse = digestResolver.extractMaxZResponse();
+
 
         if(maxZResponse != null)
         {

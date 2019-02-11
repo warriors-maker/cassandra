@@ -31,6 +31,8 @@ import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.RowIterator;
 import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.service.ABDConstants;
+import org.apache.cassandra.service.generic.Config;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.tracing.TraceState;
 import org.apache.cassandra.utils.ByteBufferUtil;
@@ -123,7 +125,7 @@ public class DigestResolver extends ResponseResolver
                     {
                         if(c.column().name.equals(zIdentifier)) {
                             currentZ = ByteBufferUtil.toInt(c.value());
-                        } else if (c.column().name.equals(wIdentifier)){
+                        } else if (c.column().name.equals(wIdentifier) && Config.ID_ON){
                             try{
                                 curWriter = ByteBufferUtil.string(c.value());
                             } catch (CharacterCodingException e){
@@ -136,7 +138,7 @@ public class DigestResolver extends ResponseResolver
                     {
                         maxZ = currentZ;
                         maxZResponse = response;
-                    } else if (currentZ == maxZ){
+                    } else if (currentZ == maxZ && Config.ID_ON){
                         maxZResponse = curWriter.compareTo(writerId)>0 ? response : maxZResponse;
                     }
                 }

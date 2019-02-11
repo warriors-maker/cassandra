@@ -37,6 +37,7 @@ import com.google.common.collect.*;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Uninterruptibles;
 
+import org.apache.cassandra.service.generic.Config;
 import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
@@ -729,13 +730,14 @@ public class StorageProxy implements StorageProxyMBean
 
         while(zValueReadResult.hasNext())
         {
-            // zValueReadResult.next() returns a RowIterator
             RowIterator ri = zValueReadResult.next();
+
+            ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDConstants.Z_VALUE));
+
             while(ri.hasNext())
             {
                 // we don't need to extract the writer id here
                 // because it doesn't matter in mutate
-                ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
                 Cell c = ri.next().getCell(colMeta);
                 int maxZ = ByteBufferUtil.toInt(c.value());
                 maxZMap.put(ri.partitionKey().toString(), maxZ);
@@ -748,7 +750,7 @@ public class StorageProxy implements StorageProxyMBean
         // please note that we have 2 assumptions
         // 1. we have an explicit column named z_value in the table
         // 2. we assume there's only 1 column for each key
-        List<IMutation> mutationList = new ArrayList<>();
+        List<IMutation> newMutations = new ArrayList<>();
 
         for (IMutation mutation : mutations)
         {
@@ -759,12 +761,16 @@ public class StorageProxy implements StorageProxyMBean
             boolean containsKey = maxZMap.containsKey(mutation.key().toString());
             Object zValue =  containsKey ? maxZMap.get(mutation.key().toString())+1 : 0;
 
-            mutationBuilder
+            Row.SimpleBuilder rsb = mutationBuilder
                     .update(tableMetadata)
                     .timestamp(timeStamp)
-                    .row()
-                    .add("z_value",zValue)
-                    .add("writer_id",FBUtilities.getBroadcastAddressAndPort().toString());
+                    .row();
+
+            rsb.add("z_value",zValue);
+
+            if(Config.ID_ON)
+                rsb.add("writer_id",FBUtilities.getBroadcastAddressAndPort().toString());
+
 
             Mutation zValueMutation = mutationBuilder.build();
 
@@ -774,18 +780,17 @@ public class StorageProxy implements StorageProxyMBean
             mutationMergeList.add((Mutation)mutation);
             Mutation newMutation = Mutation.merge(mutationMergeList);
 
-            mutationList.add(newMutation);
+            newMutations.add(newMutation);
         }
 
-        mutations = mutationList;
 
-        //mutations.
 
-        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
+
+        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(newMutations.size());
 
         try
         {
-            for (IMutation mutation : mutations)
+            for (IMutation mutation : newMutations)
             {
                 if (mutation instanceof CounterMutation)
                 {
@@ -793,7 +798,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 else
                 {
-                    WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+                    WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
                 }
             }
@@ -808,7 +813,7 @@ public class StorageProxy implements StorageProxyMBean
         {
             if (consistency_level == ConsistencyLevel.ANY)
             {
-                hintMutations(mutations);
+                hintMutations(newMutations);
             }
             else
             {
@@ -850,7 +855,7 @@ public class StorageProxy implements StorageProxyMBean
             long latency = System.nanoTime() - startTime;
             writeMetrics.addNano(latency);
             writeMetricsMap.get(consistency_level).addNano(latency);
-            updateCoordinatorWriteLatencyTableMetric(mutations, latency);
+            updateCoordinatorWriteLatencyTableMetric(newMutations, latency);
         }
     }
 
@@ -862,8 +867,6 @@ public class StorageProxy implements StorageProxyMBean
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();
-
-        //mutations.
 
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
 
@@ -1985,18 +1988,20 @@ public class StorageProxy implements StorageProxyMBean
 
         PartitionIterator pi = PartitionIterators.concat(piList);
         List<IMutation> mutationList = new ArrayList<>();
-        if (true){
+        if(Config.WB_ON){
             // write the tag value pair with the largest tag to all servers
             while(pi.hasNext())
             {
                 // first we have to parse the value and tag from the result
                 // tagValueResult.next() returns a RowIterator
 
+
                 RowIterator ri = pi.next();
 
                 ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
                 ColumnMetadata writerMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
                 ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("field0"));
+
 
                 assert zValueMetadata != null && valueMetadata != null;
 
@@ -2006,23 +2011,27 @@ public class StorageProxy implements StorageProxyMBean
 
                     int z = ByteBufferUtil.toInt(r.getCell(zValueMetadata).value());
                     int value = ByteBufferUtil.toInt(r.getCell(valueMetadata).value());
-                    String writerId = "";
-                    try{
-                        writerId = ByteBufferUtil.string(r.getCell(writerMetadata).value());
-                    } catch(CharacterCodingException e){
-                        logger.info("unable to cast writer id");
-                    }
                     TableMetadata tableMetadata = ri.metadata();
+
 
                     Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(tableMetadata.keyspace, ri.partitionKey());
 
-                    mutationBuilder
+                    Row.SimpleBuilder rsb = mutationBuilder
                             .update(tableMetadata)
-                            .timestamp(FBUtilities.timestampMicros()).row()
-                            .add("z_value", z)
-                            .add("writer_id",writerId)
-                            .add("field0", value);
+                            .timestamp(FBUtilities.timestampMicros()).row();
 
+                    rsb.add("z_value", z)
+                        .add("field0", value);
+
+                    if(Config.ID_ON) {
+                        String writerId = "";
+                        try {
+                            writerId = ByteBufferUtil.string(r.getCell(writerMetadata).value());
+                        } catch (CharacterCodingException e) {
+                            logger.info("unable to cast writer id");
+                        }
+                        rsb.add("writer_id", writerId);
+                    }
                     Mutation tvMutation = mutationBuilder.build();
 
                     mutationList.add(tvMutation);
