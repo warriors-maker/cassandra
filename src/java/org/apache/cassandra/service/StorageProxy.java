@@ -1981,6 +1981,60 @@ public class StorageProxy implements StorageProxyMBean
             piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command), command.nowInSec()));
             idx++;
         }
+
+        PartitionIterator pi = PartitionIterators.concat(piList);
+        List<IMutation> mutationList = new ArrayList<>();
+        if (true){
+            // write the tag value pair with the largest tag to all servers
+            while(pi.hasNext())
+            {
+                // first we have to parse the value and tag from the result
+                // tagValueResult.next() returns a RowIterator
+
+                RowIterator ri = pi.next();
+
+                ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
+                ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("field0"));
+
+                assert zValueMetadata != null && valueMetadata != null;
+
+                while(ri.hasNext())
+                {
+                    Row r = ri.next();
+
+                    Cell c = r.getCell(zValueMetadata);
+                    int z = ByteBufferUtil.toInt(c.value());
+                    c = r.getCell(valueMetadata);
+                    int value = ByteBufferUtil.toInt(c.value());
+                    TableMetadata tableMetadata = ri.metadata();
+
+                    Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(tableMetadata.keyspace, ri.partitionKey());
+
+                    mutationBuilder
+                            .update(tableMetadata)
+                            .timestamp(FBUtilities.timestampMicros()).row()
+                            .add("z_value", z)
+                            .add("field0", value);
+
+                    Mutation tvMutation = mutationBuilder.build();
+
+                    mutationList.add(tvMutation);
+                }
+            }
+
+
+            // then we will have to perform the mutatation we've
+            // just generated
+            mutateWithTag(mutationList, consistencyLevel, System.nanoTime());
+        }
+
+        piList.clear();
+        idx = 0;
+        for(ReadResponse rr : tagValueResult){
+            SinglePartitionReadCommand command = commands.get(idx);
+            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command), command.nowInSec()));
+            idx++;
+        }
         return PartitionIterators.concat(piList);
     }
 
