@@ -6,12 +6,13 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
+import java.io.Serializable;
 import org.apache.cassandra.utils.FBUtilities;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ABDTag {
+public class ABDTag implements Serializable{
     private int logicalTIme;
     private String writerId ;
     private static final Logger logger = LoggerFactory.getLogger(StorageProxy.class);
@@ -36,6 +37,7 @@ public class ABDTag {
     }
 
     public static ByteBuffer serialize(ABDTag tag) {
+        logger.info(tag.toString());
         byte[] bytes = null;
         ByteArrayOutputStream bos = null;
         ObjectOutputStream oos = null;
