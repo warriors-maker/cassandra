@@ -19,7 +19,6 @@ package org.apache.cassandra.service;
 
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
@@ -29,7 +28,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
-import com.datastax.driver.core.Metadata;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.cache.CacheLoader;
@@ -37,7 +35,6 @@ import com.google.common.collect.*;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Uninterruptibles;
 
-import org.apache.cassandra.service.generic.Config;
 import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
@@ -48,7 +45,6 @@ import org.apache.cassandra.batchlog.Batch;
 import org.apache.cassandra.batchlog.BatchlogManager;
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
-import org.apache.cassandra.db.rows.BTreeRow;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.schema.ColumnMetadata;
@@ -713,11 +709,10 @@ public class StorageProxy implements StorageProxyMBean
                                                         nowInSec,
                                                         decoratedKey
                                                         );
-
             zValueReadList.add(zValueRead);
         }
 
-        HashMap<String, Integer> maxZMap = new HashMap<>();
+        HashMap<String, ABDTag> maxZMap = new HashMap<>();
         List<ReadResponse> readList = fetchTagValue(zValueReadList, consistency_level, System.nanoTime());
         List<PartitionIterator> piList = new ArrayList<>();
         int idx = 0;
@@ -732,15 +727,15 @@ public class StorageProxy implements StorageProxyMBean
         {
             RowIterator ri = zValueReadResult.next();
 
-            ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDConstants.Z_VALUE));
+            ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.TAG));
 
             while(ri.hasNext())
             {
                 // we don't need to extract the writer id here
                 // because it doesn't matter in mutate
                 Cell c = ri.next().getCell(colMeta);
-                int maxZ = ByteBufferUtil.toInt(c.value());
-                maxZMap.put(ri.partitionKey().toString(), maxZ);
+                ABDTag maxTag = ABDTag.deserialize(c.value());
+                maxZMap.put(ri.partitionKey().toString(), maxTag);
             }
         }
 
@@ -759,18 +754,12 @@ public class StorageProxy implements StorageProxyMBean
             TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
             long timeStamp = FBUtilities.timestampMicros();
             boolean containsKey = maxZMap.containsKey(mutation.key().toString());
-            Object zValue =  containsKey ? maxZMap.get(mutation.key().toString())+1 : 0;
+            ABDTag nextTag =  containsKey ? maxZMap.get(mutation.key().toString()).nextTag() : new ABDTag();
 
-            Row.SimpleBuilder rsb = mutationBuilder
-                    .update(tableMetadata)
+            mutationBuilder.update(tableMetadata)
                     .timestamp(timeStamp)
-                    .row();
-
-            rsb.add("z_value",zValue);
-
-            if(Config.ID_ON)
-                rsb.add("writer_id",FBUtilities.getBroadcastAddressAndPort().toString());
-
+                    .row()
+                    .add(ABDColomns.TAG,ABDTag.serialize(nextTag));
 
             Mutation zValueMutation = mutationBuilder.build();
 
@@ -782,9 +771,6 @@ public class StorageProxy implements StorageProxyMBean
 
             newMutations.add(newMutation);
         }
-
-
-
 
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(newMutations.size());
 
@@ -1988,54 +1974,40 @@ public class StorageProxy implements StorageProxyMBean
 
         PartitionIterator pi = PartitionIterators.concat(piList);
         List<IMutation> mutationList = new ArrayList<>();
-        if(Config.WB_ON){
-            // write the tag value pair with the largest tag to all servers
-            while(pi.hasNext())
+
+        // write the tag value pair with the largest tag to all servers
+        while(pi.hasNext())
+        {
+            // first we have to parse the value and tag from the result
+            // tagValueResult.next() returns a RowIterator
+
+
+            RowIterator ri = pi.next();
+
+            ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.TAG));
+            ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.VAL));
+
+            assert zValueMetadata != null && valueMetadata != null;
+
+            while(ri.hasNext())
             {
-                // first we have to parse the value and tag from the result
-                // tagValueResult.next() returns a RowIterator
+                Row r = ri.next();
 
+                ABDTag z = ABDTag.deserialize(r.getCell(zValueMetadata).value());
 
-                RowIterator ri = pi.next();
+                int value = ByteBufferUtil.toInt(r.getCell(valueMetadata).value());
+                TableMetadata tableMetadata = ri.metadata();
 
-                ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
-                ColumnMetadata writerMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
-                ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("field0"));
+                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(tableMetadata.keyspace, ri.partitionKey());
 
+                mutationBuilder.update(tableMetadata)
+                        .timestamp(FBUtilities.timestampMicros()).row()
+                        .add(ABDColomns.TAG, ABDTag.serialize(z))
+                        .add(ABDColomns.VAL, value);
 
-                assert zValueMetadata != null && valueMetadata != null;
+                Mutation tvMutation = mutationBuilder.build();
 
-                while(ri.hasNext())
-                {
-                    Row r = ri.next();
-
-                    int z = ByteBufferUtil.toInt(r.getCell(zValueMetadata).value());
-                    int value = ByteBufferUtil.toInt(r.getCell(valueMetadata).value());
-                    TableMetadata tableMetadata = ri.metadata();
-
-
-                    Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(tableMetadata.keyspace, ri.partitionKey());
-
-                    Row.SimpleBuilder rsb = mutationBuilder
-                            .update(tableMetadata)
-                            .timestamp(FBUtilities.timestampMicros()).row();
-
-                    rsb.add("z_value", z)
-                        .add("field0", value);
-
-                    if(Config.ID_ON) {
-                        String writerId = "";
-                        try {
-                            writerId = ByteBufferUtil.string(r.getCell(writerMetadata).value());
-                        } catch (CharacterCodingException e) {
-                            logger.info("unable to cast writer id");
-                        }
-                        rsb.add("writer_id", writerId);
-                    }
-                    Mutation tvMutation = mutationBuilder.build();
-
-                    mutationList.add(tvMutation);
-                }
+                mutationList.add(tvMutation);
             }
 
 

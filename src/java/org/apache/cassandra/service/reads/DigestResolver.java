@@ -18,7 +18,6 @@
 package org.apache.cassandra.service.reads;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Preconditions;
@@ -30,12 +29,9 @@ import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.RowIterator;
 import org.apache.cassandra.net.MessageIn;
-import org.apache.cassandra.schema.ColumnMetadata;
-import org.apache.cassandra.service.ABDConstants;
-import org.apache.cassandra.service.generic.Config;
+import org.apache.cassandra.service.ABDColomns;
+import org.apache.cassandra.service.ABDTag;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
-import org.apache.cassandra.tracing.TraceState;
-import org.apache.cassandra.utils.ByteBufferUtil;
 
 public class DigestResolver extends ResponseResolver
 {
@@ -91,12 +87,10 @@ public class DigestResolver extends ResponseResolver
     {
         // check all data responses,
         // extract the one with max z value
-        int maxZ = -1;
-        String writerId = "";
+        ABDTag maxTag = new ABDTag();
         ReadResponse maxZResponse = null;
 
-        ColumnIdentifier zIdentifier = new ColumnIdentifier("z_value", true);
-        ColumnIdentifier wIdentifier = new ColumnIdentifier("writer_id",true);
+        ColumnIdentifier zIdentifier = new ColumnIdentifier(ABDColomns.TAG, true);
         for (MessageIn<ReadResponse> message : responses)
         {
             ReadResponse response = message.payload;
@@ -119,27 +113,18 @@ public class DigestResolver extends ResponseResolver
                     // todo: the entire row is read for the sake of development
                     // future improvement could be made
 
-                    int currentZ = -1;
-                    String curWriter = "";
+                    ABDTag curTag = new ABDTag();
                     for(Cell c : ri.next().cells())
                     {
                         if(c.column().name.equals(zIdentifier)) {
-                            currentZ = ByteBufferUtil.toInt(c.value());
-                        } else if (c.column().name.equals(wIdentifier) && Config.ID_ON){
-                            try{
-                                curWriter = ByteBufferUtil.string(c.value());
-                            } catch (CharacterCodingException e){
-                                logger.info("cannot cast to string");
-                            }
+                            curTag = ABDTag.deserialize(c.value());
                         }
                     }
 
-                    if(currentZ > maxZ)
+                    if(curTag.isLarger(maxTag))
                     {
-                        maxZ = currentZ;
+                        maxTag = curTag;
                         maxZResponse = response;
-                    } else if (currentZ == maxZ && Config.ID_ON){
-                        maxZResponse = curWriter.compareTo(writerId)>0 ? response : maxZResponse;
                     }
                 }
             }
