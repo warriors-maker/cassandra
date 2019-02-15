@@ -1944,8 +1944,66 @@ public class StorageProxy implements StorageProxyMBean
      * 5. else carry out read repair by getting data from all the nodes.
      */
     private static PartitionIterator fetchRows(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
-    throws UnavailableException, ReadFailureException, ReadTimeoutException
+            throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
+        // check if the target table has the z_value column,
+        // if it doesn't, it means this is not an ABD read operation,
+        // the original fetchRows will be used, this is a workaround
+        // to the initialization failure issue
+        SinglePartitionReadCommand incomingRead = commands.iterator().next();
+        ColumnMetadata tagMetadata = incomingRead.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.TAG));
+        boolean isAbdRead = (tagMetadata != null);
+        if(isAbdRead)
+        {
+            return fetchRowsAbd(commands, consistencyLevel, queryStartNanoTime);
+        }
+
+        int cmdCount = commands.size();
+
+        AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
+        }
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].executeAsync();
+        }
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].maybeTryAdditionalReplicas();
+        }
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].awaitResponses();
+        }
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].maybeRepairAdditionalReplicas();
+        }
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].awaitReadRepair();
+        }
+
+        List<PartitionIterator> results = new ArrayList<>(cmdCount);
+        for (int i=0; i<cmdCount; i++)
+        {
+            SinglePartitionReadCommand command = commands.get(i);
+            results.add(UnfilteredPartitionIterators.filter(reads[i].getResult().makeIterator(command), command.nowInSec()));
+        }
+
+        return PartitionIterators.concat(results);
+    }
+
+    private static PartitionIterator fetchRowsAbd(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+            throws UnavailableException, ReadFailureException, ReadTimeoutException {
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and z_value column
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
@@ -2051,7 +2109,7 @@ public class StorageProxy implements StorageProxyMBean
 
         for (int i=0; i<cmdCount; i++)
         {
-            reads[i].awaitResponses();
+            reads[i].awaitResponsesAbd();
         }
 
         // todo: this is not needed

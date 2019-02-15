@@ -388,6 +388,36 @@ public abstract class AbstractReadExecutor
     {
         try
         {
+            handler.awaitResults();
+        }
+        catch (ReadTimeoutException e)
+        {
+            try
+            {
+                onReadTimeout();
+            }
+            finally
+            {
+                throw e;
+            }
+        }
+
+        // return immediately, or begin a read repair
+        if (digestResolver.responsesMatch())
+        {
+            setResult(digestResolver.getData());
+        }
+        else
+        {
+            Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
+//            readRepair.startRepair(digestResolver, handler.endpoints, getContactedReplicas(), this::setResult);
+        }
+    }
+
+    public void awaitResponsesAbd() throws ReadTimeoutException
+    {
+        try
+        {
             // the awaitResults function is exactly the same as the original
             handler.awaitResults();
         }

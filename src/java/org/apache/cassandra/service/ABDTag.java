@@ -88,6 +88,7 @@ public class ABDTag {
         } catch (IOException e1){
             logger.info("IOException");
         }
+        logger.info(res.toString());
         return res;
     }
 
