@@ -52,11 +52,19 @@ public class DigestResolver extends ResponseResolver
             dataResponse = message.payload;
     }
 
-    public ReadResponse getData()
+    // this is the original method, NoopReadRepair has a call to this method
+    // simply change the method signature to ReadResponse getData() will raise an compiler error
+    public PartitionIterator getData()
+    {
+        assert isDataPresent();
+        return UnfilteredPartitionIterators.filter(dataResponse.makeIterator(command), command.nowInSec());
+    }
+
+    // this is a new method for AbstractReadExecutor, which may want to use ReadResponse more than once
+    public ReadResponse getReadResponse()
     {
         assert isDataPresent();
         return dataResponse;
-//        return UnfilteredPartitionIterators.filter(dataResponse.makeIterator(command), command.nowInSec());
     }
 
     public boolean responsesMatch()
