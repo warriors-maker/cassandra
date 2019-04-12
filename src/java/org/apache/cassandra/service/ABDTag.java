@@ -7,6 +7,9 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.cassandra.utils.FBUtilities;
 
 import org.slf4j.Logger;
@@ -93,6 +96,37 @@ public class ABDTag implements Serializable{
         logger.info(res.toString());
         return res;
     }
+
+    public static HashMap<Integer,Integer> deserializeVector(ByteBuffer buf) {
+        byte[] bytes = new byte[buf.capacity()];
+        buf.get(bytes, 0, bytes.length);
+
+        HashMap<Integer,Integer> res = null;
+        ByteArrayInputStream bis = null;
+        ObjectInputStream ois = null;
+        try {
+            bis = new ByteArrayInputStream(bytes);
+            ois = new ObjectInputStream(bis);
+            res = (HashMap<Integer, Integer>) ois.readObject();
+        } catch (ClassNotFoundException e){
+            logger.info("ClassNotFoundException");
+        } catch (IOException e1){
+            logger.info("IOException");
+        }
+
+        try {
+            if (bis != null)
+                bis.close();
+            if (ois != null)
+                ois.close();
+        } catch (IOException e1){
+            logger.info("IOException");
+        }
+        logger.info(res.toString());
+        return res;
+    }
+
+
 
     public boolean isLarger(ABDTag other){
         if(this.logicalTIme != other.getTime()){

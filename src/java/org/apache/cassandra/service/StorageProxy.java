@@ -35,6 +35,7 @@ import com.google.common.collect.*;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Uninterruptibles;
 
+import java.util.Iterator;
 import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
@@ -45,6 +46,7 @@ import org.apache.cassandra.batchlog.Batch;
 import org.apache.cassandra.batchlog.BatchlogManager;
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
+import org.apache.cassandra.db.causalreader.CausalUtility;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.schema.ColumnMetadata;
@@ -93,6 +95,7 @@ public class StorageProxy implements StorageProxyMBean
     public static final String UNREACHABLE = "UNREACHABLE";
 
     private static final WritePerformer standardWritePerformer;
+    // execute counterMutation
     private static final WritePerformer counterWritePerformer;
     private static final WritePerformer counterWriteOnCoordinatorPerformer;
 
@@ -684,7 +687,7 @@ public class StorageProxy implements StorageProxyMBean
      * @param consistency_level the consistency level for the operation
      * @param queryStartNanoTime the value of System.nanoTime() when the query started to be processed
      */
-    public static void mutate(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
+    public static void mutateWithTag(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
         Tracing.trace("Determining replicas for mutation");
@@ -703,6 +706,8 @@ public class StorageProxy implements StorageProxyMBean
             TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
             int nowInSec = FBUtilities.nowInSeconds();
             DecoratedKey  decoratedKey =  mutation.key();
+
+            System.out.println("The key is" + decoratedKey.toString());
 
             SinglePartitionReadCommand zValueRead = SinglePartitionReadCommand.fullPartitionRead(
                                                         tableMetadata,
@@ -762,6 +767,7 @@ public class StorageProxy implements StorageProxyMBean
                     .add(ABDColomns.TAG,ABDTag.serialize(nextTag));
 
             Mutation zValueMutation = mutationBuilder.build();
+
 
             // merge the tag mutation and the original mutation
             List<Mutation> mutationMergeList = new ArrayList<>();
@@ -845,7 +851,163 @@ public class StorageProxy implements StorageProxyMBean
         }
     }
 
-    public static void mutateWithTag(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
+    public static void mutate (Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
+    throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
+    {
+        Tracing.trace("Determining replicas for mutation");
+        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
+
+        long startTime = System.nanoTime();
+
+        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
+        try
+        {
+            for (IMutation mutation : mutations)
+            {
+                // for each muation we first read the coresponding timestamp
+                SinglePartitionReadCommand localRead = SinglePartitionReadCommand.fullPartitionRead(
+                mutation.getPartitionUpdates().iterator().next().metadata(),
+                FBUtilities.nowInSeconds(),
+                mutation.key()
+                );
+
+                // Indicating whether this data is first time inserted
+                boolean firstTime = true;
+
+                //Build our own mutation including the updated timeStamp
+                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
+                TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+
+                // execute the read request locally to obtain the local vector
+                try (ReadExecutionController executionController = localRead.executionController();
+                     UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
+                {
+                    // first we have to transform it into a PartitionIterator
+                    PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
+                    while(pi.hasNext())
+                    {
+                        // zValueReadResult.next() returns a RowIterator
+                        RowIterator ri = pi.next();
+                        while(ri.hasNext())
+                        {
+                            firstTime = false;
+                            // fetch the current row;
+                            Row r = ri.next();
+                            // Fetch the current_local_timestamp from individual columns
+                            // individual columns represents individual server's writing timeStamp;
+                            for (int id = 0; id < CausalUtility.getNumNodes(); id++)
+                            {
+                                // Read through individual column, which are the time_Vector_Entry
+                                String colName = CausalUtility.getColPrefix() + id;
+                                ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(colName));
+                                Cell c = r.getCell(colMeta);
+                                long timeStamp = FBUtilities.timestampMicros();
+                                int local_vector_entry_time = ByteBufferUtil.toInt(c.value());
+                                // Whenever there is a mutation on current server, update its corresponding timeStamp
+                                if (id == CausalUtility.getWriterID()) {
+                                    local_vector_entry_time++;
+                                }
+                                mutationBuilder.update(tableMetadata)
+                                               .timestamp(timeStamp)
+                                               .row()
+                                               .add(colName, local_vector_entry_time);
+                            }
+                        }
+                    }
+                }
+
+                long timeStamp = FBUtilities.timestampMicros();
+                // Indicate who is the coordinator of this mutation
+                mutationBuilder.update(tableMetadata)
+                               .timestamp(timeStamp)
+                               .row()
+                               .add(CausalUtility.getSenderColName(), CausalUtility.getWriterID());
+
+                // if the value is first time inserted by current Server,
+                if (firstTime) {
+                    System.out.println("FirstTime");
+                    mutationBuilder.update(tableMetadata)
+                                   .timestamp(timeStamp)
+                                   .row()
+                                   .add(CausalUtility.getMyTimeColName(), 1);
+                }
+
+
+                Mutation causalVectorMutation = mutationBuilder.build();
+                // Concat with our current Mutation
+                List<Mutation> mutationMergeList = new ArrayList<>();
+                mutationMergeList.add(causalVectorMutation);
+                mutationMergeList.add((Mutation)mutation);
+                mutation = Mutation.merge(mutationMergeList);
+
+                if (mutation instanceof CounterMutation)
+                {
+                    System.out.println("CounterMutation");
+                    responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
+                }
+                else
+                {
+                    WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+                    responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
+                }
+            }
+
+            // wait for writes.  throws TimeoutException if necessary
+            for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
+            {
+                responseHandler.get();
+            }
+        }
+        catch (WriteTimeoutException|WriteFailureException ex)
+        {
+            if (consistency_level == ConsistencyLevel.ANY)
+            {
+                hintMutations(mutations);
+            }
+            else
+            {
+                if (ex instanceof WriteFailureException)
+                {
+                    writeMetrics.failures.mark();
+                    writeMetricsMap.get(consistency_level).failures.mark();
+                    WriteFailureException fe = (WriteFailureException)ex;
+                    Tracing.trace("Write failure; received {} of {} required replies, failed {} requests",
+                                  fe.received, fe.blockFor, fe.failureReasonByEndpoint.size());
+                }
+                else
+                {
+                    writeMetrics.timeouts.mark();
+                    writeMetricsMap.get(consistency_level).timeouts.mark();
+                    WriteTimeoutException te = (WriteTimeoutException)ex;
+                    Tracing.trace("Write timeout; received {} of {} required replies", te.received, te.blockFor);
+                }
+                throw ex;
+            }
+        }
+        catch (UnavailableException e)
+        {
+            writeMetrics.unavailables.mark();
+            writeMetricsMap.get(consistency_level).unavailables.mark();
+            Tracing.trace("Unavailable");
+            throw e;
+        }
+        catch (OverloadedException e)
+        {
+            writeMetrics.unavailables.mark();
+            writeMetricsMap.get(consistency_level).unavailables.mark();
+            Tracing.trace("Overloaded");
+            throw e;
+        }
+        finally
+        {
+            long latency = System.nanoTime() - startTime;
+            writeMetrics.addNano(latency);
+            writeMetricsMap.get(consistency_level).addNano(latency);
+            updateCoordinatorWriteLatencyTableMetric(mutations, latency);
+        }
+    }
+
+    public static void mutateOrigin(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
         // this function is the same as the original mutate function
@@ -862,10 +1024,17 @@ public class StorageProxy implements StorageProxyMBean
             {
                 if (mutation instanceof CounterMutation)
                 {
+                    logger.debug("CounterMutation");
+                    System.out.println("CounterMutation");
                     responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
                 }
                 else
                 {
+//                    DecoratedKey  decoratedKey =  mutation.key();
+//                    System.out.println("The key is" + decoratedKey.toString());
+
+                    logger.debug("Not CounterMutation");
+//                    System.out.println("Not CounterMutation");
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
                 }
@@ -1323,9 +1492,11 @@ public class StorageProxy implements StorageProxyMBean
                                                                        long queryStartNanoTime)
     throws UnavailableException, OverloadedException
     {
+        // get the replication strategy
         String keyspaceName = mutation.getKeyspaceName();
         AbstractReplicationStrategy rs = Keyspace.open(keyspaceName).getReplicationStrategy();
 
+        // Get replication endPoint IP address
         Token tk = mutation.key().getToken();
         List<InetAddressAndPort> naturalEndpoints = StorageService.instance.getNaturalEndpoints(keyspaceName, tk);
         Collection<InetAddressAndPort> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, keyspaceName);
@@ -1333,8 +1504,10 @@ public class StorageProxy implements StorageProxyMBean
         AbstractWriteResponseHandler<IMutation> responseHandler = rs.getWriteResponseHandler(naturalEndpoints, pendingEndpoints, consistency_level, callback, writeType, queryStartNanoTime);
 
         // exit early if we can't fulfill the CL at this time
+        // check whether we reach the consistency level
         responseHandler.assureSufficientLiveNodes();
 
+        // Apply the write performance
         performer.apply(mutation, Iterables.concat(naturalEndpoints, pendingEndpoints), responseHandler, localDataCenter, consistency_level);
         return responseHandler;
     }
@@ -1469,13 +1642,18 @@ public class StorageProxy implements StorageProxyMBean
             {
                 if (canDoLocalRequest(destination))
                 {
+                    logger.debug("Can add to currentIp");
+                    //System.out.println(destination);
                     insertLocal = true;
                 }
                 else
                 {
                     // belongs on a different server
                     if (message == null)
+                    {
                         message = mutation.createMessage();
+                        // need to add a logical timeStamp here... //message.setLogicalTime()
+                    }
 
                     String dc = DatabaseDescriptor.getEndpointSnitch().getDatacenter(destination);
 
@@ -1529,12 +1707,22 @@ public class StorageProxy implements StorageProxyMBean
             submitHint(mutation, endpointsToHint, responseHandler);
 
         if (insertLocal)
+        {
+            logger.debug("Peform in this datacenter");
+            System.out.println("Peform in this datacenter");
+            // Here can add a queue
             performLocally(stage, Optional.of(mutation), mutation::apply, responseHandler);
+        }
 
         if (localDc != null)
         {
             for (InetAddressAndPort destination : localDc)
+            {
+                logger.debug("Write to replication");
+                System.out.println("Write to replication");
+                // may need to store the responseHandler into the Queue as well
                 MessagingService.instance().sendRR(message, destination, responseHandler, true);
+            }
         }
         if (dcGroups != null)
         {
@@ -2044,6 +2232,8 @@ public class StorageProxy implements StorageProxyMBean
 
             ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.TAG));
             ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.VAL));
+            //ColumnMetadata timeStampMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes("vector"));
+
 
             assert zValueMetadata != null && valueMetadata != null;
 
@@ -2087,12 +2277,14 @@ public class StorageProxy implements StorageProxyMBean
     private static List<ReadResponse> fetchTagValue(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
+        // cmdCount in our always is always one
         int cmdCount = commands.size();
 
         AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
 
         for (int i=0; i<cmdCount; i++)
         {
+            // gets an Executor to perform the read action from the replica (quorum in abd)
             reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
         }
 

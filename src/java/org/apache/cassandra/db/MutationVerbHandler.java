@@ -19,16 +19,17 @@ package org.apache.cassandra.db;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.cassandra.cql3.ColumnIdentifier;
+import org.apache.cassandra.db.causalreader.InQueueObject;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.RowIterator;
-import org.apache.cassandra.db.rows.Unfiltered;
-import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.exceptions.WriteTimeoutException;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
@@ -36,9 +37,44 @@ import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
+import org.apache.cassandra.db.causalreader.HandlerReadThread;
 
 public class MutationVerbHandler implements IVerbHandler<Mutation>
 {
+    // Act like a MessageQueue in our program
+    private BlockingQueue inqueue;
+
+    public MutationVerbHandler() {
+        // The size is Integer.Max by Default;
+        this.inqueue = new LinkedBlockingQueue();
+        HandlerReadThread thread = new HandlerReadThread(inqueue);
+        thread.run();
+    }
+
+
+
+    // Replica handles Mutation from the other nodes
+    public void doVerb(MessageIn<Mutation> message, int id) throws IOException {
+        InetAddressAndPort from = (InetAddressAndPort) message.parameters.get(ParameterType.FORWARD_FROM);
+        InetAddressAndPort replyTo;
+
+        if (from == null)
+        {
+            replyTo = message.from;
+            ForwardToContainer forwardTo = (ForwardToContainer)message.parameters.get(ParameterType.FORWARD_TO);
+            if (forwardTo != null)
+                forwardToLocalNodes(message.payload, message.verb, forwardTo, message.from);
+        }
+        else
+        {
+            replyTo = from;
+        }
+
+        InQueueObject newMutation = new InQueueObject(message, id, replyTo);
+        inqueue.offer(newMutation);
+    }
+
+
     private void reply(int id, InetAddressAndPort replyTo)
     {
         Tracing.trace("Enqueuing response to {}", replyTo);
@@ -50,7 +86,8 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         Tracing.trace("Payload application resulted in WriteTimeout, not replying");
     }
 
-    public void doVerb(MessageIn<Mutation> message, int id)  throws IOException
+
+    public void doVerbAbd(MessageIn<Mutation> message, int id)  throws IOException
     {
         // Check if there were any forwarding headers in this message
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
@@ -64,7 +101,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         }
         else
         {
-
             replyTo = from;
         }
 
@@ -110,6 +146,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             // extract the tag information from the mutation
             int z_value_request = 0;
             String writer_id_request = "";
+
             Row data = message.payload.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
             for (Cell c : data.cells())
             {
@@ -128,6 +165,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             // comparing the tag and the one in mutation, act accordingly
             if (z_value_request > z_value_local || (z_value_request == z_value_local && writer_id_request.compareTo(writer_id_local) > 0))
             {
+                // this payload is the mutation right?
                 message.payload.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
                     failed();
                     return null;

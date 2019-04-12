@@ -58,7 +58,9 @@ public class MapSerializer<K, V> extends CollectionSerializer<Map<K, V>>
     {
         List<Pair<ByteBuffer, ByteBuffer>> pairs = new ArrayList<>(map.size());
         for (Map.Entry<K, V> entry : map.entrySet())
+        {
             pairs.add(Pair.create(keys.serialize(entry.getKey()), values.serialize(entry.getValue())));
+        }
         Collections.sort(pairs, comparator);
         List<ByteBuffer> buffers = new ArrayList<>(pairs.size() * 2);
         for (Pair<ByteBuffer, ByteBuffer> p : pairs)

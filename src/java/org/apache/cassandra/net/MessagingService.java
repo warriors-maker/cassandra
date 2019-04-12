@@ -1044,6 +1044,7 @@ public final class MessagingService implements MessagingServiceMBean
                       AbstractWriteResponseHandler<?> handler,
                       boolean allowHints)
     {
+        System.out.println("Send to" + to);
         int id = addCallback(handler, message, to, message.getTimeout(), handler.consistencyLevel, allowHints);
         updateBackPressureOnSend(to, handler, message);
         sendOneWay(message.withParameter(ParameterType.FAILURE_CALLBACK, ONE_BYTE), id, to);
@@ -1073,7 +1074,10 @@ public final class MessagingService implements MessagingServiceMBean
             logger.trace("{} sending {} to {}@{}", FBUtilities.getBroadcastAddressAndPort(), message.verb, id, to);
 
         if (to.equals(FBUtilities.getBroadcastAddressAndPort()))
+        {
+            System.out.println("Send to Myself");
             logger.trace("Message-to-self {} going over MessagingService", message);
+        }
 
         // message sinks are a testing hook
         for (IMessageSink ms : messageSinks)
