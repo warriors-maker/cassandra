@@ -41,7 +41,7 @@ public class CausalUtility
     // also should be the schema of our table
     private static final String col_prefix = "vcol";
     private static final String myTimeCol = col_prefix + writerID;
-    private static final String senderCol = "SendFrom";
+    private static final String senderCol = "sendfrom";
 
     // Get the col I need to mutate when doing mutation
     public static String getMyTimeColName() {

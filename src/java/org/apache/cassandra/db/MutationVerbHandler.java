@@ -21,6 +21,9 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.causalreader.InQueueObject;
@@ -43,14 +46,15 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 {
     // Act like a MessageQueue in our program
     private BlockingQueue inqueue;
+    private HandlerReadThread thread = null;
+
+    private Lock aLock = new ReentrantLock();
+    private Condition condVar = aLock.newCondition();
 
     public MutationVerbHandler() {
         // The size is Integer.Max by Default;
         this.inqueue = new LinkedBlockingQueue();
-        HandlerReadThread thread = new HandlerReadThread(inqueue);
-        thread.run();
     }
-
 
 
     // Replica handles Mutation from the other nodes
@@ -63,6 +67,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             replyTo = message.from;
             ForwardToContainer forwardTo = (ForwardToContainer)message.parameters.get(ParameterType.FORWARD_TO);
             if (forwardTo != null)
+                System.out.println("Forward to other local nodes!");
                 forwardToLocalNodes(message.payload, message.verb, forwardTo, message.from);
         }
         else
@@ -70,8 +75,16 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             replyTo = from;
         }
 
+        // TODO: Need to Prevent Blocing;
+        // InQueue the new Message into our information queue;
+        if (thread == null) {
+            thread = new HandlerReadThread(inqueue, condVar);
+            thread.run();
+        }
+        
         InQueueObject newMutation = new InQueueObject(message, id, replyTo);
         inqueue.offer(newMutation);
+        condVar.signal();
     }
 
 
@@ -87,7 +100,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
     }
 
 
-    public void doVerbAbd(MessageIn<Mutation> message, int id)  throws IOException
+    public void doVerbABD(MessageIn<Mutation> message, int id)  throws IOException
     {
         // Check if there were any forwarding headers in this message
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);

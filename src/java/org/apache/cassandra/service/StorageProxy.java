@@ -47,6 +47,8 @@ import org.apache.cassandra.batchlog.BatchlogManager;
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.db.causalreader.CausalUtility;
+import org.apache.cassandra.db.marshal.AbstractType;
+import org.apache.cassandra.db.marshal.IntegerType;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.schema.ColumnMetadata;
@@ -707,8 +709,6 @@ public class StorageProxy implements StorageProxyMBean
             int nowInSec = FBUtilities.nowInSeconds();
             DecoratedKey  decoratedKey =  mutation.key();
 
-            System.out.println("The key is" + decoratedKey.toString());
-
             SinglePartitionReadCommand zValueRead = SinglePartitionReadCommand.fullPartitionRead(
                                                         tableMetadata,
                                                         nowInSec,
@@ -872,9 +872,9 @@ public class StorageProxy implements StorageProxyMBean
                 );
 
                 // Indicating whether this data is first time inserted
-                boolean firstTime = true;
+                Integer local_vector_entry_time = null;
 
-                //Build our own mutation including the updated timeStamp
+                //Build our own mutation
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
 
@@ -890,28 +890,21 @@ public class StorageProxy implements StorageProxyMBean
                         RowIterator ri = pi.next();
                         while(ri.hasNext())
                         {
-                            firstTime = false;
                             // fetch the current row;
                             Row r = ri.next();
                             // Fetch the current_local_timestamp from individual columns
                             // individual columns represents individual server's writing timeStamp;
-                            for (int id = 0; id < CausalUtility.getNumNodes(); id++)
-                            {
-                                // Read through individual column, which are the time_Vector_Entry
-                                String colName = CausalUtility.getColPrefix() + id;
-                                ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(colName));
-                                Cell c = r.getCell(colMeta);
-                                long timeStamp = FBUtilities.timestampMicros();
-                                int local_vector_entry_time = ByteBufferUtil.toInt(c.value());
-                                // Whenever there is a mutation on current server, update its corresponding timeStamp
-                                if (id == CausalUtility.getWriterID()) {
-                                    local_vector_entry_time++;
-                                }
-                                mutationBuilder.update(tableMetadata)
-                                               .timestamp(timeStamp)
-                                               .row()
-                                               .add(colName, local_vector_entry_time);
-                            }
+                            String colName = CausalUtility.getColPrefix() + CausalUtility.getWriterID();
+                            ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(colName));
+                            Cell c = r.getCell(colMeta);
+                            long timeStamp = FBUtilities.timestampMicros();
+                            local_vector_entry_time = ByteBufferUtil.toInt(c.value());
+                            // Whenever there is a mutation on current server, update its corresponding timeStamp
+                            local_vector_entry_time++;
+                            mutationBuilder.update(tableMetadata)
+                                           .timestamp(timeStamp)
+                                           .row()
+                                           .add(colName, local_vector_entry_time);
                         }
                     }
                 }
@@ -924,15 +917,15 @@ public class StorageProxy implements StorageProxyMBean
                                .add(CausalUtility.getSenderColName(), CausalUtility.getWriterID());
 
                 // if the value is first time inserted by current Server,
-                if (firstTime) {
-                    System.out.println("FirstTime");
+                // since it will not go through the iterator
+                if (local_vector_entry_time == null) {
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
                                    .add(CausalUtility.getMyTimeColName(), 1);
                 }
 
-
+                // Merge our mutation with the incoming mutation to create a new mutation;
                 Mutation causalVectorMutation = mutationBuilder.build();
                 // Concat with our current Mutation
                 List<Mutation> mutationMergeList = new ArrayList<>();
