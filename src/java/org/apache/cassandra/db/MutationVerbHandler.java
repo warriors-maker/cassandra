@@ -25,6 +25,9 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.causalreader.InQueueObject;
 import org.apache.cassandra.db.partitions.PartitionIterator;
@@ -37,6 +40,7 @@ import org.apache.cassandra.exceptions.WriteTimeoutException;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
 import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -75,15 +79,15 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             replyTo = from;
         }
 
-        // TODO: Need to Prevent Blocing;
+        // TODO: Need to Prevent Blocking;
         // InQueue the new Message into our information queue;
         if (thread == null) {
             thread = new HandlerReadThread(inqueue, condVar);
             thread.run();
         }
-        
-        InQueueObject newMutation = new InQueueObject(message, id, replyTo);
-        inqueue.offer(newMutation);
+
+        InQueueObject newMessage = new InQueueObject(message, id, replyTo);
+        inqueue.offer(newMessage);
         condVar.signal();
     }
 

@@ -905,6 +905,8 @@ public class StorageProxy implements StorageProxyMBean
                                            .timestamp(timeStamp)
                                            .row()
                                            .add(colName, local_vector_entry_time);
+                            logger.debug(CausalUtility.getWriterID() + " " + local_vector_entry_time
+                            );
                         }
                     }
                 }
@@ -1716,7 +1718,10 @@ public class StorageProxy implements StorageProxyMBean
                 // may need to store the responseHandler into the Queue as well
                 MessagingService.instance().sendRR(message, destination, responseHandler, true);
             }
+        } else {
+            System.out.println("No one is connecting to me");
         }
+
         if (dcGroups != null)
         {
             // for each datacenter, send the message to one node to relay the write to other replicas

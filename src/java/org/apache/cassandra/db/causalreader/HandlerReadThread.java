@@ -26,9 +26,13 @@ import java.util.PriorityQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.locks.Condition;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.Clustering;
 import org.apache.cassandra.db.Mutation;
+import org.apache.cassandra.db.MutationVerbHandler;
 import org.apache.cassandra.db.ReadExecutionController;
 import org.apache.cassandra.db.SinglePartitionReadCommand;
 import org.apache.cassandra.db.WriteResponse;
@@ -58,7 +62,7 @@ public class HandlerReadThread implements Runnable
     private List<Integer> serverTimeStamp = null;
     List<Integer> mutationTimeStamp;
     private Condition conv;
-
+    private static final Logger logger = LoggerFactory.getLogger(MutationVerbHandler.class);
 
     public HandlerReadThread(BlockingQueue inqueue, Condition conv) {
         this.conv = conv;
@@ -129,6 +133,10 @@ public class HandlerReadThread implements Runnable
             // need to read ServerTimeStamp here.
             serverTimeStamp = fetchLocalTimeStamp(newMessage.getMessage());
 
+            logger.debug("MutationTimeStamp" + printList(mutationTimeStamp));
+            logger.debug("MutationSenderID" +mutationSenderID);
+            logger.debug("ServerTimeStamp" + printList(serverTimeStamp));
+
             Mutation incomingMutation = newMessage.getMutation();
 
             if (canCommit(serverTimeStamp, mutationTimeStamp, mutationSenderID)) {
@@ -148,13 +156,16 @@ public class HandlerReadThread implements Runnable
         Row mutationRow = incomingMutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(incomingMutation.getKeyspaceName(), incomingMutation.key());
         TableMetadata tableMetadata = incomingMutation.getPartitionUpdates().iterator().next().metadata();
+        int senderID = message.getSenderID();
         for (Cell c : mutationRow.cells())
         {
             String colName = c.column().name.toString();
             // Since the metaData in the mutation may not exist in our table
-            // We only want the value;
-            if (colName.startsWith("vcol")) {
-                continue;
+
+            // We only want the value and the corresponding timeStamp;
+            if (colName.startsWith("vcol"+senderID)) {
+                int value = ByteBufferUtil.toInt(c.value());
+                mutationBuilder.update(tableMetadata).row().add(colName, value);
             }
             // if the value is a integer type
             else if (IntegerType.instance.isValueCompatibleWithInternal(c.column().cellValueType())) {
@@ -174,7 +185,6 @@ public class HandlerReadThread implements Runnable
 
         }
         List<Integer> mutationTimeStamp = message.getMutationTimeStamp();
-        int senderID = message.getSenderID();
         mutationBuilder.update(tableMetadata).row().add(CausalUtility.getColPrefix() + senderID,mutationTimeStamp.get(senderID));
         return mutationBuilder.build();
     }
@@ -255,6 +265,9 @@ public class HandlerReadThread implements Runnable
                 if (canCommit(serverTimeStamp, mutationTimeStamp, mutationSenderID)) {
                     // Need to create our own mutation since we donot want to commit the mutation by others
                     // just need to commit value and increment one corresponding entry by one;
+                    logger.debug("Get From ServerTimeStamp: " + printList(serverTimeStamp));
+                    logger.debug("Get From MutationTimeStamp: " + printList(mutationTimeStamp));
+                    logger.debug("Get from senderId:" + mutationSenderID );
                     Mutation commitMutation = createCommitMutation(message);
                     commit(commitMutation, message.getId(), message.getReplyTo());
                     //After this Mutation we can do a batch
@@ -273,5 +286,13 @@ public class HandlerReadThread implements Runnable
                 e.printStackTrace();
             }
         }
+    }
+
+    private String printList(List<Integer> l) {
+        StringBuilder sb = new StringBuilder();
+        for (int x : l) {
+            sb.append(x + ",");
+        }
+        return sb.toString();
     }
 }
