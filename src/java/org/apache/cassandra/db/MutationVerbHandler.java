@@ -51,6 +51,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
     // Act like a MessageQueue in our program
     private BlockingQueue inqueue;
     private HandlerReadThread thread = null;
+    private static final Logger logger = LoggerFactory.getLogger(MutationVerbHandler.class);
 
     private Lock aLock = new ReentrantLock();
     private Condition condVar = aLock.newCondition();
@@ -63,31 +64,40 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
     // Replica handles Mutation from the other nodes
     public void doVerb(MessageIn<Mutation> message, int id) throws IOException {
+        logger.debug("Doverb1");
         InetAddressAndPort from = (InetAddressAndPort) message.parameters.get(ParameterType.FORWARD_FROM);
         InetAddressAndPort replyTo;
 
         if (from == null)
         {
+            logger.debug("FROM IS NULL");
             replyTo = message.from;
             ForwardToContainer forwardTo = (ForwardToContainer)message.parameters.get(ParameterType.FORWARD_TO);
             if (forwardTo != null)
-                System.out.println("Forward to other local nodes!");
+            {
+                logger.debug("Forward to other local nodes!");
                 forwardToLocalNodes(message.payload, message.verb, forwardTo, message.from);
+            }
         }
         else
         {
             replyTo = from;
         }
 
+        logger.debug("Doverb2");
         // TODO: Need to Prevent Blocking;
         // InQueue the new Message into our information queue;
         if (thread == null) {
+            logger.debug("New Threads");
             thread = new HandlerReadThread(inqueue, condVar);
             thread.run();
         }
 
+        logger.debug("New mutation comes");
         InQueueObject newMessage = new InQueueObject(message, id, replyTo);
         inqueue.offer(newMessage);
+
+        logger.debug("wake up the HandlerThreads");
         condVar.signal();
     }
 
@@ -103,6 +113,35 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         Tracing.trace("Payload application resulted in WriteTimeout, not replying");
     }
 
+    public void doVerbOriginal(MessageIn<Mutation> message, int id)  throws IOException
+    {
+        // Check if there were any forwarding headers in this message
+        InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
+        InetAddressAndPort replyTo;
+        if (from == null)
+        {
+            replyTo = message.from;
+            ForwardToContainer forwardTo = (ForwardToContainer)message.parameters.get(ParameterType.FORWARD_TO);
+            if (forwardTo != null)
+                forwardToLocalNodes(message.payload, message.verb, forwardTo, message.from);
+        }
+        else
+        {
+            replyTo = from;
+        }
+
+        try
+        {
+            logger.debug("Mutation Commits");
+            message.payload.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
+                failed();
+                return null;
+            });
+        }catch (WriteTimeoutException wto)
+            {
+                failed();
+            }
+        }
 
     public void doVerbABD(MessageIn<Mutation> message, int id)  throws IOException
     {
@@ -201,15 +240,19 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
     private static void forwardToLocalNodes(Mutation mutation, MessagingService.Verb verb, ForwardToContainer forwardTo, InetAddressAndPort from) throws IOException
     {
+        logger.debug("Forward Start");
         // tell the recipients who to send their ack to
         MessageOut<Mutation> message = new MessageOut<>(verb, mutation, Mutation.serializer).withParameter(ParameterType.FORWARD_FROM, from);
         Iterator<InetAddressAndPort> iterator = forwardTo.targets.iterator();
         // Send a message to each of the addresses on our Forward List
+        logger.debug("Forward size:" + forwardTo.targets.size()+"");
         for (int i = 0; i < forwardTo.targets.size(); i++)
         {
+            logger.debug("Forward Index" + i);
             InetAddressAndPort address = iterator.next();
             Tracing.trace("Enqueuing forwarded write to {}", address);
             MessagingService.instance().sendOneWay(message, forwardTo.messageIds[i], address);
         }
+        logger.debug("Forward Done");
     }
 }

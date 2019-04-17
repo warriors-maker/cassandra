@@ -855,6 +855,8 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
         Tracing.trace("Determining replicas for mutation");
+        System.out.println("Mutation");
+        logger.debug("Mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();
@@ -894,19 +896,25 @@ public class StorageProxy implements StorageProxyMBean
                             Row r = ri.next();
                             // Fetch the current_local_timestamp from individual columns
                             // individual columns represents individual server's writing timeStamp;
-                            String colName = CausalUtility.getColPrefix() + CausalUtility.getWriterID();
-                            ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(colName));
-                            Cell c = r.getCell(colMeta);
                             long timeStamp = FBUtilities.timestampMicros();
-                            local_vector_entry_time = ByteBufferUtil.toInt(c.value());
-                            // Whenever there is a mutation on current server, update its corresponding timeStamp
-                            local_vector_entry_time++;
-                            mutationBuilder.update(tableMetadata)
-                                           .timestamp(timeStamp)
-                                           .row()
-                                           .add(colName, local_vector_entry_time);
-                            logger.debug(CausalUtility.getWriterID() + " " + local_vector_entry_time
-                            );
+                            for (int id = 0; id < CausalUtility.getNumNodes(); id++) {
+                                String colName = CausalUtility.getColPrefix() + id;
+                                System.out.println(colName);
+                                ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(colName));
+                                Cell c = r.getCell(colMeta);
+                                local_vector_entry_time = ByteBufferUtil.toInt(c.value());
+                                // Whenever there is a mutation on current server, update its corresponding timeStamp
+                                if (id == CausalUtility.getWriterID()) {
+                                    local_vector_entry_time++;
+                                }
+                                mutationBuilder.update(tableMetadata)
+                                               .timestamp(timeStamp)
+                                               .row()
+                                               .add(colName, local_vector_entry_time);
+                                logger.debug(CausalUtility.getWriterID() + " " + local_vector_entry_time);
+                                System.out.println(CausalUtility.getWriterID() + " " + local_vector_entry_time);
+                            }
+
                         }
                     }
                 }
@@ -921,10 +929,22 @@ public class StorageProxy implements StorageProxyMBean
                 // if the value is first time inserted by current Server,
                 // since it will not go through the iterator
                 if (local_vector_entry_time == null) {
-                    mutationBuilder.update(tableMetadata)
-                                   .timestamp(timeStamp)
-                                   .row()
-                                   .add(CausalUtility.getMyTimeColName(), 1);
+                    for (int id = 0; id < CausalUtility.getNumNodes(); id++) {
+                        String colName = CausalUtility.getColPrefix() + id;
+                        if (id != CausalUtility.getWriterID()) {
+                            mutationBuilder.update(tableMetadata)
+                                           .timestamp(timeStamp)
+                                           .row()
+                                           .add(colName, 0);
+                        } else {
+                            mutationBuilder.update(tableMetadata)
+                                           .timestamp(timeStamp)
+                                           .row()
+                                           .add(CausalUtility.getMyTimeColName(), 1);
+                        }
+                        logger.debug(colName + " " + local_vector_entry_time);
+                        System.out.println(colName + " " + local_vector_entry_time);
+                    }
                 }
 
                 // Merge our mutation with the incoming mutation to create a new mutation;
@@ -1617,6 +1637,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         int targetsSize = Iterables.size(targets);
 
+
         // this dc replicas:
         Collection<InetAddressAndPort> localDc = null;
         // extra-datacenter replicas, grouped by dc
@@ -2129,6 +2150,7 @@ public class StorageProxy implements StorageProxyMBean
      * 4. If the digests (if any) match the data return the data
      * 5. else carry out read repair by getting data from all the nodes.
      */
+
     private static PartitionIterator fetchRows(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
             throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
@@ -2143,6 +2165,8 @@ public class StorageProxy implements StorageProxyMBean
         {
             return fetchRowsAbd(commands, consistencyLevel, queryStartNanoTime);
         }
+
+        System.out.println(consistencyLevel.toString());
 
         int cmdCount = commands.size();
 
@@ -2186,6 +2210,41 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         return PartitionIterators.concat(results);
+    }
+
+    private static PartitionIterator fetchRowsCas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    throws UnavailableException, ReadFailureException, ReadTimeoutException {
+
+        List<SinglePartitionReadCommand> valueReadList = new ArrayList<>(commands.size());
+        for (SinglePartitionReadCommand readCommand: commands)
+        {
+            // Command to read out our value;
+            SinglePartitionReadCommand valueRead =
+            SinglePartitionReadCommand.fullPartitionRead(
+            readCommand.metadata(),
+            FBUtilities.nowInSeconds(),
+            readCommand.partitionKey()
+            );
+            valueReadList.add(valueRead);
+        }
+
+        List<ReadResponse> tagValueResult = fetchTagValue(valueReadList, consistencyLevel, System.nanoTime());
+        List<PartitionIterator> piList = new ArrayList<>();
+        int idx = 0;
+        for(ReadResponse rr : tagValueResult){
+            SinglePartitionReadCommand command = commands.get(idx);
+            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command), command.nowInSec()));
+            idx++;
+        }
+
+        piList.clear();
+        idx = 0;
+        for(ReadResponse rr : tagValueResult){
+            SinglePartitionReadCommand command = commands.get(idx);
+            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command), command.nowInSec()));
+            idx++;
+        }
+        return PartitionIterators.concat(piList);
     }
 
     private static PartitionIterator fetchRowsAbd(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)

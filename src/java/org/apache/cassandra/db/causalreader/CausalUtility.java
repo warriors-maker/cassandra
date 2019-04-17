@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
 public class CausalUtility
 {
     // Tunable Parameter
-    private static final int writerID = 0;
+    private static final int writerID = 1;
     private static final int num_nodes = 3;
 
 
