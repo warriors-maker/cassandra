@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,14 +59,16 @@ public class HandlerReadThread implements Runnable
 {
     private BlockingQueue inqueue;
     private PriorityQueue<InQueueObject> pq;
-    int mutationSenderID;
+    Integer mutationSenderID;
     private List<Integer> serverTimeStamp = null;
     List<Integer> mutationTimeStamp;
     private Condition conv;
     private static final Logger logger = LoggerFactory.getLogger(HandlerReadThread.class);
+    private Lock lock;
 
-    public HandlerReadThread(BlockingQueue inqueue, Condition conv) {
+    public HandlerReadThread(BlockingQueue inqueue, Condition conv, Lock lock) {
         this.conv = conv;
+        this.lock = lock;
         Comparator<InQueueObject> comparator= new Comparator<InQueueObject>() {
             @Override
             public int compare(InQueueObject o1, InQueueObject o2) {
@@ -89,16 +92,21 @@ public class HandlerReadThread implements Runnable
 
     // Check whether we can directly commit this mutation
     private boolean canCommit(List<Integer> serverTimeStamp, List<Integer> mutationTimeStamp, int senderID) {
+        logger.debug("Check if we can Commit");
+        logger.warn("ServerTimeStamp" + printList(serverTimeStamp));
+        logger.warn("MutationTimeStamp" + printList(mutationTimeStamp));
         if (serverTimeStamp.size() == 0) {
             return true;
         }
         for (int i = 0; i < serverTimeStamp.size(); i++) {
             if (i == senderID) {
                 if (mutationTimeStamp.get(i) != serverTimeStamp.get(i) + 1) {
+                    logger.warn("Sender fields fail");
                     return false;
                 }
             } else {
                 if (mutationTimeStamp.get(i) > serverTimeStamp.get(i)) {
+                    logger.warn("Other fails");
                     return false;
                 }
             }
@@ -118,6 +126,7 @@ public class HandlerReadThread implements Runnable
     }
 
     private void commit(Mutation commitMutation, int id, InetAddressAndPort replyTo) {
+        logger.warn("Commit successfully");
         commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
             failed();
             return null;
@@ -126,6 +135,7 @@ public class HandlerReadThread implements Runnable
 
     //Commit the leftover Object inside the Queue
     private void batchCommit() {
+        logger.warn("Doing batch commit");
         while (!pq.isEmpty()) {
 
             InQueueObject newMessage = (InQueueObject) inqueue.poll();
@@ -136,11 +146,10 @@ public class HandlerReadThread implements Runnable
             // need to read ServerTimeStamp here.
             serverTimeStamp = fetchLocalTimeStamp(newMessage.getMessage());
 
-            logger.debug("MutationTimeStamp" + printList(mutationTimeStamp));
-            logger.debug("MutationSenderID" +mutationSenderID);
-            logger.debug("ServerTimeStamp" + printList(serverTimeStamp));
+            logger.warn("MutationTimeStamp" + printList(mutationTimeStamp));
+            logger.warn("MutationSenderID" +mutationSenderID);
+            logger.warn("ServerTimeStamp" + printList(serverTimeStamp));
 
-            Mutation incomingMutation = newMessage.getMutation();
 
             if (canCommit(serverTimeStamp, mutationTimeStamp, mutationSenderID)) {
                 //Build our own Mutation
@@ -148,6 +157,7 @@ public class HandlerReadThread implements Runnable
                 commit(commitMutation, newMessage.getId(), newMessage.getReplyTo());
             }
             else {
+                logger.warn("End batch.");
                 return;
             }
         }
@@ -155,12 +165,11 @@ public class HandlerReadThread implements Runnable
 
     // TODO: Need to carefully check this part
     private Mutation createCommitMutation(InQueueObject message) {
-        logger.debug("Create Our Mutation");
+        logger.warn("Create Our Mutation");
         Mutation incomingMutation = message.getMutation();
         Row mutationRow = incomingMutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(incomingMutation.getKeyspaceName(), incomingMutation.key());
 
-        logger.debug("The key is " + incomingMutation.key());
 
         TableMetadata tableMetadata = incomingMutation.getPartitionUpdates().iterator().next().metadata();
         int senderID = message.getSenderID();
@@ -172,15 +181,17 @@ public class HandlerReadThread implements Runnable
             // We only want the value and the corresponding timeStamp;
             if (colName.startsWith("vcol"+senderID)) {
                 int value = ByteBufferUtil.toInt(c.value());
-                logger.debug("The corresponding time col and value is " + "vcol"+ senderID + " : " + value);
+                logger.warn("The corresponding time col and time value is "+ senderID + " : " + value);
                 mutationBuilder.update(tableMetadata).row().add(colName, value);
             } else if (colName.startsWith("vcol")) {
-                continue;
+                if (c == null || c.value() == null) {
+                    mutationBuilder.update(tableMetadata).row().add(colName, 0);
+                }
             }
             // if the value is a integer type
             else if (IntegerType.instance.isValueCompatibleWithInternal(c.column().cellValueType())) {
                 int value = ByteBufferUtil.toInt(c.value());
-                logger.debug("The new value is " + value);
+                logger.warn("The new value is " + value);
                 mutationBuilder.update(tableMetadata).row().add(colName, value);
             }
             // if it is a string type
@@ -232,11 +243,11 @@ public class HandlerReadThread implements Runnable
                         {
                             // Read through individual column, which are the time_Vector_Entry
                             String colName = CausalUtility.getColPrefix() + server_id;
-
                             // reading the current Server TimeStamp;
                             ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(colName));
                             Cell c = localRow.getCell(colMeta);
                             int local_vector_col_time = ByteBufferUtil.toInt(c.value());
+                            logger.debug("Get my LocalTime" + colName + " " + ByteBufferUtil.toInt(c.value()));
                             // Whenever there is a mutation on current server, update its corresponding timeStamp
                             localTimeStamp.add(local_vector_col_time);
                         }
@@ -261,58 +272,70 @@ public class HandlerReadThread implements Runnable
 
         while (true) {
             logger.debug("Inside thread now");
-            logger.debug("Inqueue size is" + inqueue.size());
             while (!inqueue.isEmpty()) {
 
                 InQueueObject message = (InQueueObject) inqueue.poll();
 
                 message.initOtherFields();
 
-                //Get the current mutationTimeStamp
-                mutationTimeStamp = message.getMutationTimeStamp();
-
                 // Get the mutation Sender id
+                logger.warn("print SenderId");
                 mutationSenderID = message.getSenderID();
+                logger.warn("Get from senderId:" + mutationSenderID );
+
+                //Get the current mutationTimeStamp
+                logger.warn("print mutationTime");
+                mutationTimeStamp = message.getMutationTimeStamp();
+                logger.warn("Get From ServerTimeStamp: " + printList(mutationTimeStamp));
 
                 // need to read ServerTimeStamp here.
-                serverTimeStamp = fetchLocalTimeStamp(message.getMessage());
 
-                logger.debug("Get From ServerTimeStamp: " + printList(serverTimeStamp));
-                logger.debug("Get From MutationTimeStamp: " + printList(mutationTimeStamp));
-                logger.debug("Get from senderId:" + mutationSenderID );
+                logger.warn("print LocalTime");
+                serverTimeStamp = fetchLocalTimeStamp(message.getMessage());
+                logger.warn("Get From localTime: " + printList(serverTimeStamp));
+
 
                 if (canCommit(serverTimeStamp, mutationTimeStamp, mutationSenderID)) {
                     // Need to create our own mutation since we donot want to commit the mutation by others
                     // just need to commit value and increment one corresponding entry by one;
-                    logger.debug("Get From ServerTimeStamp: " + printList(serverTimeStamp));
-                    logger.debug("Get From MutationTimeStamp: " + printList(mutationTimeStamp));
-                    logger.debug("Get from senderId:" + mutationSenderID );
+                    logger.warn("Can Commit");
                     Mutation commitMutation = createCommitMutation(message);
                     commit(commitMutation, message.getId(), message.getReplyTo());
                     //After this Mutation we can do a batch
                     batchCommit();
 
                 } else {
+                    logger.warn("Cannot Commit");
                     //offer the message into the priorityQueue
                     // Donot need to do anything since in this case there will not going to be any valid mutation
                     pq.offer(message);
                 }
             }
-            try
-            {
-                logger.debug("Wating");
+            try{
                 Thread.sleep(5000);
-                logger.debug("Being woken upF");
-            } catch (InterruptedException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
+
+//            synchronized (lock) {
+//                try
+//                {
+//                    logger.warn("Start to wait");
+//                    conv.wait();
+//                    logger.warn("Being awoken by main thread");
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+//            }
         }
     }
 
     private String printList(List<Integer> l) {
+        logger.debug("Printing list");
         StringBuilder sb = new StringBuilder();
-        for (int x : l) {
-            sb.append(x + ",");
+        for (int i = 0; i < l.size(); i++) {
+            logger.debug(l.get(i) + "");
+            sb.append(l.get(i));
         }
         return sb.toString();
     }

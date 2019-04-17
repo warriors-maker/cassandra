@@ -89,7 +89,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         // InQueue the new Message into our information queue;
         if (thread == null) {
             logger.debug("New Threads");
-            thread = new HandlerReadThread(inqueue, condVar);
+            thread = new HandlerReadThread(inqueue, condVar, aLock);
             thread.run();
         }
 
@@ -97,8 +97,11 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         InQueueObject newMessage = new InQueueObject(message, id, replyTo);
         inqueue.offer(newMessage);
 
-        logger.debug("wake up the HandlerThreads");
-        condVar.signal();
+
+//        synchronized (aLock) {
+//            condVar.signal();
+//        }
+
     }
 
 

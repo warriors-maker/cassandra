@@ -899,7 +899,6 @@ public class StorageProxy implements StorageProxyMBean
                             long timeStamp = FBUtilities.timestampMicros();
                             for (int id = 0; id < CausalUtility.getNumNodes(); id++) {
                                 String colName = CausalUtility.getColPrefix() + id;
-                                System.out.println(colName);
                                 ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(colName));
                                 Cell c = r.getCell(colMeta);
                                 local_vector_entry_time = ByteBufferUtil.toInt(c.value());
@@ -911,8 +910,7 @@ public class StorageProxy implements StorageProxyMBean
                                                .timestamp(timeStamp)
                                                .row()
                                                .add(colName, local_vector_entry_time);
-                                logger.debug(CausalUtility.getWriterID() + " " + local_vector_entry_time);
-                                System.out.println(CausalUtility.getWriterID() + " " + local_vector_entry_time);
+                                logger.debug("Sender :" + colName + " " +ByteBufferUtil.toInt(c.value()));
                             }
 
                         }
@@ -932,18 +930,21 @@ public class StorageProxy implements StorageProxyMBean
                     for (int id = 0; id < CausalUtility.getNumNodes(); id++) {
                         String colName = CausalUtility.getColPrefix() + id;
                         if (id != CausalUtility.getWriterID()) {
+                            System.out.println(colName + "0");
+                            logger.debug(colName + " " + 0);
                             mutationBuilder.update(tableMetadata)
                                            .timestamp(timeStamp)
                                            .row()
                                            .add(colName, 0);
                         } else {
+                            logger.debug(colName + " " + 1);
+                            System.out.println(colName + " " + 1);
                             mutationBuilder.update(tableMetadata)
                                            .timestamp(timeStamp)
                                            .row()
                                            .add(CausalUtility.getMyTimeColName(), 1);
                         }
-                        logger.debug(colName + " " + local_vector_entry_time);
-                        System.out.println(colName + " " + local_vector_entry_time);
+
                     }
                 }
 

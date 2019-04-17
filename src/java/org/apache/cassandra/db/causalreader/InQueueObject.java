@@ -22,9 +22,13 @@ package org.apache.cassandra.db.causalreader;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.Clustering;
 import org.apache.cassandra.db.Mutation;
+import org.apache.cassandra.db.MutationVerbHandler;
 import org.apache.cassandra.db.ReadExecutionController;
 import org.apache.cassandra.db.SinglePartitionReadCommand;
 import org.apache.cassandra.db.WriteResponse;
@@ -48,9 +52,8 @@ public class InQueueObject
     private int id;
     private InetAddressAndPort replyTo;
     private MessageIn<Mutation> message;
-
+    private static final Logger logger = LoggerFactory.getLogger(InQueueObject.class);
     private Mutation mutation;
-    private List<Integer> localTimeStamp;
     private List<Integer> mutationTimeStamp;
     private int senderID;
 
@@ -59,15 +62,13 @@ public class InQueueObject
         this.message = message;
         this.id = id;
         this.replyTo = replyTo;
+        this.mutation = message.payload;
+        this.mutationTimeStamp = new ArrayList<>();
 
     }
 
     public Mutation getMutation() {
         return this.mutation;
-    }
-
-    public List<Integer> getLocalTimeStamp() {
-        return this.localTimeStamp;
     }
 
     public List<Integer> getMutationTimeStamp() {
@@ -87,47 +88,35 @@ public class InQueueObject
         return this.replyTo;
     }
 
-    private void setLocalTimeStamp(List<Integer> localTimeStamp) {
-        this.localTimeStamp = localTimeStamp;
-    }
-
-    private void setMutationTimeStamp(List<Integer> mutationTimeStamp) {
-        this.mutationTimeStamp = mutationTimeStamp;
-    }
 
     public MessageIn<Mutation> getMessage()
     {
         return message;
     }
 
-    private void failed()
-    {
-        Tracing.trace("Payload application resulted in WriteTimeout, not replying");
-    }
 
     // Fetch desired value from the mutation
     // SenderID is stored in one of the column
     // Get the individual col timeStamp and put them into a list like a vector
     public void initOtherFields() {
-        List<Integer> mutation_timeStamp = new ArrayList<>();
         Row mutationRow = message.payload.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
-
-        int id = 0;
+        logger.warn("Initiate serverTimestamp");
         // TODO: Need to check whether it is in the order we define the schema
         for (Cell c : mutationRow.cells()) {
-            System.out.println(c.column().name.toString());
             // fetch the individual timeEntry
-            if(c.column().name.equals(new ColumnIdentifier(CausalUtility.getColPrefix() + id, true))) {
-                if (id != CausalUtility.getNumNodes()) {
-                    mutation_timeStamp.add(ByteBufferUtil.toInt(c.value()));
-                    id ++;
-                }
+//            logger.debug("Column name is: " + c.column().name.toString());
+            String colName = c.column().name.toString();
+            if (colName.startsWith(CausalUtility.getColPrefix())) {
+                logger.warn(c.column().name.toString() + ByteBufferUtil.toInt(c.value()));
+                this.mutationTimeStamp.add(ByteBufferUtil.toInt(c.value()));
             }
             // fetch the SenderCol Name
             else if (c.column().name.equals(new ColumnIdentifier(CausalUtility.getSenderColName(), true))) {
+//                logger.warn("The sender is " + ByteBufferUtil.toInt(c.value()));
                 this.senderID = ByteBufferUtil.toInt(c.value());
             }
         }
+        logger.debug("Finish Initiate");
     }
 
 }
