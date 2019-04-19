@@ -855,8 +855,7 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
         Tracing.trace("Determining replicas for mutation");
-        System.out.println("Mutation");
-        logger.debug("Mutation");
+//        logger.debug("Mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();
@@ -884,8 +883,11 @@ public class StorageProxy implements StorageProxyMBean
                 try (ReadExecutionController executionController = localRead.executionController();
                      UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
                 {
+
                     // first we have to transform it into a PartitionIterator
                     PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
+
+                    // if the db does not have the data, it will not go through this while loop
                     while(pi.hasNext())
                     {
                         // zValueReadResult.next() returns a RowIterator
@@ -897,12 +899,13 @@ public class StorageProxy implements StorageProxyMBean
                             // Fetch the current_local_timestamp from individual columns
                             // individual columns represents individual server's writing timeStamp;
                             long timeStamp = FBUtilities.timestampMicros();
+
                             for (int id = 0; id < CausalUtility.getNumNodes(); id++) {
                                 String colName = CausalUtility.getColPrefix() + id;
                                 ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(colName));
                                 Cell c = r.getCell(colMeta);
                                 local_vector_entry_time = ByteBufferUtil.toInt(c.value());
-                                // Whenever there is a mutation on current server, update its corresponding timeStamp
+                                // Whenever there is a mutation on current server, increments its corresponding timeStamp
                                 if (id == CausalUtility.getWriterID()) {
                                     local_vector_entry_time++;
                                 }
@@ -910,7 +913,7 @@ public class StorageProxy implements StorageProxyMBean
                                                .timestamp(timeStamp)
                                                .row()
                                                .add(colName, local_vector_entry_time);
-                                logger.debug("Sender :" + colName + " " +ByteBufferUtil.toInt(c.value()));
+//                                logger.debug("Sender :" + colName + " " +ByteBufferUtil.toInt(c.value()));
                             }
 
                         }
@@ -918,27 +921,26 @@ public class StorageProxy implements StorageProxyMBean
                 }
 
                 long timeStamp = FBUtilities.timestampMicros();
-                // Indicate who is the coordinator of this mutation
+                // Indicate who is the sender of this mutation
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
                                .add(CausalUtility.getSenderColName(), CausalUtility.getWriterID());
 
                 // if the value is first time inserted by current Server,
-                // since it will not go through the iterator
                 if (local_vector_entry_time == null) {
                     for (int id = 0; id < CausalUtility.getNumNodes(); id++) {
                         String colName = CausalUtility.getColPrefix() + id;
                         if (id != CausalUtility.getWriterID()) {
-                            System.out.println(colName + "0");
-                            logger.debug(colName + " " + 0);
+//                            System.out.println(colName + "0");
+//                            logger.debug(colName + " " + 0);
                             mutationBuilder.update(tableMetadata)
                                            .timestamp(timeStamp)
                                            .row()
                                            .add(colName, 0);
                         } else {
-                            logger.debug(colName + " " + 1);
-                            System.out.println(colName + " " + 1);
+//                            logger.debug(colName + " " + 1);
+//                            System.out.println(colName + " " + 1);
                             mutationBuilder.update(tableMetadata)
                                            .timestamp(timeStamp)
                                            .row()
@@ -958,13 +960,12 @@ public class StorageProxy implements StorageProxyMBean
 
                 if (mutation instanceof CounterMutation)
                 {
-                    System.out.println("CounterMutation");
-                    responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
+                    responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, System.nanoTime()));
                 }
                 else
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
-                    responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
+                    responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
                 }
             }
 

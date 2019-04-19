@@ -53,12 +53,14 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
     private HandlerReadThread thread = null;
     private static final Logger logger = LoggerFactory.getLogger(MutationVerbHandler.class);
 
-    private Lock aLock = new ReentrantLock();
-    private Condition condVar = aLock.newCondition();
+//    private Lock aLock = new ReentrantLock();
+//    private Condition condVar = aLock.newCondition();
 
     public MutationVerbHandler() {
         // The size is Integer.Max by Default;
         this.inqueue = new LinkedBlockingQueue();
+        thread = new HandlerReadThread(inqueue);
+        thread.run();
     }
 
 
@@ -70,12 +72,12 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         if (from == null)
         {
-            logger.debug("FROM IS NULL");
+//            logger.debug("FROM IS NULL");
             replyTo = message.from;
             ForwardToContainer forwardTo = (ForwardToContainer)message.parameters.get(ParameterType.FORWARD_TO);
             if (forwardTo != null)
             {
-                logger.debug("Forward to other local nodes!");
+//                logger.debug("Forward to other local nodes!");
                 forwardToLocalNodes(message.payload, message.verb, forwardTo, message.from);
             }
         }
@@ -84,15 +86,10 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             replyTo = from;
         }
 
-        logger.debug("Doverb2");
-        // TODO: Need to Prevent Blocking;
+//        logger.debug("Doverb2");
         // InQueue the new Message into our information queue;
-        if (thread == null) {
-            logger.debug("New Threads");
-            thread = new HandlerReadThread(inqueue, condVar, aLock);
-            thread.run();
-        }
-
+        // Enqueue our newMessage containing the mutation into the blocking Queue
+        // Blocking Queue act as a channel to send to our HandlerReadThread
         logger.debug("New mutation comes");
         InQueueObject newMessage = new InQueueObject(message, id, replyTo);
         inqueue.offer(newMessage);

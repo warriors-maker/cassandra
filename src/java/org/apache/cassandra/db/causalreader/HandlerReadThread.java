@@ -24,16 +24,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.Clustering;
 import org.apache.cassandra.db.Mutation;
-import org.apache.cassandra.db.MutationVerbHandler;
 import org.apache.cassandra.db.ReadExecutionController;
 import org.apache.cassandra.db.SinglePartitionReadCommand;
 import org.apache.cassandra.db.WriteResponse;
@@ -62,13 +58,13 @@ public class HandlerReadThread implements Runnable
     Integer mutationSenderID;
     private List<Integer> serverTimeStamp = null;
     List<Integer> mutationTimeStamp;
-    private Condition conv;
     private static final Logger logger = LoggerFactory.getLogger(HandlerReadThread.class);
-    private Lock lock;
+//    private Condition conv;
+//    private Lock lock;
 
-    public HandlerReadThread(BlockingQueue inqueue, Condition conv, Lock lock) {
-        this.conv = conv;
-        this.lock = lock;
+    public HandlerReadThread(BlockingQueue inqueue) {
+//        this.conv = conv;
+//        this.lock = lock;
         Comparator<InQueueObject> comparator= new Comparator<InQueueObject>() {
             @Override
             public int compare(InQueueObject o1, InQueueObject o2) {
@@ -95,6 +91,7 @@ public class HandlerReadThread implements Runnable
         logger.debug("Check if we can Commit");
         logger.warn("ServerTimeStamp" + printList(serverTimeStamp));
         logger.warn("MutationTimeStamp" + printList(mutationTimeStamp));
+        // May not need this
         if (serverTimeStamp.size() == 0) {
             return true;
         }
@@ -137,7 +134,7 @@ public class HandlerReadThread implements Runnable
     private void batchCommit() {
         logger.warn("Doing batch commit");
         while (!pq.isEmpty()) {
-
+            logger.warn("Not Empty");
             InQueueObject newMessage = (InQueueObject) inqueue.poll();
 
             mutationTimeStamp = newMessage.getMutationTimeStamp();
@@ -153,7 +150,7 @@ public class HandlerReadThread implements Runnable
 
             if (canCommit(serverTimeStamp, mutationTimeStamp, mutationSenderID)) {
                 //Build our own Mutation
-                Mutation commitMutation = createCommitMutation(newMessage);
+                Mutation commitMutation = createCommitMutation(newMessage,serverTimeStamp);
                 commit(commitMutation, newMessage.getId(), newMessage.getReplyTo());
             }
             else {
@@ -164,8 +161,9 @@ public class HandlerReadThread implements Runnable
     }
 
     // TODO: Need to carefully check this part
-    private Mutation createCommitMutation(InQueueObject message) {
+    private Mutation createCommitMutation(InQueueObject message, List<Integer> localTimeStamp) {
         logger.warn("Create Our Mutation");
+        logger.warn("LocalTimeStamp is: " + printList(localTimeStamp));
         Mutation incomingMutation = message.getMutation();
         Row mutationRow = incomingMutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(incomingMutation.getKeyspaceName(), incomingMutation.key());
@@ -177,16 +175,18 @@ public class HandlerReadThread implements Runnable
         {
             String colName = c.column().name.toString();
             // Since the metaData in the mutation may not exist in our table
-
+            logger.debug(colName);
             // We only want the value and the corresponding timeStamp;
             if (colName.startsWith("vcol"+senderID)) {
                 int value = ByteBufferUtil.toInt(c.value());
                 logger.warn("The corresponding time col and time value is "+ senderID + " : " + value);
                 mutationBuilder.update(tableMetadata).row().add(colName, value);
             } else if (colName.startsWith("vcol")) {
-                if (c == null || c.value() == null) {
-                    mutationBuilder.update(tableMetadata).row().add(colName, 0);
-                }
+                int index = Integer.parseInt(colName.substring(4));
+                logger.debug("Our index is" + index +
+                             " MyLocal value is " + localTimeStamp.get(index) +
+                             " MutationLocal is " + ByteBufferUtil.toInt(c.value()));
+                mutationBuilder.update(tableMetadata).row().add(colName,localTimeStamp.get(index));
             }
             // if the value is a integer type
             else if (IntegerType.instance.isValueCompatibleWithInternal(c.column().cellValueType())) {
@@ -224,7 +224,7 @@ public class HandlerReadThread implements Runnable
             );
 
             List<Integer> localTimeStamp = new ArrayList<>();
-            //Extract tag information from the local read into a Vector (List) timeStamp
+            //Extract timestamp information from the local read into a Vector (List) timeStamp
             try (ReadExecutionController executionController = localRead.executionController();
                  UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
             {
@@ -237,7 +237,6 @@ public class HandlerReadThread implements Runnable
                     {
                         Row localRow = ri.next();
 
-                        //Fetch the server timeStamp
                         //Fetch the mutation TimeStamp
                         for (int server_id = 0; server_id < CausalUtility.getNumNodes(); server_id++)
                         {
@@ -253,9 +252,13 @@ public class HandlerReadThread implements Runnable
                         }
                     }
                 }
-                // Since in our case we only need to consider one Row
+                // Since in our case we only need to consider one Row;
+                // When size ==0 means that we donot have this timestamp;
                 if (localTimeStamp.size() == 0) {
-                    logger.debug("LocalTimeStamp is 0");
+                    for (int i = 0; i < CausalUtility.getNumNodes(); i++) {
+                        localTimeStamp.add(0);
+                        logger.debug("NoLocalData so time is" + 0 );
+                    }
                 }
                 return localTimeStamp;
             }
@@ -272,66 +275,51 @@ public class HandlerReadThread implements Runnable
 
         while (true) {
             logger.debug("Inside thread now");
-            while (!inqueue.isEmpty()) {
 
-                InQueueObject message = (InQueueObject) inqueue.poll();
+            try {
+                logger.warn("Wait here since queue is Empty");
+                InQueueObject message = (InQueueObject) inqueue.take();
+                logger.warn("Queue is not Empty now");
 
                 message.initOtherFields();
 
                 // Get the mutation Sender id
-                logger.warn("print SenderId");
+//                logger.warn("print SenderId");
                 mutationSenderID = message.getSenderID();
                 logger.warn("Get from senderId:" + mutationSenderID );
 
                 //Get the current mutationTimeStamp
-                logger.warn("print mutationTime");
+//                logger.warn("print mutationTime");
                 mutationTimeStamp = message.getMutationTimeStamp();
                 logger.warn("Get From ServerTimeStamp: " + printList(mutationTimeStamp));
 
                 // need to read ServerTimeStamp here.
-
-                logger.warn("print LocalTime");
+//                logger.warn("print LocalTime");
                 serverTimeStamp = fetchLocalTimeStamp(message.getMessage());
                 logger.warn("Get From localTime: " + printList(serverTimeStamp));
-
 
                 if (canCommit(serverTimeStamp, mutationTimeStamp, mutationSenderID)) {
                     // Need to create our own mutation since we donot want to commit the mutation by others
                     // just need to commit value and increment one corresponding entry by one;
                     logger.warn("Can Commit");
-                    Mutation commitMutation = createCommitMutation(message);
+                    Mutation commitMutation = createCommitMutation(message, serverTimeStamp);
                     commit(commitMutation, message.getId(), message.getReplyTo());
                     //After this Mutation we can do a batch
                     batchCommit();
-
-                } else {
-                    logger.warn("Cannot Commit");
-                    //offer the message into the priorityQueue
-                    // Donot need to do anything since in this case there will not going to be any valid mutation
-                    pq.offer(message);
-                }
-            }
-            try{
-                Thread.sleep(5000);
-            } catch (Exception e) {
+                    } else {
+                        logger.warn("Cannot Commit");
+                        //offer the message into the priorityQueue
+                        // Donot need to do anything since in this case there will not going to be any valid mutation
+                        pq.offer(message);
+                    }
+                } catch (Exception e) {
                 e.printStackTrace();
             }
 
-//            synchronized (lock) {
-//                try
-//                {
-//                    logger.warn("Start to wait");
-//                    conv.wait();
-//                    logger.warn("Being awoken by main thread");
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
-//            }
         }
     }
 
     private String printList(List<Integer> l) {
-        logger.debug("Printing list");
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < l.size(); i++) {
             logger.debug(l.get(i) + "");
