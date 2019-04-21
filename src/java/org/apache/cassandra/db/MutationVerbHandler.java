@@ -18,6 +18,7 @@
 package org.apache.cassandra.db;
 
 import java.io.IOException;
+import java.nio.charset.CharacterCodingException;
 import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -29,7 +30,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.cql3.ColumnIdentifier;
+import org.apache.cassandra.db.causalreader.CausalUtility;
 import org.apache.cassandra.db.causalreader.InQueueObject;
+import org.apache.cassandra.db.marshal.IntegerType;
+import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
@@ -59,14 +63,12 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
     public MutationVerbHandler() {
         // The size is Integer.Max by Default;
         this.inqueue = new LinkedBlockingQueue();
-        thread = new HandlerReadThread(inqueue);
-        thread.run();
     }
 
 
     // Replica handles Mutation from the other nodes
     public void doVerb(MessageIn<Mutation> message, int id) throws IOException {
-        logger.debug("Doverb1");
+//        logger.debug("Doverb1");
         InetAddressAndPort from = (InetAddressAndPort) message.parameters.get(ParameterType.FORWARD_FROM);
         InetAddressAndPort replyTo;
 
@@ -87,18 +89,57 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         }
 
 //        logger.debug("Doverb2");
+
+
         // InQueue the new Message into our information queue;
         // Enqueue our newMessage containing the mutation into the blocking Queue
         // Blocking Queue act as a channel to send to our HandlerReadThread
-        logger.debug("New mutation comes");
-        InQueueObject newMessage = new InQueueObject(message, id, replyTo);
+//        logger.debug("New mutation comes");
+//        printMutation(message.payload);
+
+//        printMutation(message.payload);
+        logger.debug("Receive Mutation");
+        printMutation(message.payload);
+        InQueueObject newMessage = new InQueueObject(message, id, replyTo, System.nanoTime());
         inqueue.offer(newMessage);
 
+        if (thread == null) {
+            logger.debug("Create Thread");
+            thread = new HandlerReadThread(inqueue);
+            thread.run();
+        }
+    }
 
-//        synchronized (aLock) {
-//            condVar.signal();
-//        }
+    private void printMutation(Mutation mutation) {
+        Row mutationRow = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+        logger.warn("Printing the individual column of income message");
+        for (Cell c : mutationRow.cells()) {
+            String colName = c.column().name.toString();
+            logger.debug(colName);
 
+           if (IntegerType.instance.isValueCompatibleWithInternal(c.column().cellValueType()))
+            {
+                int value = ByteBufferUtil.toInt(c.value());
+                logger.warn("The value is " + value);
+
+            }
+            // if it is a string type
+            else if (UTF8Type.instance.isValueCompatibleWith(c.column().cellValueType()))
+            {
+                String value = "";
+                try
+                {
+                    value = ByteBufferUtil.string(c.value());
+                    logger.warn("The value is" + value);
+                }
+                catch (CharacterCodingException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+
+        }
+        logger.debug("Finish Initiate");
     }
 
 
@@ -240,19 +281,19 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
     private static void forwardToLocalNodes(Mutation mutation, MessagingService.Verb verb, ForwardToContainer forwardTo, InetAddressAndPort from) throws IOException
     {
-        logger.debug("Forward Start");
+//        logger.debug("Forward Start");
         // tell the recipients who to send their ack to
         MessageOut<Mutation> message = new MessageOut<>(verb, mutation, Mutation.serializer).withParameter(ParameterType.FORWARD_FROM, from);
         Iterator<InetAddressAndPort> iterator = forwardTo.targets.iterator();
         // Send a message to each of the addresses on our Forward List
-        logger.debug("Forward size:" + forwardTo.targets.size()+"");
+//        logger.debug("Forward size:" + forwardTo.targets.size()+"");
         for (int i = 0; i < forwardTo.targets.size(); i++)
         {
-            logger.debug("Forward Index" + i);
+//            logger.debug("Forward Index" + i);
             InetAddressAndPort address = iterator.next();
             Tracing.trace("Enqueuing forwarded write to {}", address);
             MessagingService.instance().sendOneWay(message, forwardTo.messageIds[i], address);
         }
-        logger.debug("Forward Done");
+//        logger.debug("Forward Done");
     }
 }

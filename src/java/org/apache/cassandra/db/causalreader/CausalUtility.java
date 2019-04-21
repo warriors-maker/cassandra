@@ -17,18 +17,6 @@
  */
 
 package org.apache.cassandra.db.causalreader;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.nio.ByteBuffer;
-import java.util.Map;
-
-import org.apache.cassandra.utils.FBUtilities;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class CausalUtility
 {
@@ -64,6 +52,8 @@ public class CausalUtility
     public static String getSenderColName() {
         return senderCol;
     }
+
+
 
 
 

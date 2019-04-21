@@ -19,6 +19,7 @@ package org.apache.cassandra.service;
 
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
@@ -49,6 +50,7 @@ import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.db.causalreader.CausalUtility;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.IntegerType;
+import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.schema.ColumnMetadata;
@@ -851,6 +853,38 @@ public class StorageProxy implements StorageProxyMBean
         }
     }
 
+    private static void printMutation(IMutation mutation) {
+        Row mutationRow = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+        logger.warn("Printing the individual column of income message");
+        for (Cell c : mutationRow.cells()) {
+            String colName = c.column().name.toString();
+            logger.debug(colName);
+
+            if (IntegerType.instance.isValueCompatibleWithInternal(c.column().cellValueType()))
+            {
+                int value = ByteBufferUtil.toInt(c.value());
+                logger.warn("The value is " + value);
+
+            }
+            // if it is a string type
+            else if (UTF8Type.instance.isValueCompatibleWith(c.column().cellValueType()))
+            {
+                String value = "";
+                try
+                {
+                    value = ByteBufferUtil.string(c.value());
+                    logger.warn("The value is" + value);
+                }
+                catch (CharacterCodingException e)
+                {
+                    e.printStackTrace();
+                }
+            }
+
+        }
+        logger.debug("Finish Initiate");
+    }
+
     public static void mutate (Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
@@ -940,7 +974,7 @@ public class StorageProxy implements StorageProxyMBean
                                            .add(colName, 0);
                         } else {
 //                            logger.debug(colName + " " + 1);
-//                            System.out.println(colName + " " + 1);
+//                            logger.debug(colName + " " + 1);
                             mutationBuilder.update(tableMetadata)
                                            .timestamp(timeStamp)
                                            .row()
@@ -949,6 +983,8 @@ public class StorageProxy implements StorageProxyMBean
 
                     }
                 }
+
+//                printMutation(mutation);
 
                 // Merge our mutation with the incoming mutation to create a new mutation;
                 Mutation causalVectorMutation = mutationBuilder.build();
@@ -985,6 +1021,7 @@ public class StorageProxy implements StorageProxyMBean
             {
                 if (ex instanceof WriteFailureException)
                 {
+//                    logger.warn("WriteFailure");
                     writeMetrics.failures.mark();
                     writeMetricsMap.get(consistency_level).failures.mark();
                     WriteFailureException fe = (WriteFailureException)ex;
@@ -993,6 +1030,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 else
                 {
+//                    logger.warn("WriteTimeout");
                     writeMetrics.timeouts.mark();
                     writeMetricsMap.get(consistency_level).timeouts.mark();
                     WriteTimeoutException te = (WriteTimeoutException)ex;
@@ -1041,8 +1079,8 @@ public class StorageProxy implements StorageProxyMBean
             {
                 if (mutation instanceof CounterMutation)
                 {
-                    logger.debug("CounterMutation");
-                    System.out.println("CounterMutation");
+                    //logger.debug("CounterMutation");
+                    //System.out.println("CounterMutation");
                     responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
                 }
                 else
@@ -1050,7 +1088,7 @@ public class StorageProxy implements StorageProxyMBean
 //                    DecoratedKey  decoratedKey =  mutation.key();
 //                    System.out.println("The key is" + decoratedKey.toString());
 
-                    logger.debug("Not CounterMutation");
+                    //logger.debug("Not CounterMutation");
 //                    System.out.println("Not CounterMutation");
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
@@ -1660,7 +1698,7 @@ public class StorageProxy implements StorageProxyMBean
             {
                 if (canDoLocalRequest(destination))
                 {
-                    logger.debug("Can add to currentIp");
+//                    logger.debug("Can add to currentIp");
                     //System.out.println(destination);
                     insertLocal = true;
                 }
@@ -1726,8 +1764,8 @@ public class StorageProxy implements StorageProxyMBean
 
         if (insertLocal)
         {
-            logger.debug("Peform in this datacenter");
-            System.out.println("Peform in this datacenter");
+//            logger.debug("Peform in this datacenter");
+//            System.out.println("Peform in this datacenter");
             // Here can add a queue
             performLocally(stage, Optional.of(mutation), mutation::apply, responseHandler);
         }
@@ -1736,13 +1774,11 @@ public class StorageProxy implements StorageProxyMBean
         {
             for (InetAddressAndPort destination : localDc)
             {
-                logger.debug("Write to replication");
-                System.out.println("Write to replication");
+//                logger.debug("Write to replication");
+//                System.out.println("Write to replication");
                 // may need to store the responseHandler into the Queue as well
                 MessagingService.instance().sendRR(message, destination, responseHandler, true);
             }
-        } else {
-            System.out.println("No one is connecting to me");
         }
 
         if (dcGroups != null)
@@ -2168,7 +2204,7 @@ public class StorageProxy implements StorageProxyMBean
             return fetchRowsAbd(commands, consistencyLevel, queryStartNanoTime);
         }
 
-        System.out.println(consistencyLevel.toString());
+        //System.out.println(consistencyLevel.toString());
 
         int cmdCount = commands.size();
 
@@ -2184,25 +2220,25 @@ public class StorageProxy implements StorageProxyMBean
             reads[i].executeAsync();
         }
 
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].maybeTryAdditionalReplicas();
-        }
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            reads[i].maybeTryAdditionalReplicas();
+//        }
 
         for (int i=0; i<cmdCount; i++)
         {
             reads[i].awaitResponses();
         }
 
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].maybeRepairAdditionalReplicas();
-        }
-
-        for (int i=0; i<cmdCount; i++)
-        {
-            reads[i].awaitReadRepair();
-        }
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            reads[i].maybeRepairAdditionalReplicas();
+//        }
+//
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            reads[i].awaitReadRepair();
+//        }
 
         List<PartitionIterator> results = new ArrayList<>(cmdCount);
         for (int i=0; i<cmdCount; i++)
