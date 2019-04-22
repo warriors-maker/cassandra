@@ -34,7 +34,7 @@ import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import javax.management.*;
 import javax.management.openmbean.CompositeData;
-import javax.management.openmbean.CompositeDataSupport;
+
 import javax.management.openmbean.OpenDataException;
 import javax.management.openmbean.TabularData;
 import javax.management.openmbean.TabularDataSupport;
@@ -256,6 +256,12 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         states.add(Pair.create(ApplicationState.STATUS_WITH_PORT, valueFactory.normal(tokens)));
         states.add(Pair.create(ApplicationState.STATUS, valueFactory.normal(tokens)));
         Gossiper.instance.addLocalApplicationStates(states);
+    }
+
+    private BlockingQueue bq = new LinkedBlockingQueue();
+    private HandlerReadThread thread = new HandlerReadThread(bq);
+    public void runThread() {
+        this.thread.run();
     }
 
     public StorageService()
@@ -707,8 +713,6 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
             doAuthSetup();
             logger.info("Not joining ring as requested. Use JMX (StorageService->joinRing()) to initiate ring joining");
         }
-
-        initialized = true;
     }
 
     private void loadRingState()

@@ -21,7 +21,7 @@ package org.apache.cassandra.db.causalreader;
 public class CausalUtility
 {
     // Tunable Parameter
-    private static final int writerID = 1;
+    private static final int writerID = 0;
     private static final int num_nodes = 3;
 
 

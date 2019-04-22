@@ -47,6 +47,7 @@ import org.apache.cassandra.batchlog.Batch;
 import org.apache.cassandra.batchlog.BatchlogManager;
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
+import org.apache.cassandra.db.causalreader.CausalCommon;
 import org.apache.cassandra.db.causalreader.CausalUtility;
 import org.apache.cassandra.db.marshal.AbstractType;
 import org.apache.cassandra.db.marshal.IntegerType;
@@ -54,6 +55,8 @@ import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.schema.SchemaKeyspace;
+import org.apache.cassandra.schema.Types;
 import org.apache.cassandra.service.reads.AbstractReadExecutor;
 import org.apache.cassandra.service.reads.DataResolver;
 import org.apache.cassandra.service.reads.ReadCallback;
@@ -889,128 +892,90 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
         Tracing.trace("Determining replicas for mutation");
-//        logger.debug("Mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();
 
-        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
+        //Fetch the table that stores my TimeStamp
+        TableMetadata timeVectorMeta = SchemaKeyspace.metadata().getTableOrViewNullable("server");
+        DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
+
+        // if our localVector is not initated;
+        if (!CausalCommon.getInstance().isVectorInitiate()) {
+            System.out.println("LocalVector is not initated");
+            //This part can be changed later
+            Mutation.SimpleBuilder timeBuilder = Mutation.simpleBuilder("ycsb", myKey);
+            for (int i = 0; i < CausalUtility.getNumNodes(); i++) {
+                String colName = CausalUtility.getColPrefix() + i;
+                timeBuilder.update(timeVectorMeta)
+                           .timestamp(FBUtilities.timestampMicros())
+                           .row()
+                           .add(colName,0);
+            }
+            performWrite(timeBuilder.build(), consistency_level, localDataCenter, standardWritePerformer, null ,WriteType.SIMPLE , System.nanoTime());
+        }
+
         try
         {
+            List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
             for (IMutation mutation : mutations)
             {
-                // for each muation we first read the coresponding timestamp
-                SinglePartitionReadCommand localRead = SinglePartitionReadCommand.fullPartitionRead(
-                mutation.getPartitionUpdates().iterator().next().metadata(),
-                FBUtilities.nowInSeconds(),
-                mutation.key()
-                );
+                // fetch myLocalTime
+                List<Integer> myTimeStamp = CausalCommon.getInstance().fetchMyTimeStamp();
 
-                // Indicating whether this data is first time inserted
-                Integer local_vector_entry_time = null;
+                //Need to create two mutation here:
+                //1. Update to the server table
+                //2. Update to the value table
+                TableMetadata dataMeta = mutation.getPartitionUpdates().iterator().next().metadata();
 
-                //Build our own mutation
-                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
-                TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+                Mutation.SimpleBuilder timeBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), myKey);
+                Mutation.SimpleBuilder valueBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), myKey);
 
-                // execute the read request locally to obtain the local vector
-                try (ReadExecutionController executionController = localRead.executionController();
-                     UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
+                for (int id = 0; id < CausalUtility.getNumNodes(); id++)
                 {
-
-                    // first we have to transform it into a PartitionIterator
-                    PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
-
-                    // if the db does not have the data, it will not go through this while loop
-                    while(pi.hasNext())
+                    String colName = CausalUtility.getColPrefix() + id;
+                    int time = myTimeStamp.get(id);
+                    if (id == CausalUtility.getWriterID())
                     {
-                        // zValueReadResult.next() returns a RowIterator
-                        RowIterator ri = pi.next();
-                        while(ri.hasNext())
-                        {
-                            // fetch the current row;
-                            Row r = ri.next();
-                            // Fetch the current_local_timestamp from individual columns
-                            // individual columns represents individual server's writing timeStamp;
-                            long timeStamp = FBUtilities.timestampMicros();
-
-                            for (int id = 0; id < CausalUtility.getNumNodes(); id++) {
-                                String colName = CausalUtility.getColPrefix() + id;
-                                ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(colName));
-                                Cell c = r.getCell(colMeta);
-                                local_vector_entry_time = ByteBufferUtil.toInt(c.value());
-                                // Whenever there is a mutation on current server, increments its corresponding timeStamp
-                                if (id == CausalUtility.getWriterID()) {
-                                    local_vector_entry_time++;
-                                }
-                                mutationBuilder.update(tableMetadata)
-                                               .timestamp(timeStamp)
-                                               .row()
-                                               .add(colName, local_vector_entry_time);
-//                                logger.debug("Sender :" + colName + " " +ByteBufferUtil.toInt(c.value()));
-                            }
-
-                        }
+                        myTimeStamp.set(id, myTimeStamp.get(id) + 1);
+                        time = myTimeStamp.get(id);
                     }
-                }
-
-                long timeStamp = FBUtilities.timestampMicros();
-                // Indicate who is the sender of this mutation
-                mutationBuilder.update(tableMetadata)
-                               .timestamp(timeStamp)
+                    timeBuilder.update(timeVectorMeta)
+                               .timestamp(FBUtilities.timestampMicros())
                                .row()
-                               .add(CausalUtility.getSenderColName(), CausalUtility.getWriterID());
-
-                // if the value is first time inserted by current Server,
-                if (local_vector_entry_time == null) {
-                    for (int id = 0; id < CausalUtility.getNumNodes(); id++) {
-                        String colName = CausalUtility.getColPrefix() + id;
-                        if (id != CausalUtility.getWriterID()) {
-//                            System.out.println(colName + "0");
-//                            logger.debug(colName + " " + 0);
-                            mutationBuilder.update(tableMetadata)
-                                           .timestamp(timeStamp)
-                                           .row()
-                                           .add(colName, 0);
-                        } else {
-//                            logger.debug(colName + " " + 1);
-//                            logger.debug(colName + " " + 1);
-                            mutationBuilder.update(tableMetadata)
-                                           .timestamp(timeStamp)
-                                           .row()
-                                           .add(CausalUtility.getMyTimeColName(), 1);
-                        }
-
-                    }
+                               .add(colName, time);
+                    valueBuilder.update(dataMeta)
+                                .timestamp(FBUtilities.timestampMicros())
+                                .row()
+                                .add(colName, time);
                 }
-
-//                printMutation(mutation);
-
+                printMutation(mutation);
                 // Merge our mutation with the incoming mutation to create a new mutation;
-                Mutation causalVectorMutation = mutationBuilder.build();
+                Mutation localVectorMutation = timeBuilder.build();
+                Mutation sendVectorMutation = valueBuilder.build();
                 // Concat with our current Mutation
                 List<Mutation> mutationMergeList = new ArrayList<>();
-                mutationMergeList.add(causalVectorMutation);
-                mutationMergeList.add((Mutation)mutation);
+                mutationMergeList.add(sendVectorMutation);
+                mutationMergeList.add((Mutation) mutation);
                 mutation = Mutation.merge(mutationMergeList);
 
                 if (mutation instanceof CounterMutation)
                 {
-                    responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, System.nanoTime()));
+                    responseHandlers.add(mutateCounter((CounterMutation) mutation, localDataCenter, System.nanoTime()));
                 }
-                else
-                {
+                else {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+                    responseHandlers.add(performWrite(localVectorMutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
+                    }
                 }
-            }
-
             // wait for writes.  throws TimeoutException if necessary
             for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
             {
                 responseHandler.get();
             }
         }
+
         catch (WriteTimeoutException|WriteFailureException ex)
         {
             if (consistency_level == ConsistencyLevel.ANY)
@@ -1677,8 +1642,13 @@ public class StorageProxy implements StorageProxyMBean
     {
         int targetsSize = Iterables.size(targets);
 
+        boolean writeToReplication = false;
+        // Send to others only if it is a valueTimeStamp
+        if (CausalCommon.getInstance().sendToOthers(mutation)) {
+            writeToReplication = true;
+        }
 
-        // this dc replicas:
+    // this dc replicas:
         Collection<InetAddressAndPort> localDc = null;
         // extra-datacenter replicas, grouped by dc
         Map<String, Collection<InetAddressAndPort>> dcGroups = null;
@@ -1768,6 +1738,11 @@ public class StorageProxy implements StorageProxyMBean
 //            System.out.println("Peform in this datacenter");
             // Here can add a queue
             performLocally(stage, Optional.of(mutation), mutation::apply, responseHandler);
+        }
+
+        // If it is just our timeStamp;
+        if (!writeToReplication) {
+            return;
         }
 
         if (localDc != null)

@@ -603,6 +603,8 @@ public class CassandraDaemon
             }
 
             start();
+
+
         }
         catch (Throwable e)
         {

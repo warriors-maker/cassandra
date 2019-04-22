@@ -89,28 +89,5 @@ public class InQueueObject
         return physicalTimeStamp;
     }
 
-    // Fetch desired value from the mutation
-    // SenderID is stored in one of the column
-    // Get the individual col timeStamp and put them into a list like a vector
-    public void initOtherFields() {
-        Row mutationRow = message.payload.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
-//        logger.warn("Initiate serverTimestamp");
-        // TODO: Need to check whether it is in the order we define the schema
-        for (Cell c : mutationRow.cells()) {
-            // fetch the individual timeEntry
-//            logger.debug("Column name is: " + c.column().name.toString());
-            String colName = c.column().name.toString();
-            if (colName.startsWith(CausalUtility.getColPrefix())) {
-//                logger.warn(c.column().name.toString() + ByteBufferUtil.toInt(c.value()));
-                this.mutationTimeStamp.add(ByteBufferUtil.toInt(c.value()));
-            }
-            // fetch the SenderCol Name
-            else if (c.column().name.equals(new ColumnIdentifier(CausalUtility.getSenderColName(), true))) {
-//                logger.warn("The sender is " + ByteBufferUtil.toInt(c.value()));
-                this.senderID = ByteBufferUtil.toInt(c.value());
-            }
-        }
-//        logger.debug("Finish Initiate");
-    }
 
 }

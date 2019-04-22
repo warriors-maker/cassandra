@@ -18,10 +18,14 @@
 package org.apache.cassandra.db;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -30,6 +34,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.cql3.ColumnIdentifier;
+import org.apache.cassandra.db.causalreader.CausalCommon;
+import org.apache.cassandra.db.causalreader.CausalDataStructure;
 import org.apache.cassandra.db.causalreader.CausalUtility;
 import org.apache.cassandra.db.causalreader.InQueueObject;
 import org.apache.cassandra.db.marshal.IntegerType;
@@ -53,18 +59,20 @@ import org.apache.cassandra.db.causalreader.HandlerReadThread;
 public class MutationVerbHandler implements IVerbHandler<Mutation>
 {
     // Act like a MessageQueue in our program
-    private BlockingQueue inqueue;
-    private HandlerReadThread thread = null;
+    private CausalDataStructure cd;
     private static final Logger logger = LoggerFactory.getLogger(MutationVerbHandler.class);
+
 
 //    private Lock aLock = new ReentrantLock();
 //    private Condition condVar = aLock.newCondition();
 
     public MutationVerbHandler() {
-        // The size is Integer.Max by Default;
-        this.inqueue = new LinkedBlockingQueue();
-    }
 
+    }
+    public MutationVerbHandler(CausalDataStructure cd) {
+        // The size is Integer.Max by Default;
+        this.cd = cd;
+    }
 
     // Replica handles Mutation from the other nodes
     public void doVerb(MessageIn<Mutation> message, int id) throws IOException {
@@ -88,26 +96,36 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             replyTo = from;
         }
 
-//        logger.debug("Doverb2");
 
-
-        // InQueue the new Message into our information queue;
-        // Enqueue our newMessage containing the mutation into the blocking Queue
-        // Blocking Queue act as a channel to send to our HandlerReadThread
-//        logger.debug("New mutation comes");
-//        printMutation(message.payload);
-
-//        printMutation(message.payload);
         logger.debug("Receive Mutation");
         printMutation(message.payload);
-        InQueueObject newMessage = new InQueueObject(message, id, replyTo, System.nanoTime());
-        inqueue.offer(newMessage);
 
-        if (thread == null) {
-            logger.debug("Create Thread");
-            thread = new HandlerReadThread(inqueue);
-            thread.run();
+        //fetch the primaryKey
+        DecoratedKey key = message.payload.key();
+
+        //fetch mutationTimeStamp
+        List<Integer> mutationTimeStamp = CausalCommon.getInstance().getMutationTimeStamp(message);
+
+        //read my localTimeStamp
+        List<Integer> serverTimeStamp = CausalCommon.getInstance().fetchLocalTimeStamp(message);
+
+        //Reader the senderID
+        int senderID = CausalCommon.getInstance().getSenderID(message);
+
+
+        //check if can commit
+        if (CausalCommon.getInstance().canCommit(mutationTimeStamp,serverTimeStamp,senderID)) {
+            if (cd.getKeySet().contains(key)) {
+
+            } else {
+                Mutation commitMutation = CausalCommon.getInstance().createCommitMutation(message.payload,serverTimeStamp, mutationTimeStamp, senderID);
+                CausalCommon.getInstance().commit(commitMutation,id, replyTo);
+            }
+        } else {
+            InQueueObject newMessage = new InQueueObject(message, id, replyTo, System.nanoTime());
+//            pq.offer(newMessage);
         }
+
     }
 
     private void printMutation(Mutation mutation) {
@@ -154,35 +172,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         Tracing.trace("Payload application resulted in WriteTimeout, not replying");
     }
 
-    public void doVerbOriginal(MessageIn<Mutation> message, int id)  throws IOException
-    {
-        // Check if there were any forwarding headers in this message
-        InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
-        InetAddressAndPort replyTo;
-        if (from == null)
-        {
-            replyTo = message.from;
-            ForwardToContainer forwardTo = (ForwardToContainer)message.parameters.get(ParameterType.FORWARD_TO);
-            if (forwardTo != null)
-                forwardToLocalNodes(message.payload, message.verb, forwardTo, message.from);
-        }
-        else
-        {
-            replyTo = from;
-        }
-
-        try
-        {
-            logger.debug("Mutation Commits");
-            message.payload.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
-                failed();
-                return null;
-            });
-        }catch (WriteTimeoutException wto)
-            {
-                failed();
-            }
-        }
 
     public void doVerbABD(MessageIn<Mutation> message, int id)  throws IOException
     {
@@ -296,4 +285,5 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         }
 //        logger.debug("Forward Done");
     }
+
 }
