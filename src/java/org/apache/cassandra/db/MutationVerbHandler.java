@@ -18,31 +18,40 @@
 package org.apache.cassandra.db;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.List;
 
-import org.apache.cassandra.cql3.ColumnIdentifier;
-import org.apache.cassandra.db.partitions.PartitionIterator;
-import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
-import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
-import org.apache.cassandra.db.rows.Cell;
-import org.apache.cassandra.db.rows.Row;
-import org.apache.cassandra.db.rows.RowIterator;
-import org.apache.cassandra.db.rows.Unfiltered;
-import org.apache.cassandra.db.rows.UnfilteredRowIterator;
-import org.apache.cassandra.exceptions.WriteTimeoutException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.cassandra.db.causalreader.CausalCommon;
+import org.apache.cassandra.db.causalreader.CausalObject;
+import org.apache.cassandra.db.causalreader.CausalUtility;
+import org.apache.cassandra.db.causalreader.PQObject;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
-import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.schema.TableMetadata;
+import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.tracing.Tracing;
-import org.apache.cassandra.utils.ByteBufferUtil;
-import org.apache.cassandra.utils.FBUtilities;
 
 public class MutationVerbHandler implements IVerbHandler<Mutation>
 {
+    private CausalObject causalObject;
+    private static final Logger logger = LoggerFactory.getLogger(StorageProxy.class);
+
     private void reply(int id, InetAddressAndPort replyTo)
     {
         Tracing.trace("Enqueuing response to {}", replyTo);
         MessagingService.instance().sendReply(WriteResponse.createMessage(), id, replyTo);
+    }
+
+    public MutationVerbHandler() {
+
+    }
+
+    public MutationVerbHandler(CausalObject causalObject) {
+        this.causalObject = causalObject;
     }
 
     private void failed()
@@ -50,8 +59,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         Tracing.trace("Payload application resulted in WriteTimeout, not replying");
     }
 
-    public void doVerb(MessageIn<Mutation> message, int id)  throws IOException
-    {
+    public void doVerb(MessageIn<Mutation> message, int id)  throws IOException {
         // Check if there were any forwarding headers in this message
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
         InetAddressAndPort replyTo;
@@ -64,85 +72,63 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         }
         else
         {
-
             replyTo = from;
         }
 
-        try
-        {
-            // first we have to create a read request out of the current mutation
-            SinglePartitionReadCommand localRead =
-            SinglePartitionReadCommand.fullPartitionRead(
-            message.payload.getPartitionUpdates().iterator().next().metadata(),
-            FBUtilities.nowInSeconds(),
-            message.payload.key()
-            );
+        logger.debug("Fetch Value");
+        Mutation mutation = message.payload;
+        TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
+        DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
 
-            int z_value_local = -1;
-            String writer_id_local = "";
-
-            // execute the read request locally to obtain the tag of the key
-            // and extract tag information from the local read
-            try (ReadExecutionController executionController = localRead.executionController();
-                 UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
-            {
-                // first we have to transform it into a PartitionIterator
-                PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
-                while(pi.hasNext())
-                {
-                    RowIterator ri = pi.next();
-                    while(ri.hasNext())
-                    {
-                        Row r = ri.next();
-
-                        ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes("z_value"));
-                        Cell c = r.getCell(colMeta);
-                        z_value_local = ByteBufferUtil.toInt(c.value());
-
-                        colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes("writer_id"));
-
-                        c = r.getCell(colMeta);
-                        writer_id_local = ByteBufferUtil.string(c.value());
-                    }
-                }
-            }
-
-            // extract the tag information from the mutation
-            int z_value_request = 0;
-            String writer_id_request = "";
-            Row data = message.payload.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
-            for (Cell c : data.cells())
-            {
-                if(c.column().name.equals(new ColumnIdentifier("z_value", true)))
-                {
-                    z_value_request = ByteBufferUtil.toInt(c.value());
-                }
-                else if(c.column().name.equals(new ColumnIdentifier("writer_id", true)))
-                {
-                    writer_id_request = ByteBufferUtil.string(c.value());
-                }
-            }
-
-            //System.out.printf("local z:%d %s request z:%d %s\n", z_value_local, writer_id_local, z_value_request, writer_id_request);
-
-            // comparing the tag and the one in mutation, act accordingly
-            if (z_value_request > z_value_local || (z_value_request == z_value_local && writer_id_request.compareTo(writer_id_local) > 0))
-            {
-                message.payload.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
-                    failed();
-                    return null;
-                });
-            }
-            else
-            {
-                reply(id, replyTo);
-            }
+        logger.debug("Check have initaiated");
+        //Check whether we have inititate our timeStamp already
+        if (!CausalCommon.getInstance().isVectorInitiate(timeVectorMeta)) {
+            CausalCommon.getInstance().initiateTimeVector(timeVectorMeta, mutation,myKey);
         }
-        catch (WriteTimeoutException wto)
-        {
-            failed();
+
+        //Fetch localTimeStamp
+        List<Integer> localTimeVector = CausalCommon.getInstance().fetchMyTimeStamp(timeVectorMeta);
+        logger.debug("Doverb LocalTimeVector:");
+        CausalCommon.getInstance().printTimeStamp(localTimeVector);
+
+        //fetch Mutation Vector
+        List<Integer> mutationVector = CausalCommon.getInstance().getMutationTimeStamp(mutation);
+        logger.debug("Doverb MutationTimeVector:");
+        CausalCommon.getInstance().printTimeStamp(mutationVector);
+
+        //Check who is the sender
+        int senderID = CausalCommon.getInstance().getSenderID(mutation);
+
+        //Compare two vectors
+        //if can commit, build a new Mutation
+        //if cannot commit, push them into pq;
+        if (CausalCommon.getInstance().canCommit(localTimeVector, mutationVector, senderID)) {
+            logger.debug("Yes, we can commit");
+            //Commit the new TimeStamp
+            localTimeVector.set(senderID, localTimeVector.get(senderID) + 1);
+            CausalCommon.getInstance().updateLocalTimeStamp(localTimeVector, timeVectorMeta,mutation, myKey);
+
+            // Create the new Mutation to be applied;
+            Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation,mutationVector, senderID);
+            //Apply the New Mutation;
+            CausalCommon.getInstance().commit(newMutation, id, replyTo);
+
+//            // push our new Read TimeStamp into Blocking Queue;
+//            if (causalObject.gerPriorityBlockingQueue().size() != 0) {
+//                this.causalObject.getBlockingQueue().offer(localTimeVector);
+//            }
+
+        } else {
+            logger.debug("We Cannot commit");
+            // push it into our PQ
+            PQObject obj = new PQObject(mutationVector, System.nanoTime(), mutation, senderID, id, replyTo);
+            this.causalObject.gerPriorityBlockingQueue().offer(obj);
         }
+
+        //Once either commit or put into the pq, we reply
+        reply(id, replyTo);
     }
+
 
     private static void forwardToLocalNodes(Mutation mutation, MessagingService.Verb verb, ForwardToContainer forwardTo, InetAddressAndPort from) throws IOException
     {

@@ -65,6 +65,8 @@ import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.*;
+import org.apache.cassandra.db.causalreader.CausalObject;
+import org.apache.cassandra.db.causalreader.HandlerReadThread;
 import org.apache.cassandra.db.commitlog.CommitLog;
 import org.apache.cassandra.db.compaction.CompactionManager;
 import org.apache.cassandra.db.compaction.Verifier;
@@ -257,6 +259,12 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         Gossiper.instance.addLocalApplicationStates(states);
     }
 
+    private CausalObject obj = new CausalObject();
+    private HandlerReadThread causalThread = new HandlerReadThread(obj);
+    public void runThread() {
+        this.causalThread.run();
+    }
+
     public StorageService()
     {
         // use dedicated executor for sending JMX notifications
@@ -277,7 +285,7 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         ReadCommandVerbHandler readHandler = new ReadCommandVerbHandler();
 
         /* register the verb handlers */
-        MessagingService.instance().registerVerbHandlers(MessagingService.Verb.MUTATION, new MutationVerbHandler());
+        MessagingService.instance().registerVerbHandlers(MessagingService.Verb.MUTATION, new MutationVerbHandler(obj));
         MessagingService.instance().registerVerbHandlers(MessagingService.Verb.READ_REPAIR, new ReadRepairVerbHandler());
         MessagingService.instance().registerVerbHandlers(MessagingService.Verb.READ, readHandler);
         MessagingService.instance().registerVerbHandlers(MessagingService.Verb.RANGE_SLICE, readHandler);
