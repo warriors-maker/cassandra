@@ -32,13 +32,12 @@ import org.apache.cassandra.db.causalreader.PQObject;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
 import org.apache.cassandra.schema.TableMetadata;
-import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.tracing.Tracing;
 
 public class MutationVerbHandler implements IVerbHandler<Mutation>
 {
     private CausalObject causalObject;
-    private static final Logger logger = LoggerFactory.getLogger(StorageProxy.class);
+    private static final Logger logger = LoggerFactory.getLogger(MutationVerbHandler.class);
 
     private void reply(int id, InetAddressAndPort replyTo)
     {
@@ -61,6 +60,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
     public void doVerb(MessageIn<Mutation> message, int id)  throws IOException {
         // Check if there were any forwarding headers in this message
+        logger.debug("Doverb");
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
         InetAddressAndPort replyTo;
         if (from == null)
@@ -77,12 +77,13 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         logger.debug("Fetch Value");
         Mutation mutation = message.payload;
+        logger.debug("Mutation key is" + mutation.key().toString());
         TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
         DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
 
-        logger.debug("Check have initaiated");
         //Check whether we have inititate our timeStamp already
         if (!CausalCommon.getInstance().isVectorInitiate(timeVectorMeta)) {
+            logger.debug("Have not Initiated");
             CausalCommon.getInstance().initiateTimeVector(timeVectorMeta, mutation,myKey);
         }
 
@@ -94,6 +95,9 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         //fetch Mutation Vector
         List<Integer> mutationVector = CausalCommon.getInstance().getMutationTimeStamp(mutation);
         logger.debug("Doverb MutationTimeVector:");
+        if (mutationVector.size() == 0) {
+            logger.debug("Size is 0");
+        }
         CausalCommon.getInstance().printTimeStamp(mutationVector);
 
         //Check who is the sender

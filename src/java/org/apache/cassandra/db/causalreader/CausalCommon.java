@@ -72,19 +72,6 @@ public class CausalCommon
 {
     private static final Logger logger = LoggerFactory.getLogger(CausalCommon.class);
     private static CausalCommon causalCommon= new CausalCommon();
-    StorageProxy.WritePerformer standardWritePerformer = new StorageProxy.WritePerformer()
-    {
-        public void apply(IMutation mutation,
-                          Iterable<InetAddressAndPort> targets,
-                          AbstractWriteResponseHandler<IMutation> responseHandler,
-                          String localDataCenter,
-                          ConsistencyLevel consistency_level)
-        throws OverloadedException
-        {
-            assert mutation instanceof Mutation;
-            sendToHintedEndpoints((Mutation) mutation, targets, responseHandler, localDataCenter, Stage.MUTATION);
-        }
-    };
 
     private CausalCommon() {
 
@@ -187,6 +174,8 @@ public class CausalCommon
 
     public void commit(Mutation commitMutation, int id, InetAddressAndPort replyTo)
     {
+        commitMutation.apply();
+        commitMutation.applyFuture();
         commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
             failed();
             return null;
@@ -215,14 +204,13 @@ public class CausalCommon
     public List<Integer> getMutationTimeStamp(Mutation mutation) {
         List<Integer> mutationTimeStamp = new ArrayList<>();
         Row mutationRow = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
-//        logger.warn("Initiate serverTimestamp");
         // TODO: Need to check whether it is in the order we define the schema
         for (Cell c : mutationRow.cells()) {
             // fetch the individual timeEntry
-//            logger.debug("Column name is: " + c.column().name.toString());
+            logger.debug("Column name is: " + c.column().name.toString());
             String colName = c.column().name.toString();
             if (colName.startsWith(CausalUtility.getColPrefix())) {
-//                logger.warn(c.column().name.toString() + ByteBufferUtil.toInt(c.value()));
+                logger.warn(c.column().name.toString() + ByteBufferUtil.toInt(c.value()));
                 mutationTimeStamp.add(ByteBufferUtil.toInt(c.value()));
             }
         }
@@ -365,8 +353,7 @@ public class CausalCommon
     }
 
     public void initiateTimeVector(TableMetadata timeVectorMeta, Mutation mutation, DecoratedKey myKey) {
-        System.out.println("LocalVector is not initated");
-        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
+//        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
         //This part can be changed later
         Mutation.SimpleBuilder timeBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), myKey);
         for (int i = 0; i < CausalUtility.getNumNodes(); i++) {
@@ -377,13 +364,14 @@ public class CausalCommon
                        .add(colName,0);
         }
 
-
-        AbstractWriteResponseHandler<IMutation> responseHandler = StorageProxy.performWrite(timeBuilder.build(), ConsistencyLevel.ANY, localDataCenter, standardWritePerformer, null , WriteType.SIMPLE , System.nanoTime());
-        responseHandler.get();
+        timeBuilder.build().apply();
+//        AbstractWriteResponseHandler<IMutation> responseHandler = StorageProxy.performWrite(timeBuilder.build(), ConsistencyLevel.ANY, localDataCenter, standardWritePerformer, null , WriteType.SIMPLE , System.nanoTime());
+//        responseHandler.get();
     }
 
     public void updateLocalTimeStamp(List<Integer> myTimeStamp, TableMetadata timeVectorMeta, Mutation mutation, DecoratedKey myKey)
     {
+        logger.debug("Update my Local Time Stamp");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
         logger.debug("Update my TimeStamp after receiving a mutation");
         Mutation.SimpleBuilder timeBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), myKey);
@@ -393,9 +381,11 @@ public class CausalCommon
                        .timestamp(FBUtilities.timestampMicros())
                        .row()
                        .add(colName,myTimeStamp.get(i));
+            logger.debug(colName + " " +myTimeStamp.get(i));
         }
-        AbstractWriteResponseHandler<IMutation> responseHandler = StorageProxy.performWrite(timeBuilder.build(), ConsistencyLevel.ANY, localDataCenter, standardWritePerformer, null , WriteType.SIMPLE , System.nanoTime());
-        responseHandler.get();
+        timeBuilder.build().apply();
+//        AbstractWriteResponseHandler<IMutation> responseHandler = StorageProxy.performWrite(timeBuilder.build(), ConsistencyLevel.ANY, localDataCenter, standardWritePerformer, null , WriteType.SIMPLE , System.nanoTime());
+//        responseHandler.get();
     }
 
     public void printTimeStamp(List<Integer> timeStamp) {

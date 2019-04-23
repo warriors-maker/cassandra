@@ -957,6 +957,8 @@ public class StorageProxy implements StorageProxyMBean
 
                 Mutation localVectorMutation = timeBuilder.build();
 
+                localVectorMutation.apply();
+
                 Mutation sendVectorMutation = valueBuilder.build();
 
                 // Concat with our current Mutation
@@ -971,7 +973,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 else {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
-                    performWrite(localVectorMutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime());
+                    //performWrite(localVectorMutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime());
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
                 }
             }
@@ -1648,14 +1650,14 @@ public class StorageProxy implements StorageProxyMBean
     {
         int targetsSize = Iterables.size(targets);
 
-        boolean writeToReplication = true;
-        // Send to others only if it is a valueTimeStamp
-        if (!CausalCommon.getInstance().isLocalVectorMutation(mutation)) {
-            writeToReplication = false;
-            logger.debug("Does not write to others");
-        } else {
-            logger.debug("Write to others");
-        }
+//        boolean writeToReplication = true;
+//        // Send to others only if it is a valueTimeStamp
+//        if (!CausalCommon.getInstance().isLocalVectorMutation(mutation)) {
+//            writeToReplication = false;
+//            logger.debug("Does not write to others");
+//        } else {
+//            logger.debug("Write to others");
+//        }
 
         // this dc replicas:
         Collection<InetAddressAndPort> localDc = null;
@@ -1744,9 +1746,9 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         // If it is just our timeStamp;
-        if (!writeToReplication) {
-            return;
-        }
+//        if (!writeToReplication) {
+//            return;
+//        }
 
         if (localDc != null)
         {
