@@ -85,7 +85,7 @@ public class CausalCommon
     // Only need the value
     public Mutation createCommitMutation(Mutation incomingMutation)
     {
-        logger.warn("Create Our Mutation");
+//        logger.warn("Create Our Mutation");
 //        printMutation(incomingMutation);
 
         Row mutationRow = incomingMutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
@@ -107,7 +107,7 @@ public class CausalCommon
             else if (IntegerType.instance.isValueCompatibleWithInternal(c.column().cellValueType()))
             {
                 int value = ByteBufferUtil.toInt(c.value());
-                logger.warn("The new value is " + value);
+//                logger.warn("The new value is " + value);
                 mutationBuilder.update(tableMetadata).row().add(colName, value);
             }
             // if it is a string type
@@ -117,7 +117,7 @@ public class CausalCommon
                 try
                 {
                     value = ByteBufferUtil.string(c.value());
-                    logger.warn("The new value is " + value);
+//                    logger.warn("The new value is " + value);
                 }
                 catch (CharacterCodingException e)
                 {
@@ -155,7 +155,7 @@ public class CausalCommon
             {
                 if (mutationTimeStamp.get(i) != serverTimeStamp.get(i) + 1)
                 {
-                    logger.warn("Sender fields fail");
+//                    logger.warn("Sender fields fail");
                     return false;
                 }
             }
@@ -163,7 +163,7 @@ public class CausalCommon
             {
                 if (mutationTimeStamp.get(i) > serverTimeStamp.get(i))
                 {
-                    logger.warn("Other fails");
+//                    logger.warn("Other fails");
                     return false;
                 }
             }
