@@ -18,7 +18,6 @@
 package org.apache.cassandra.db;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 
@@ -27,12 +26,10 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.db.causalreader.CausalCommon;
 import org.apache.cassandra.db.causalreader.CausalObject;
-import org.apache.cassandra.db.causalreader.CausalUtility;
 import org.apache.cassandra.db.causalreader.PQObject;
 import org.apache.cassandra.db.causalreader.TimeVector;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
-import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.tracing.Tracing;
 
 public class MutationVerbHandler implements IVerbHandler<Mutation>
@@ -81,12 +78,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             replyTo = from;
         }
 
-//        logger.debug("Fetch Value");
         Mutation mutation = message.payload;
-//        TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
-//        DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
-//        logger.debug("My key is" + myKey.toString());
-
 
         //Fetch localTimeStamp
         List<Integer> localTimeVector = timeVector.read();
@@ -111,24 +103,28 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             //Update our TimeStamp
             List<Integer> commitTime = timeVector.updateAndRead(senderID);
 
-//            logger.debug("Commit time is:");
-//            CausalCommon.getInstance().printTimeStamp(commitTime);
-
-            // Create the new Mutation to be applied;
             Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation);
             //Apply the New Mutation;
             CausalCommon.getInstance().commit(newMutation);
         } else {
-//            logger.debug("We Cannot commit");
+            logger.debug("We Cannot commit directly time:");
             // push it into our PQ
             PQObject obj = new PQObject(mutationVector, System.nanoTime(), mutation, senderID, id, replyTo);
-            this.causalObject.gerPriorityBlockingQueue().offer(obj);
+            printMutation(obj);
+            this.causalObject.getPriorityBlockingQueue().offer(obj);
         }
 
         //Once either commit or put into the pq, we reply
         reply(id, replyTo);
     }
 
+    private void printMutation(PQObject pqObject) {
+        if (pqObject == null) {
+            logger.debug("Null");
+        } else {
+            CausalCommon.getInstance().printTimeStamp(pqObject.getMutationTimeStamp());
+        }
+    }
 
     private static void forwardToLocalNodes(Mutation mutation, MessagingService.Verb verb, ForwardToContainer forwardTo, InetAddressAndPort from) throws IOException
     {
