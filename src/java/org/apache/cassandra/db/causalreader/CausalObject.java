@@ -33,7 +33,7 @@ public class CausalObject
     private PriorityBlockingQueue pq;
     private TimeVector timeVector;
 
-    public CausalObject () {
+    public CausalObject (TimeVector timeVector) {
         Comparator<PQObject> comparator = new Comparator<PQObject>()
         {
             @Override
@@ -68,6 +68,7 @@ public class CausalObject
 
         this.bq = new LinkedBlockingQueue<>();
         this.pq = new PriorityBlockingQueue<PQObject>(200000, comparator);
+        this.timeVector = timeVector;
     }
 
 
@@ -80,11 +81,6 @@ public class CausalObject
     public PriorityBlockingQueue gerPriorityBlockingQueue()
     {
         return pq;
-    }
-
-    public void setTimeVector(TimeVector timeVector)
-    {
-        this.timeVector = timeVector;
     }
 
     public TimeVector getTimeVector() {

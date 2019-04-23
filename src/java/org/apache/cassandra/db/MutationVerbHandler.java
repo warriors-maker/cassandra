@@ -53,6 +53,9 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
     public MutationVerbHandler(CausalObject causalObject) {
         this.causalObject = causalObject;
+        if (causalObject.getTimeVector() == null) {
+            logger.debug("Time Vector Is Null");
+        }
         this.timeVector = causalObject.getTimeVector();
     }
 
@@ -86,6 +89,9 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
 
         //Fetch localTimeStamp
+        if (timeVector == null) {
+            logger.debug("It is null");
+        }
         List<Integer> localTimeVector = timeVector.read();
         logger.debug("Doverb LocalTimeVector:");
         CausalCommon.getInstance().printTimeStamp(localTimeVector);

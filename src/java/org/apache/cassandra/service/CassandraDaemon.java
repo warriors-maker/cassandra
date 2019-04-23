@@ -82,8 +82,6 @@ public class CassandraDaemon
 {
     public static final String MBEAN_NAME = "org.apache.cassandra.db:type=NativeAccess";
 
-    private TimeVector timeVector = new TimeVector();
-
     private static final Logger logger;
     static
     {
@@ -609,7 +607,7 @@ public class CassandraDaemon
 
 
             // Pass the Local Vector to both of them
-            StorageService.instance.setLocalVector(timeVector);
+            TimeVector timeVector = StorageService.instance.getTimeVector();
             StorageProxy.setVectorTimeStamp(timeVector);
             StorageService.instance.runThread();
         }

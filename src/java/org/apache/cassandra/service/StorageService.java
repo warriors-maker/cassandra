@@ -260,17 +260,19 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         Gossiper.instance.addLocalApplicationStates(states);
     }
 
-    private CausalObject obj = new CausalObject();
+    private TimeVector timeVector = new TimeVector();
+    private CausalObject obj = new CausalObject(timeVector);
+
+    public TimeVector getTimeVector() {
+        return this.timeVector;
+    }
+
     private HandlerReadThread causalThread = new HandlerReadThread(obj);
-    private TimeVector timeVector;
+
     public void runThread() {
         this.causalThread.run();
     }
 
-    public void setLocalVector (TimeVector timeVector) {
-        this.timeVector = timeVector;
-        obj.setTimeVector(timeVector);
-    }
 
     public StorageService()
     {
