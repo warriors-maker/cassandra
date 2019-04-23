@@ -57,9 +57,4 @@ public class CausalUtility
     public static String getLocalColPrefix() {
         return local_col_prefix;
     }
-
-
-
-
-
 }
