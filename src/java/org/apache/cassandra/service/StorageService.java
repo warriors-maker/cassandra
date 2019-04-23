@@ -67,6 +67,7 @@ import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.causalreader.CausalObject;
 import org.apache.cassandra.db.causalreader.HandlerReadThread;
+import org.apache.cassandra.db.causalreader.TimeVector;
 import org.apache.cassandra.db.commitlog.CommitLog;
 import org.apache.cassandra.db.compaction.CompactionManager;
 import org.apache.cassandra.db.compaction.Verifier;
@@ -261,8 +262,14 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
 
     private CausalObject obj = new CausalObject();
     private HandlerReadThread causalThread = new HandlerReadThread(obj);
+    private TimeVector timeVector;
     public void runThread() {
         this.causalThread.run();
+    }
+
+    public void setLocalVector (TimeVector timeVector) {
+        this.timeVector = timeVector;
+        obj.setTimeVector(timeVector);
     }
 
     public StorageService()
@@ -647,6 +654,7 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         {
             // Ensure StorageProxy is initialized on start-up; see CASSANDRA-3797.
             Class.forName("org.apache.cassandra.service.StorageProxy");
+
             // also IndexSummaryManager, which is otherwise unreferenced
             Class.forName("org.apache.cassandra.io.sstable.IndexSummaryManager");
         }

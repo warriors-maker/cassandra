@@ -19,24 +19,32 @@
 package org.apache.cassandra.db.causalreader;
 
 import java.nio.ByteBuffer;
+import java.sql.Time;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.db.Mutation;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.schema.TableMetadata;
+import org.apache.cassandra.service.StorageProxy;
 
 public class HandlerReadThread extends Thread
 {
     private BlockingQueue blockingQueue;
     private PriorityBlockingQueue<PQObject> priorityBlockingQueue;
+    private TimeVector timeVector;
+    private static final Logger logger = LoggerFactory.getLogger(HandlerReadThread.class);
 
     public HandlerReadThread(CausalObject causalObject) {
         this.blockingQueue = causalObject.getBlockingQueue();
         this.priorityBlockingQueue = causalObject.gerPriorityBlockingQueue();
+        this.timeVector = causalObject.getTimeVector();
     }
 
     private void batchCommit(PQObject pqObject) {
@@ -45,7 +53,7 @@ public class HandlerReadThread extends Thread
 
         // Fetch the current timeStamp;
         TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
-        List<Integer> localTimeVector = CausalCommon.getInstance().fetchMyTimeStamp(timeVectorMeta);
+        List<Integer> localTimeVector = timeVector.read();
         boolean flag = false;
 
         while (CausalCommon.getInstance().canCommit(localTimeVector, pqObject.getMutationTimeStamp(), pqObject.getSenderID())) {
@@ -56,23 +64,22 @@ public class HandlerReadThread extends Thread
             pqObject = priorityBlockingQueue.poll();
 
             mutation = pqObject.getMutation();
-            DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
-            int senderID = pqObject.getSenderID();
-            int id = pqObject.getId();
-            InetAddressAndPort replyTo = pqObject.getReplyto();
 
-            // Change out timeStamp
-            localTimeVector.set(senderID, localTimeVector.get(senderID) + 1);
-            CausalCommon.getInstance().updateLocalTimeStamp(localTimeVector, timeVectorMeta, mutation, myKey);
+            int senderID = pqObject.getSenderID();
+
+            List<Integer> commitTime = timeVector.updateAndRead(senderID);
+
+            logger.debug("Batch commit Time is");
+            CausalCommon.getInstance().printTimeStamp(commitTime);
 
             // Create the new Mutation to be applied;
-            Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation,pqObject.getMutationTimeStamp(), senderID);
+            Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation);
             
             //Apply the New Mutation;
-            CausalCommon.getInstance().commit(newMutation, id, replyTo);
+            CausalCommon.getInstance().commit(newMutation);
 
             //fetch my new TimeVector
-            localTimeVector = CausalCommon.getInstance().fetchMyTimeStamp(timeVectorMeta);
+            localTimeVector = timeVector.read();
 
             if (priorityBlockingQueue.size() == 0) {
                 break;

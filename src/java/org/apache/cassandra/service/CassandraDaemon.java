@@ -46,6 +46,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.concurrent.ScheduledExecutors;
+import org.apache.cassandra.db.causalreader.TimeVector;
 import org.apache.cassandra.db.virtual.SystemViewsKeyspace;
 import org.apache.cassandra.db.virtual.VirtualKeyspaceRegistry;
 import org.apache.cassandra.db.virtual.VirtualSchemaKeyspace;
@@ -80,6 +81,8 @@ import org.apache.cassandra.security.ThreadAwareSecurityManager;
 public class CassandraDaemon
 {
     public static final String MBEAN_NAME = "org.apache.cassandra.db:type=NativeAccess";
+
+    private TimeVector timeVector = new TimeVector();
 
     private static final Logger logger;
     static
@@ -603,8 +606,11 @@ public class CassandraDaemon
             }
 
             start();
-            // Run our CausalThread here.
-            logger.debug("Thread starts to run");
+
+
+            // Pass the Local Vector to both of them
+            StorageService.instance.setLocalVector(timeVector);
+            StorageProxy.setVectorTimeStamp(timeVector);
             StorageService.instance.runThread();
         }
         catch (Throwable e)

@@ -81,8 +81,8 @@ public class CausalCommon
         return causalCommon;
     }
 
-    // TODO: Need to carefully check this part
-    public Mutation createCommitMutation(Mutation incomingMutation,  List<Integer> mutationTimeStamp, int senderID)
+    // Only need the value
+    public Mutation createCommitMutation(Mutation incomingMutation)
     {
         logger.warn("Create Our Mutation");
         printMutation(incomingMutation);
@@ -98,18 +98,15 @@ public class CausalCommon
             // Since the metaData in the mutation may not exist in our table
 //            logger.debug(colName);
             // We only want the value and the corresponding timeStamp;
-            if (colName.startsWith("vcol" + senderID))
+            if (colName.startsWith("vcol") || colName.startsWith("sendfrom"))
             {
-                int value = ByteBufferUtil.toInt(c.value());
-//                logger.warn("The corresponding time col and time value is " + senderID + " : " + value);
-                mutationBuilder.update(tableMetadata).row().add(colName, value);
+                continue;
             }
-
             // if the value is a integer type
             else if (IntegerType.instance.isValueCompatibleWithInternal(c.column().cellValueType()))
             {
                 int value = ByteBufferUtil.toInt(c.value());
-//                logger.warn("The new value is " + value);
+                logger.warn("The new value is " + value);
                 mutationBuilder.update(tableMetadata).row().add(colName, value);
             }
             // if it is a string type
@@ -119,6 +116,7 @@ public class CausalCommon
                 try
                 {
                     value = ByteBufferUtil.string(c.value());
+                    logger.warn("The new value is " + value);
                 }
                 catch (CharacterCodingException e)
                 {
@@ -127,7 +125,7 @@ public class CausalCommon
                 mutationBuilder.update(tableMetadata).row().add(colName, value);
             }
         }
-        mutationBuilder.update(tableMetadata).row().add(CausalUtility.getColPrefix() + senderID, mutationTimeStamp.get(senderID));
+
         return mutationBuilder.build();
     }
 
@@ -172,14 +170,9 @@ public class CausalCommon
         return true;
     }
 
-    public void commit(Mutation commitMutation, int id, InetAddressAndPort replyTo)
+    public void commit(Mutation commitMutation)
     {
         commitMutation.apply();
-        commitMutation.applyFuture();
-        commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
-            failed();
-            return null;
-        });
     }
 
     public int getSenderID(Mutation mutation)

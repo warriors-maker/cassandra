@@ -29,6 +29,7 @@ import org.apache.cassandra.db.causalreader.CausalCommon;
 import org.apache.cassandra.db.causalreader.CausalObject;
 import org.apache.cassandra.db.causalreader.CausalUtility;
 import org.apache.cassandra.db.causalreader.PQObject;
+import org.apache.cassandra.db.causalreader.TimeVector;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
 import org.apache.cassandra.schema.TableMetadata;
@@ -37,6 +38,7 @@ import org.apache.cassandra.tracing.Tracing;
 public class MutationVerbHandler implements IVerbHandler<Mutation>
 {
     private CausalObject causalObject;
+    private TimeVector timeVector;
     private static final Logger logger = LoggerFactory.getLogger(MutationVerbHandler.class);
 
     private void reply(int id, InetAddressAndPort replyTo)
@@ -51,6 +53,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
     public MutationVerbHandler(CausalObject causalObject) {
         this.causalObject = causalObject;
+        this.timeVector = causalObject.getTimeVector();
     }
 
     private void failed()
@@ -77,27 +80,19 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         logger.debug("Fetch Value");
         Mutation mutation = message.payload;
-        logger.debug("Mutation key is" + mutation.key().toString());
-        TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
-        DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
+//        TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
+//        DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
+//        logger.debug("My key is" + myKey.toString());
 
-        //Check whether we have inititate our timeStamp already
-        if (!CausalCommon.getInstance().isVectorInitiate(timeVectorMeta)) {
-            logger.debug("Have not Initiated");
-            CausalCommon.getInstance().initiateTimeVector(timeVectorMeta, mutation,myKey);
-        }
 
         //Fetch localTimeStamp
-        List<Integer> localTimeVector = CausalCommon.getInstance().fetchMyTimeStamp(timeVectorMeta);
+        List<Integer> localTimeVector = timeVector.read();
         logger.debug("Doverb LocalTimeVector:");
         CausalCommon.getInstance().printTimeStamp(localTimeVector);
 
         //fetch Mutation Vector
         List<Integer> mutationVector = CausalCommon.getInstance().getMutationTimeStamp(mutation);
         logger.debug("Doverb MutationTimeVector:");
-        if (mutationVector.size() == 0) {
-            logger.debug("Size is 0");
-        }
         CausalCommon.getInstance().printTimeStamp(mutationVector);
 
         //Check who is the sender
@@ -107,21 +102,18 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         //if can commit, build a new Mutation
         //if cannot commit, push them into pq;
         if (CausalCommon.getInstance().canCommit(localTimeVector, mutationVector, senderID)) {
-            logger.debug("Yes, we can commit");
-            //Commit the new TimeStamp
-            localTimeVector.set(senderID, localTimeVector.get(senderID) + 1);
-            CausalCommon.getInstance().updateLocalTimeStamp(localTimeVector, timeVectorMeta,mutation, myKey);
+            logger.debug("Yes, we can commit directly");
+
+            //Update our TimeStamp
+            List<Integer> commitTime = timeVector.updateAndRead(senderID);
+
+            logger.debug("Commit time is:");
+            CausalCommon.getInstance().printTimeStamp(commitTime);
 
             // Create the new Mutation to be applied;
-            Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation,mutationVector, senderID);
+            Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation);
             //Apply the New Mutation;
-            CausalCommon.getInstance().commit(newMutation, id, replyTo);
-
-//            // push our new Read TimeStamp into Blocking Queue;
-//            if (causalObject.gerPriorityBlockingQueue().size() != 0) {
-//                this.causalObject.getBlockingQueue().offer(localTimeVector);
-//            }
-
+            CausalCommon.getInstance().commit(newMutation);
         } else {
             logger.debug("We Cannot commit");
             // push it into our PQ

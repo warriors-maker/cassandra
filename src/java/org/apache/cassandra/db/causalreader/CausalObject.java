@@ -18,6 +18,7 @@
 
 package org.apache.cassandra.db.causalreader;
 
+import java.sql.Time;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
@@ -30,6 +31,7 @@ public class CausalObject
 {
     private BlockingQueue<List<Integer>> bq;
     private PriorityBlockingQueue pq;
+    private TimeVector timeVector;
 
     public CausalObject () {
         Comparator<PQObject> comparator = new Comparator<PQObject>()
@@ -78,5 +80,14 @@ public class CausalObject
     public PriorityBlockingQueue gerPriorityBlockingQueue()
     {
         return pq;
+    }
+
+    public void setTimeVector(TimeVector timeVector)
+    {
+        this.timeVector = timeVector;
+    }
+
+    public TimeVector getTimeVector() {
+        return this.timeVector;
     }
 }
