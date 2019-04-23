@@ -902,23 +902,23 @@ public class StorageProxy implements StorageProxyMBean
             List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
             for (IMutation mutation : mutations)
             {
-//                // Fetch the metaData of ServerTable
-//                TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
-//
-//                //Key for my localTable timeStamp key which start with individual server ID
-//                DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
-//
-//                // if our localVector is not initated;
-//                if (!CausalCommon.getInstance().isVectorInitiate(timeVectorMeta)) {
-//                    CausalCommon.getInstance().initiateTimeVector(timeVectorMeta, (Mutation)mutation,myKey);
-//                }
-//
-//                // fetch myLocalTime
-//                List<Integer> myTimeStamp = CausalCommon.getInstance().fetchMyTimeStamp(timeVectorMeta);
-//                logger.debug("Before commit TimeStamp:");
-//                CausalCommon.getInstance().printTimeStamp(myTimeStamp);
-//
-//
+                // Fetch the metaData of ServerTable
+                TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
+
+                //Key for my localTable timeStamp key which start with individual server ID
+                DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
+
+                // if our localVector is not initated;
+                if (!CausalCommon.getInstance().isVectorInitiate(timeVectorMeta)) {
+                    CausalCommon.getInstance().initiateTimeVector(timeVectorMeta, (Mutation)mutation,myKey);
+                }
+
+                // fetch myLocalTime
+                List<Integer> myTimeStamp = CausalCommon.getInstance().fetchMyTimeStamp(timeVectorMeta);
+                logger.debug("Before commit TimeStamp:");
+                CausalCommon.getInstance().printTimeStamp(myTimeStamp);
+
+
 //                //Need to create two mutation here:
 //                //1. Update to the server table
 //                //2. Update to the value table
@@ -966,16 +966,16 @@ public class StorageProxy implements StorageProxyMBean
 //                mutationMergeList.add(sendVectorMutation);
 //                mutationMergeList.add((Mutation) mutation);
 //                mutation = Mutation.merge(mutationMergeList);
-
-                if (mutation instanceof CounterMutation)
-                {
-                    responseHandlers.add(mutateCounter((CounterMutation) mutation, localDataCenter, System.nanoTime()));
-                }
-                else {
-                    WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
-                    //performWrite(localVectorMutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime());
-                    responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
-                }
+//
+//                if (mutation instanceof CounterMutation)
+//                {
+//                    responseHandlers.add(mutateCounter((CounterMutation) mutation, localDataCenter, System.nanoTime()));
+//                }
+//                else {
+//                    WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+//                    //performWrite(localVectorMutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime());
+//                    responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
+//                }
             }
             // wait for writes.  throws TimeoutException if necessary
             for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
