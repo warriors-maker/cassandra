@@ -259,11 +259,11 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         Gossiper.instance.addLocalApplicationStates(states);
     }
 
-    private CausalObject obj = new CausalObject();
-    private HandlerReadThread causalThread = new HandlerReadThread(obj);
-    public void runThread() {
-        this.causalThread.run();
-    }
+//    private CausalObject obj = new CausalObject();
+//    private HandlerReadThread causalThread = new HandlerReadThread(obj);
+//    public void runThread() {
+//        this.causalThread.run();
+//    }
 
     public StorageService()
     {
@@ -285,7 +285,7 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         ReadCommandVerbHandler readHandler = new ReadCommandVerbHandler();
 
         /* register the verb handlers */
-        MessagingService.instance().registerVerbHandlers(MessagingService.Verb.MUTATION, new MutationVerbHandler(obj));
+        MessagingService.instance().registerVerbHandlers(MessagingService.Verb.MUTATION, new MutationVerbHandler());
         MessagingService.instance().registerVerbHandlers(MessagingService.Verb.READ_REPAIR, new ReadRepairVerbHandler());
         MessagingService.instance().registerVerbHandlers(MessagingService.Verb.READ, readHandler);
         MessagingService.instance().registerVerbHandlers(MessagingService.Verb.RANGE_SLICE, readHandler);

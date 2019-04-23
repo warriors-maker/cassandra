@@ -75,62 +75,67 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             replyTo = from;
         }
 
-        logger.debug("Fetch Value");
-        Mutation mutation = message.payload;
-        logger.debug("Mutation key is" + mutation.key().toString());
-        TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
-        DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
+        message.payload.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
+            failed();
+            return null;
+        });
 
-        //Check whether we have inititate our timeStamp already
-        if (!CausalCommon.getInstance().isVectorInitiate(timeVectorMeta)) {
-            logger.debug("Have not Initiated");
-            CausalCommon.getInstance().initiateTimeVector(timeVectorMeta, mutation,myKey);
-        }
-
-        //Fetch localTimeStamp
-        List<Integer> localTimeVector = CausalCommon.getInstance().fetchMyTimeStamp(timeVectorMeta);
-        logger.debug("Doverb LocalTimeVector:");
-        CausalCommon.getInstance().printTimeStamp(localTimeVector);
-
-        //fetch Mutation Vector
-        List<Integer> mutationVector = CausalCommon.getInstance().getMutationTimeStamp(mutation);
-        logger.debug("Doverb MutationTimeVector:");
-        if (mutationVector.size() == 0) {
-            logger.debug("Size is 0");
-        }
-        CausalCommon.getInstance().printTimeStamp(mutationVector);
-
-        //Check who is the sender
-        int senderID = CausalCommon.getInstance().getSenderID(mutation);
-
-        //Compare two vectors
-        //if can commit, build a new Mutation
-        //if cannot commit, push them into pq;
-        if (CausalCommon.getInstance().canCommit(localTimeVector, mutationVector, senderID)) {
-            logger.debug("Yes, we can commit");
-            //Commit the new TimeStamp
-            localTimeVector.set(senderID, localTimeVector.get(senderID) + 1);
-            CausalCommon.getInstance().updateLocalTimeStamp(localTimeVector, timeVectorMeta,mutation, myKey);
-
-            // Create the new Mutation to be applied;
-            Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation,mutationVector, senderID);
-            //Apply the New Mutation;
-            CausalCommon.getInstance().commit(newMutation, id, replyTo);
-
-//            // push our new Read TimeStamp into Blocking Queue;
-//            if (causalObject.gerPriorityBlockingQueue().size() != 0) {
-//                this.causalObject.getBlockingQueue().offer(localTimeVector);
-//            }
-
-        } else {
-            logger.debug("We Cannot commit");
-            // push it into our PQ
-            PQObject obj = new PQObject(mutationVector, System.nanoTime(), mutation, senderID, id, replyTo);
-            this.causalObject.gerPriorityBlockingQueue().offer(obj);
-        }
-
-        //Once either commit or put into the pq, we reply
-        reply(id, replyTo);
+//        logger.debug("Fetch Value");
+//        Mutation mutation = message.payload;
+//        logger.debug("Mutation key is" + mutation.key().toString());
+//        TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
+//        DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
+//
+//        //Check whether we have inititate our timeStamp already
+//        if (!CausalCommon.getInstance().isVectorInitiate(timeVectorMeta)) {
+//            logger.debug("Have not Initiated");
+//            CausalCommon.getInstance().initiateTimeVector(timeVectorMeta, mutation,myKey);
+//        }
+//
+//        //Fetch localTimeStamp
+//        List<Integer> localTimeVector = CausalCommon.getInstance().fetchMyTimeStamp(timeVectorMeta);
+//        logger.debug("Doverb LocalTimeVector:");
+//        CausalCommon.getInstance().printTimeStamp(localTimeVector);
+//
+//        //fetch Mutation Vector
+//        List<Integer> mutationVector = CausalCommon.getInstance().getMutationTimeStamp(mutation);
+//        logger.debug("Doverb MutationTimeVector:");
+//        if (mutationVector.size() == 0) {
+//            logger.debug("Size is 0");
+//        }
+//        CausalCommon.getInstance().printTimeStamp(mutationVector);
+//
+//        //Check who is the sender
+//        int senderID = CausalCommon.getInstance().getSenderID(mutation);
+//
+//        //Compare two vectors
+//        //if can commit, build a new Mutation
+//        //if cannot commit, push them into pq;
+//        if (CausalCommon.getInstance().canCommit(localTimeVector, mutationVector, senderID)) {
+//            logger.debug("Yes, we can commit");
+//            //Commit the new TimeStamp
+//            localTimeVector.set(senderID, localTimeVector.get(senderID) + 1);
+//            CausalCommon.getInstance().updateLocalTimeStamp(localTimeVector, timeVectorMeta,mutation, myKey);
+//
+//            // Create the new Mutation to be applied;
+//            Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation,mutationVector, senderID);
+//            //Apply the New Mutation;
+//            CausalCommon.getInstance().commit(newMutation, id, replyTo);
+//
+////            // push our new Read TimeStamp into Blocking Queue;
+////            if (causalObject.gerPriorityBlockingQueue().size() != 0) {
+////                this.causalObject.getBlockingQueue().offer(localTimeVector);
+////            }
+//
+//        } else {
+//            logger.debug("We Cannot commit");
+//            // push it into our PQ
+//            PQObject obj = new PQObject(mutationVector, System.nanoTime(), mutation, senderID, id, replyTo);
+//            this.causalObject.gerPriorityBlockingQueue().offer(obj);
+//        }
+//
+//        //Once either commit or put into the pq, we reply
+//        reply(id, replyTo);
     }
 
 
