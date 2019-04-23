@@ -54,7 +54,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
     public MutationVerbHandler(CausalObject causalObject) {
         this.causalObject = causalObject;
         if (causalObject.getTimeVector() == null) {
-            logger.debug("Time Vector Is Null");
+//            logger.debug("Time Vector Is Null");
         }
         this.timeVector = causalObject.getTimeVector();
     }
@@ -66,7 +66,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
     public void doVerb(MessageIn<Mutation> message, int id)  throws IOException {
         // Check if there were any forwarding headers in this message
-        logger.debug("Doverb");
+//        logger.debug("Doverb");
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
         InetAddressAndPort replyTo;
         if (from == null)
@@ -81,7 +81,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             replyTo = from;
         }
 
-        logger.debug("Fetch Value");
+//        logger.debug("Fetch Value");
         Mutation mutation = message.payload;
 //        TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
 //        DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
@@ -90,36 +90,36 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         //Fetch localTimeStamp
         List<Integer> localTimeVector = timeVector.read();
-        logger.debug("Doverb LocalTimeVector:");
-        CausalCommon.getInstance().printTimeStamp(localTimeVector);
+//        logger.debug("Doverb LocalTimeVector:");
+//        CausalCommon.getInstance().printTimeStamp(localTimeVector);
 
         //fetch Mutation Vector
         List<Integer> mutationVector = CausalCommon.getInstance().getMutationTimeStamp(mutation);
-        logger.debug("Doverb MutationTimeVector:");
-        CausalCommon.getInstance().printTimeStamp(mutationVector);
+//        logger.debug("Doverb MutationTimeVector:");
+//        CausalCommon.getInstance().printTimeStamp(mutationVector);
 
         //Check who is the sender
         int senderID = CausalCommon.getInstance().getSenderID(mutation);
-        logger.debug("Sender is" + senderID);
+//        logger.debug("Sender is" + senderID);
 
         //Compare two vectors
         //if can commit, build a new Mutation
         //if cannot commit, push them into pq;
         if (CausalCommon.getInstance().canCommit(localTimeVector, mutationVector, senderID)) {
-            logger.debug("Yes, we can commit directly");
+//            logger.debug("Yes, we can commit directly");
 
             //Update our TimeStamp
             List<Integer> commitTime = timeVector.updateAndRead(senderID);
 
-            logger.debug("Commit time is:");
-            CausalCommon.getInstance().printTimeStamp(commitTime);
+//            logger.debug("Commit time is:");
+//            CausalCommon.getInstance().printTimeStamp(commitTime);
 
             // Create the new Mutation to be applied;
             Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation);
             //Apply the New Mutation;
             CausalCommon.getInstance().commit(newMutation);
         } else {
-            logger.debug("We Cannot commit");
+//            logger.debug("We Cannot commit");
             // push it into our PQ
             PQObject obj = new PQObject(mutationVector, System.nanoTime(), mutation, senderID, id, replyTo);
             this.causalObject.gerPriorityBlockingQueue().offer(obj);

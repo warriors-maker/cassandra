@@ -49,22 +49,22 @@ public class HandlerReadThread extends Thread
 
     private void batchCommit(PQObject pqObject) {
         // Print the PQ now;
-        printPQ();
+//        printPQ();
 
         // Fetch the current timeStamp;
         List<Integer> localTimeVector = timeVector.read();
 
-        logger.debug("Batch local time:");
-        CausalCommon.getInstance().printTimeStamp(localTimeVector);
+//        logger.debug("Batch local time:");
+//        CausalCommon.getInstance().printTimeStamp(localTimeVector);
 
         if (CausalCommon.getInstance().canCommit(localTimeVector, pqObject.getMutationTimeStamp(), pqObject.getSenderID())) {
             localTimeVector = timeVector.updateAndRead(pqObject.getSenderID());
             CausalCommon.getInstance().commit(pqObject.getMutation());
-            logger.debug("Can commit batch");
+//            logger.debug("Can commit batch");
         }
 
         else {
-            logger.debug("Fail to commit batch");
+//            logger.debug("Fail to commit batch");
             priorityBlockingQueue.offer(pqObject);
             return;
         }
@@ -78,10 +78,10 @@ public class HandlerReadThread extends Thread
 
             List<Integer> commitTime = timeVector.updateAndRead(senderID);
 
-            logger.debug("Batch commit Time is");
-            CausalCommon.getInstance().printTimeStamp(commitTime);
+//            logger.debug("Batch commit Time is");
+//            CausalCommon.getInstance().printTimeStamp(commitTime);
 
-            logger.debug(priorityBlockingQueue.toString());
+//            logger.debug(priorityBlockingQueue.toString());
 
             // Create the new Mutation to be applied;
             Mutation newMutation = CausalCommon.getInstance().createCommitMutation(pqObject.getMutation());
@@ -97,13 +97,13 @@ public class HandlerReadThread extends Thread
     }
 
     private void printPQ() {
-        logger.debug("Print PQ now");
+//        logger.debug("Print PQ now");
         PriorityBlockingQueue local = new PriorityBlockingQueue(priorityBlockingQueue);
         while (local.size() != 0) {
-            logger.debug("Size is not Empty");
+//            logger.debug("Size is not Empty");
             PQObject obj = (PQObject) local.poll();
             List<Integer> mutationTimeStamp = obj.getMutationTimeStamp();
-            logger.debug("Get the time");
+//            logger.debug("Get the time");
             printTimeStamp(mutationTimeStamp);
         }
     }
@@ -114,7 +114,7 @@ public class HandlerReadThread extends Thread
         for (int i = 0; i < timeStamp.size(); i++) {
             sb.append (timeStamp.get(i) + ",");
         }
-        logger.debug(sb.toString());
+//        logger.debug(sb.toString());
     }
 
     @Override
