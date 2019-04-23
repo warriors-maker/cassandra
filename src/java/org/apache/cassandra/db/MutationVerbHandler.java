@@ -100,6 +100,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         //Check who is the sender
         int senderID = CausalCommon.getInstance().getSenderID(mutation);
+        logger.debug("Sender is" + senderID);
 
         //Compare two vectors
         //if can commit, build a new Mutation
@@ -142,4 +143,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             MessagingService.instance().sendOneWay(message, forwardTo.messageIds[i], address);
         }
     }
+
+
+
 }
