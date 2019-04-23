@@ -49,22 +49,29 @@ public class HandlerReadThread extends Thread
 
     private void batchCommit(PQObject pqObject) {
         // Fetch the head timeStamp
-        Mutation mutation = pqObject.getMutation();
 
         // Fetch the current timeStamp;
-        TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
         List<Integer> localTimeVector = timeVector.read();
-        boolean flag = false;
 
-        while (CausalCommon.getInstance().canCommit(localTimeVector, pqObject.getMutationTimeStamp(), pqObject.getSenderID())) {
-            if (!flag) {
-                flag = true;
-            }
-            // if can commit, poll them out
+        logger.debug("Batch local time:");
+        CausalCommon.getInstance().printTimeStamp(localTimeVector);
+
+        if (CausalCommon.getInstance().canCommit(localTimeVector, pqObject.getMutationTimeStamp(), pqObject.getSenderID())) {
+            localTimeVector = timeVector.updateAndRead(pqObject.getSenderID());
+            CausalCommon.getInstance().commit(pqObject.getMutation());
+            logger.debug("Can commit batch");
+        }
+
+        else {
+            logger.debug("Fail to commit batch");
+            return;
+        }
+
+
+        pqObject = priorityBlockingQueue.peek();
+        while (priorityBlockingQueue.size() != 0 && CausalCommon.getInstance().canCommit(localTimeVector, pqObject.getMutationTimeStamp(), pqObject.getSenderID())) {
+
             pqObject = priorityBlockingQueue.poll();
-
-            mutation = pqObject.getMutation();
-
             int senderID = pqObject.getSenderID();
 
             List<Integer> commitTime = timeVector.updateAndRead(senderID);
@@ -73,7 +80,7 @@ public class HandlerReadThread extends Thread
             CausalCommon.getInstance().printTimeStamp(commitTime);
 
             // Create the new Mutation to be applied;
-            Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation);
+            Mutation newMutation = CausalCommon.getInstance().createCommitMutation(pqObject.getMutation());
             
             //Apply the New Mutation;
             CausalCommon.getInstance().commit(newMutation);
@@ -81,15 +88,7 @@ public class HandlerReadThread extends Thread
             //fetch my new TimeVector
             localTimeVector = timeVector.read();
 
-            if (priorityBlockingQueue.size() == 0) {
-                break;
-            } else {
-                pqObject = priorityBlockingQueue.peek();
-            }
-        }
-
-        if (!flag) {
-            priorityBlockingQueue.offer(pqObject);
+            pqObject = priorityBlockingQueue.peek();
         }
     }
 

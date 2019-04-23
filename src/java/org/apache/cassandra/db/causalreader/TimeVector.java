@@ -36,7 +36,7 @@ public class TimeVector
         return new ArrayList<>(this.timeVector);
     }
 
-    public List<Integer> read() {
+    public synchronized List<Integer> read() {
         return new ArrayList<>(this.timeVector);
     }
 

@@ -85,7 +85,7 @@ public class CausalCommon
     public Mutation createCommitMutation(Mutation incomingMutation)
     {
         logger.warn("Create Our Mutation");
-        printMutation(incomingMutation);
+//        printMutation(incomingMutation);
 
         Row mutationRow = incomingMutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(incomingMutation.getKeyspaceName(), incomingMutation.key());
@@ -200,10 +200,10 @@ public class CausalCommon
         // TODO: Need to check whether it is in the order we define the schema
         for (Cell c : mutationRow.cells()) {
             // fetch the individual timeEntry
-            logger.debug("Column name is: " + c.column().name.toString());
+//            logger.debug("Column name is: " + c.column().name.toString());
             String colName = c.column().name.toString();
             if (colName.startsWith(CausalUtility.getColPrefix())) {
-                logger.warn(c.column().name.toString() + ByteBufferUtil.toInt(c.value()));
+//                logger.warn(c.column().name.toString() + ByteBufferUtil.toInt(c.value()));
                 mutationTimeStamp.add(ByteBufferUtil.toInt(c.value()));
             }
         }

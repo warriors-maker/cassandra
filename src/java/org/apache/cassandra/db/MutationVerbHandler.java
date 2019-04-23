@@ -89,9 +89,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
 
         //Fetch localTimeStamp
-        if (timeVector == null) {
-            logger.debug("It is null");
-        }
         List<Integer> localTimeVector = timeVector.read();
         logger.debug("Doverb LocalTimeVector:");
         CausalCommon.getInstance().printTimeStamp(localTimeVector);
