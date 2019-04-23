@@ -605,7 +605,7 @@ public class CassandraDaemon
             start();
             // Run our CausalThread here.
             logger.debug("Thread starts to run");
-            StorageService.instance.runThread();
+//            StorageService.instance.runThread();
         }
         catch (Throwable e)
         {
