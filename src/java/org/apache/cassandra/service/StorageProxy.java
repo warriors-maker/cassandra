@@ -902,21 +902,22 @@ public class StorageProxy implements StorageProxyMBean
             List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
             for (IMutation mutation : mutations)
             {
+                logger.debug("Inside here");
                 // Fetch the metaData of ServerTable
                 TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
 
                 //Key for my localTable timeStamp key which start with individual server ID
                 DecoratedKey myKey = timeVectorMeta.partitioner.decorateKey(ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes()));
 
-                // if our localVector is not initated;
-                if (!CausalCommon.getInstance().isVectorInitiate(timeVectorMeta)) {
-                    CausalCommon.getInstance().initiateTimeVector(timeVectorMeta, (Mutation)mutation,myKey);
-                }
-
-                // fetch myLocalTime
-                List<Integer> myTimeStamp = CausalCommon.getInstance().fetchMyTimeStamp(timeVectorMeta);
-                logger.debug("Before commit TimeStamp:");
-                CausalCommon.getInstance().printTimeStamp(myTimeStamp);
+//                // if our localVector is not initated;
+//                if (!CausalCommon.getInstance().isVectorInitiate(timeVectorMeta)) {
+//                    CausalCommon.getInstance().initiateTimeVector(timeVectorMeta, (Mutation)mutation,myKey);
+//                }
+//
+//                // fetch myLocalTime
+//                List<Integer> myTimeStamp = CausalCommon.getInstance().fetchMyTimeStamp(timeVectorMeta);
+//                logger.debug("Before commit TimeStamp:");
+//                CausalCommon.getInstance().printTimeStamp(myTimeStamp);
 
 
 //                //Need to create two mutation here:
