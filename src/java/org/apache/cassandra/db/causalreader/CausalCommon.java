@@ -269,9 +269,8 @@ public class CausalCommon
         for (Cell c : mutationRow.cells())
         {
             String colName = c.column().name.toString();
-            if (colName.equals("sendfrom"))
+            if (colName.startsWith("field"))
             {
-                System.out.println("Contains sendfrom");
                 return true;
             }
         }

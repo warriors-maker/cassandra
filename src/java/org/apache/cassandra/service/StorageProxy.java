@@ -896,13 +896,13 @@ public class StorageProxy implements StorageProxyMBean
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();
-
+//        logger.debug("Trigger");
         try
         {
             List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
             for (IMutation mutation : mutations)
             {
-                logger.debug("Inside here");
+//                logger.debug("Inside here");
                 if (CausalCommon.getInstance().isDataMutation(mutation)) {
                     // Fetch the metaData of ServerTable
                     TableMetadata timeVectorMeta = Keyspace.open(mutation.getKeyspaceName()).getMetadata().getTableOrViewNullable("server");
