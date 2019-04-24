@@ -56,7 +56,7 @@ public class CausalObject
                         cond2 = false;
                     }
                 }
-                
+
                 if (cond1 == cond2) {
                     return incomparable(t1_vector,t2_vector);
                 } else {

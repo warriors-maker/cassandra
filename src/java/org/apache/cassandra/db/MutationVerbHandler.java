@@ -82,12 +82,10 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         //Fetch localTimeStamp
         List<Integer> localTimeVector = timeVector.read();
-//        logger.debug("Doverb LocalTimeVector:");
 //        CausalCommon.getInstance().printTimeStamp(localTimeVector);
 
         //fetch Mutation Vector
         List<Integer> mutationVector = CausalCommon.getInstance().getMutationTimeStamp(mutation);
-//        logger.debug("Doverb MutationTimeVector:");
 //        CausalCommon.getInstance().printTimeStamp(mutationVector);
 
         //Check who is the sender
@@ -108,7 +106,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         } else {
             // push it into our PQ
             PQObject obj = new PQObject(mutationVector, System.nanoTime(), mutation, senderID, id, replyTo);
-            CausalCommon.getInstance().printFailMutation(obj);
+            //CausalCommon.getInstance().printFailMutation(obj);
             this.causalObject.getPriorityBlockingQueue().offer(obj);
         }
 
