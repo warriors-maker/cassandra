@@ -43,47 +43,33 @@ public class HandlerReadThread extends Thread
             try
             {
                 logger.debug("Size is" + priorityBlockingQueue.size());
-
+                CausalCommon.getInstance().printPQ(this.priorityBlockingQueue);
                 PQObject pqObject = this.priorityBlockingQueue.take();
-                logger.debug("The head of pq timeStamp is:");
-                printMutation(pqObject);
+                CausalCommon.getInstance().printHeadMutation(pqObject);
+
 
                 List<Integer> localTimeVector = timeVector.read();
-                logger.debug("My timeStamp is");
-                CausalCommon.getInstance().printTimeStamp(localTimeVector);
+                CausalCommon.getInstance().printLocalTimeStamp(localTimeVector);
 
                 if (CausalCommon.getInstance().canCommit(localTimeVector, pqObject.getMutationTimeStamp(), pqObject.getSenderID()))
                 {
                     timeVector.updateAndRead(pqObject.getSenderID());
-                    CausalCommon.getInstance().commit(pqObject.getMutation());
+                    pqObject.getMutation().apply();
                 } else {
-                    logger.debug("Fail timeStamp:");
                     this.priorityBlockingQueue.offer(pqObject);
                 }
 
             } catch (Exception e) {
+                logger.debug("Being Interupted");
                 e.printStackTrace();
             }
         }
     }
 
 
-    private void printMutation(PQObject pqObject) {
-        if (pqObject == null) {
-            logger.debug("Null");
-        } else {
-            CausalCommon.getInstance().printTimeStamp(pqObject.getMutationTimeStamp());
-        }
-    }
 
-    public void printTimeStamp(List<Integer> timeStamp) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("pq: ");
-        for (int i = 0; i < timeStamp.size(); i++) {
-            sb.append (timeStamp.get(i) + ",");
-        }
-//        logger.debug(sb.toString());
-    }
+
+
 
     @Override
     public void run()

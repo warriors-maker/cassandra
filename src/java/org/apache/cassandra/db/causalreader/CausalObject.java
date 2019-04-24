@@ -72,11 +72,6 @@ public class CausalObject
     }
 
 
-    public BlockingQueue getBlockingQueue()
-    {
-        return bq;
-    }
-
     public PriorityBlockingQueue getPriorityBlockingQueue()
     {
         return pq;

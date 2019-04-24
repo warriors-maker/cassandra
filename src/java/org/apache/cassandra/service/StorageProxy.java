@@ -913,8 +913,7 @@ public class StorageProxy implements StorageProxyMBean
                 if (CausalCommon.getInstance().isDataMutation(mutation)) {
                     // fetch myLocalTime
                     List<Integer> myTimeStamp = timeVector.updateAndRead(CausalUtility.getWriterID());
-//                    logger.debug("Commit TimeStamp:");
-//                    CausalCommon.getInstance().printTimeStamp(myTimeStamp);
+                    CausalCommon.getInstance().printMutateTimeStamp(myTimeStamp);
 
                     TableMetadata dataMeta = mutation.getPartitionUpdates().iterator().next().metadata();
                     Mutation.SimpleBuilder valueBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());

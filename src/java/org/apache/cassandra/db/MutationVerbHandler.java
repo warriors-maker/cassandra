@@ -103,14 +103,12 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             //Update our TimeStamp
             List<Integer> commitTime = timeVector.updateAndRead(senderID);
 
-            Mutation newMutation = CausalCommon.getInstance().createCommitMutation(mutation);
-            //Apply the New Mutation;
-            CausalCommon.getInstance().commit(newMutation);
+            mutation.apply();
+
         } else {
-            logger.debug("We Cannot commit directly time:");
             // push it into our PQ
             PQObject obj = new PQObject(mutationVector, System.nanoTime(), mutation, senderID, id, replyTo);
-            printMutation(obj);
+            CausalCommon.getInstance().printFailMutation(obj);
             this.causalObject.getPriorityBlockingQueue().offer(obj);
         }
 
@@ -118,13 +116,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         reply(id, replyTo);
     }
 
-    private void printMutation(PQObject pqObject) {
-        if (pqObject == null) {
-            logger.debug("Null");
-        } else {
-            CausalCommon.getInstance().printTimeStamp(pqObject.getMutationTimeStamp());
-        }
-    }
 
     private static void forwardToLocalNodes(Mutation mutation, MessagingService.Verb verb, ForwardToContainer forwardTo, InetAddressAndPort from) throws IOException
     {

@@ -137,10 +137,6 @@ public class CausalCommon
         MessagingService.instance().sendReply(WriteResponse.createMessage(), id, replyTo);
     }
 
-    private void failed()
-    {
-        Tracing.trace("Payload application resulted in WriteTimeout, not replying");
-    }
 
     // Check whether we can directly commit this mutation
     public boolean canCommit(List<Integer> serverTimeStamp, List<Integer> mutationTimeStamp, int senderID)
@@ -212,50 +208,6 @@ public class CausalCommon
     }
 
 
-    public void printMutation(Mutation mutation) {
-        Row mutationRow = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
-        logger.warn("Printing the individual column of income message");
-        for (Cell c : mutationRow.cells()) {
-            String colName = c.column().name.toString();
-            logger.debug(colName);
-
-            if (IntegerType.instance.isValueCompatibleWithInternal(c.column().cellValueType()))
-            {
-                int value = ByteBufferUtil.toInt(c.value());
-                logger.warn("The value is " + value);
-
-            }
-            // if it is a string type
-            else if (UTF8Type.instance.isValueCompatibleWith(c.column().cellValueType()))
-            {
-                String value = "";
-                try
-                {
-                    value = ByteBufferUtil.string(c.value());
-                    logger.warn("The value is" + value);
-                }
-                catch (CharacterCodingException e)
-                {
-                    e.printStackTrace();
-                }
-            }
-
-        }
-        logger.debug("Finish Initiate");
-    }
-
-    public boolean isLocalVectorMutation(Mutation mutation) {
-        Row mutationRow = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
-        for (Cell c : mutationRow.cells())
-        {
-            String colName = c.column().name.toString();
-            if (colName.startsWith("local"))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
 
     public boolean isDataMutation(IMutation mutation) {
         //check if the Mutation (our time) only needs to perform locally by checking if it has the sendFrom column
@@ -271,120 +223,62 @@ public class CausalCommon
         return false;
     }
 
-    public boolean isVectorInitiate(TableMetadata timeVectorMeta) {
-        SinglePartitionReadCommand localRead = SinglePartitionReadCommand.fullPartitionRead(
-        timeVectorMeta,
-        FBUtilities.nowInSeconds(),
-        ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes())
-        );
 
-        try (ReadExecutionController executionController = localRead.executionController();
-             UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
-        {
-
-            // first we have to transform it into a PartitionIterator
-            PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
-
-            // if the db does not have the data, it will not go through this while loop
-            while(pi.hasNext())
-            {
-                RowIterator ri = pi.next();
-                while(ri.hasNext())
-                {
-                    return true;
-                }
-            }
+    public void printFailMutation(PQObject pqObject) {
+        if (pqObject == null) {
+            logger.debug("Null");
+        } else {
+            logger.debug("We Cannot commit directly time: " + CausalCommon.getInstance().getTimeStamp(pqObject.getMutationTimeStamp()));
         }
-        return false;
     }
 
-    public List<Integer> fetchMyTimeStamp(TableMetadata timeVectorMeta) {
-        //fetch my timeStamp
-        // for each muation we first read the coresponding timestamp
-        //Fetch the metadata of our Timutation
-        List<Integer> myTimeStamp = new ArrayList<>();
-        SinglePartitionReadCommand localRead = SinglePartitionReadCommand.fullPartitionRead(
-        timeVectorMeta,
-        FBUtilities.nowInSeconds(),
-        ByteBuffer.wrap(Integer.toString(CausalUtility.getWriterID()).getBytes())
-        );
-
-        int local_vector_entry_time;
-
-        try (ReadExecutionController executionController = localRead.executionController();
-             UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
-        {
-
-            // first we have to transform it into a PartitionIterator
-            PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
-
-            // if the db does not have the data, it will not go through this while loop
-            while(pi.hasNext())
-            {
-                // zValueReadResult.next() returns a RowIterator
-                RowIterator ri = pi.next();
-                while(ri.hasNext())
-                {
-                    // fetch the current row;
-                    Row r = ri.next();
-                    // Fetch the current_local_timestamp from individual columns
-                    // individual columns represents individual server's writing timeStamp;
-                    for (int id = 0; id < CausalUtility.getNumNodes(); id++)
-                    {
-                        String colName = CausalUtility.getLocalColPrefix() + id;
-                        ColumnMetadata colMeta = ri.metadata().getColumn(ByteBufferUtil.bytes(colName));
-                        Cell c = r.getCell(colMeta);
-                        local_vector_entry_time = ByteBufferUtil.toInt(c.value());
-                        System.out.println("Mytime entry: " + local_vector_entry_time );
-                        myTimeStamp.add(local_vector_entry_time);
-                    }
-
-                }
-            }
+    public void printHeadMutation(PQObject pqObject) {
+        if (pqObject != null) {
+            logger.debug("Head in PQ: " + CausalCommon.getInstance().getTimeStamp(pqObject.getMutationTimeStamp()));
         }
-        return myTimeStamp;
     }
 
-    public void initiateTimeVector(TableMetadata timeVectorMeta, Mutation mutation, DecoratedKey myKey) {
-//        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-        //This part can be changed later
-        Mutation.SimpleBuilder timeBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), myKey);
-        for (int i = 0; i < CausalUtility.getNumNodes(); i++) {
-            String colName = CausalUtility.getLocalColPrefix() + i;
-            timeBuilder.update(timeVectorMeta)
-                       .timestamp(FBUtilities.timestampMicros())
-                       .row()
-                       .add(colName,0);
+    public void printLocalTimeStamp(List<Integer> timeStamp) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Local time is ");
+        for (int i = 0; i < timeStamp.size(); i++) {
+            sb.append (timeStamp.get(i) + ",");
         }
-
-        timeBuilder.build().apply();
-//        AbstractWriteResponseHandler<IMutation> responseHandler = StorageProxy.performWrite(timeBuilder.build(), ConsistencyLevel.ANY, localDataCenter, standardWritePerformer, null , WriteType.SIMPLE , System.nanoTime());
-//        responseHandler.get();
+        logger.debug(sb.toString());
     }
 
-    public void updateLocalTimeStamp(List<Integer> myTimeStamp, TableMetadata timeVectorMeta, Mutation mutation, DecoratedKey myKey)
-    {
-        logger.debug("Update my Local Time Stamp");
-        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-        logger.debug("Update my TimeStamp after receiving a mutation");
-        Mutation.SimpleBuilder timeBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), myKey);
-        for (int i = 0; i < CausalUtility.getNumNodes(); i++) {
-            String colName = CausalUtility.getLocalColPrefix() + i;
-            timeBuilder.update(timeVectorMeta)
-                       .timestamp(FBUtilities.timestampMicros())
-                       .row()
-                       .add(colName,myTimeStamp.get(i));
-            logger.debug(colName + " " +myTimeStamp.get(i));
+    public void printMutateTimeStamp(List<Integer> timeStamp) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Mutate time is ");
+        for (int i = 0; i < timeStamp.size(); i++) {
+            sb.append (timeStamp.get(i) + ",");
         }
-        timeBuilder.build().apply();
-//        AbstractWriteResponseHandler<IMutation> responseHandler = StorageProxy.performWrite(timeBuilder.build(), ConsistencyLevel.ANY, localDataCenter, standardWritePerformer, null , WriteType.SIMPLE , System.nanoTime());
-//        responseHandler.get();
+        logger.debug(sb.toString());
     }
 
-    public void printTimeStamp(List<Integer> timeStamp) {
+    public String getTimeStamp(List<Integer> timeStamp) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < timeStamp.size(); i++) {
             sb.append (timeStamp.get(i) + ",");
+        }
+        return sb.toString();
+    }
+
+    public void printPQ(PriorityBlockingQueue<PQObject> pq) {
+        PriorityBlockingQueue<PQObject> copy = new PriorityBlockingQueue(pq);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("MyPQ value:");
+        synchronized (pq) {
+            int size = copy.size();
+            for (int i = 0; i <size; i++) {
+                PQObject pqObject = copy.poll();
+                List<Integer> time = pqObject.getMutationTimeStamp();
+                for (int j = 0; j < 3; j++) {
+                    sb.append(time.get(i) + ",");
+                }
+                sb.append("\n");
+            }
         }
         logger.debug(sb.toString());
     }
