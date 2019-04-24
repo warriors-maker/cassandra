@@ -56,10 +56,9 @@ public class CausalObject
                         cond2 = false;
                     }
                 }
-                long physical_t1 = o1.getPhysicalTimeStamp();
-                long physical_t2 = o2.getPhysicalTimeStamp();
+                
                 if (cond1 == cond2) {
-                    return physical_t1 < physical_t2 ? -1 : 1;
+                    return incomparable(t1_vector,t2_vector);
                 } else {
                     return cond1 ? -1 : 1;
                 }
@@ -71,6 +70,19 @@ public class CausalObject
         this.timeVector = timeVector;
     }
 
+
+    public int incomparable (List<Integer> t1_vector, List<Integer> t2_vector) {
+        for (int i = 0; i < t1_vector.size(); i++) {
+            int t1_entry = t1_vector.get(i);
+            int t2_entry = t2_vector.get(i);
+            if (t1_entry < t2_entry) {
+                return -1;
+            } else if (t1_entry > t2_entry) {
+                return 1;
+            }
+        }
+        return 0;
+    }
 
     public PriorityBlockingQueue getPriorityBlockingQueue()
     {

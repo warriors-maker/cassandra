@@ -275,7 +275,7 @@ public class CausalCommon
                 PQObject pqObject = copy.poll();
                 List<Integer> time = pqObject.getMutationTimeStamp();
                 for (int j = 0; j < 3; j++) {
-                    sb.append(time.get(i) + ",");
+                    sb.append(time.get(j) + ",");
                 }
                 sb.append("\n");
             }
