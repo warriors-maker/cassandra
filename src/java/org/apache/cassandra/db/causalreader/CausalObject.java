@@ -66,7 +66,7 @@ public class CausalObject
         };
 
         this.bq = new LinkedBlockingQueue<>();
-        this.pq = new PriorityBlockingQueue<>(200000, comparator);
+        this.pq = new PriorityBlockingQueue<>(1000000, comparator);
         this.timeVector = timeVector;
     }
 
