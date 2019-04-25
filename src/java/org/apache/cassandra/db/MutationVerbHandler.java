@@ -62,8 +62,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
     }
 
     public void doVerb(MessageIn<Mutation> message, int id)  throws IOException {
-        // Check if there were any forwarding headers in this message
-//        logger.debug("Doverb");
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
         InetAddressAndPort replyTo;
         if (from == null)
@@ -80,7 +78,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         Mutation mutation = message.payload;
 
-        //Fetch localTimeStamp
         List<Integer> localTimeVector = timeVector.read();
 //        CausalCommon.getInstance().printTimeStamp(localTimeVector);
 
@@ -99,7 +96,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 //            logger.debug("Yes, we can commit directly");
 
             //Update our TimeStamp
-            List<Integer> commitTime = timeVector.updateAndRead(senderID);
+            timeVector.updateAndRead(senderID);
 
             mutation.apply();
 

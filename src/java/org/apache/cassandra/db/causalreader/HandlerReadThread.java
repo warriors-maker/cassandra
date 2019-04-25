@@ -38,17 +38,17 @@ public class HandlerReadThread extends Thread
 
     private void batchCommit() {
         // Fetch the current timeStamp;
+        PQObject pqObject;
+        List<Integer> localTimeVector;
         while (true)
         {
             try
             {
                 //logger.debug("Size is" + priorityBlockingQueue.size());
                 //CausalCommon.getInstance().printPQ(this.priorityBlockingQueue);
-                PQObject pqObject = this.priorityBlockingQueue.take();
-                //CausalCommon.getInstance().printHeadMutation(pqObject);
-                List<Integer> localTimeVector = timeVector.read();
+                pqObject = this.priorityBlockingQueue.take();
+                localTimeVector = timeVector.read();
                 //CausalCommon.getInstance().printLocalTimeStamp(localTimeVector);
-
                 if (CausalCommon.getInstance().canCommit(localTimeVector, pqObject.getMutationTimeStamp(), pqObject.getSenderID()))
                 {
                     timeVector.updateAndRead(pqObject.getSenderID());
