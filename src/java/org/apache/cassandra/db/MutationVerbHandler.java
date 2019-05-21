@@ -20,6 +20,8 @@ package org.apache.cassandra.db;
 import java.io.IOException;
 import java.util.Iterator;
 
+import org.apache.cassandra.Treas.TreasConfig;
+import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
@@ -33,6 +35,7 @@ import org.apache.cassandra.exceptions.WriteTimeoutException;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
 import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -50,7 +53,166 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         Tracing.trace("Payload application resulted in WriteTimeout, not replying");
     }
 
-    public void doVerb(MessageIn<Mutation> message, int id)  throws IOException
+    public void doVerb(MessageIn<Mutation> message, int id)  throws IOException {
+        // Check if there were any forwarding headers in this message
+        InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
+        InetAddressAndPort replyTo;
+        if (from == null)
+        {
+            replyTo = message.from;
+            ForwardToContainer forwardTo = (ForwardToContainer)message.parameters.get(ParameterType.FORWARD_TO);
+            if (forwardTo != null)
+                forwardToLocalNodes(message.payload, message.verb, forwardTo, message.from);
+        }
+        else
+        {
+
+            replyTo = from;
+        }
+
+        // Read the value from the mutation
+        // The tag sent from coordinator is always in tag1 and value is always in field 1
+
+
+        // Read thew smallest Tag from the column and get where the value column is
+        SinglePartitionReadCommand localRead =
+        SinglePartitionReadCommand.fullPartitionRead(
+        message.payload.getPartitionUpdates().iterator().next().metadata(),
+        FBUtilities.nowInSeconds(),
+        message.payload.key()
+        );
+
+        int hit = 1;
+        String minTagColumn = "";
+        String maxTagColumn ="";
+        TreasTag localMinTag = null;
+        TreasTag localMaxTag = null;
+
+        TreasTag mutationTag = null;
+        String mutationValue = "";
+
+        // Read from local
+        try (ReadExecutionController executionController = localRead.executionController();
+             UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
+        {
+            // first we have to transform it into a PartitionIterator
+            PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
+            while(pi.hasNext())
+            {
+                RowIterator ri = pi.next();
+                while(ri.hasNext())
+                {
+                    Row r = ri.next();
+
+                    for (Cell cell : r.cells()) {
+                        String colName = cell.column().toString();
+
+                        if (colName.startsWith("tag")) {
+                            TreasTag currentTag = TreasTag.deserialize(cell.value());
+                            hit++;
+
+                            if (localMaxTag == null && localMinTag == null) {
+                                localMaxTag = currentTag;
+                                maxTagColumn = colName;
+                                localMinTag = currentTag;
+                                minTagColumn = colName;
+                            }
+                            else {
+                                if (currentTag.isLarger(localMaxTag)) {
+                                    localMaxTag = currentTag;
+                                    maxTagColumn = colName;
+                                }
+                                else if (localMinTag.isLarger(currentTag)) {
+                                    localMinTag = currentTag;
+                                    minTagColumn = colName;
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Read from the Mutation
+        Row data = message.payload.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+        for (Cell c : data.cells())
+        {
+            if (c.column().toString().equals("tag1")) {
+                mutationTag = TreasTag.deserialize(c.value());
+            } else if (c.column().toString().equals("field1")) {
+                mutationValue = ByteBufferUtil.string(c.value());
+            }
+        }
+
+        Mutation mutation = message.payload;
+        Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
+        TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+        long timeStamp = FBUtilities.timestampMicros();
+
+        // Meaning one of the column is missing
+        if (hit <= TreasConfig.num_concurrecy) {
+            // if hit == 1:
+            // No data yet, directly commit the
+            if (hit == 1) {
+                message.payload.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
+                    failed();
+                    return null;
+                });
+                return;
+            } else {
+                // If larger, we need to
+                // First add to the hit spot (Both Tag and Value)
+                // Remove value
+                if (mutationTag.isLarger(localMaxTag)) {
+                    mutationBuilder.update(tableMetadata)
+                                   .timestamp(timeStamp)
+                                   .row()
+                                   .add("tag" + hit, TreasTag.serialize(mutationTag))
+                                   .add("field" + hit, mutationValue)
+                                   .add("field" + maxTagColumn.substring(3),null);
+                }
+                // If not larger
+                // Just need to add to the hit spot (only Tag)
+                else {
+                    mutationBuilder.update(tableMetadata)
+                                   .timestamp(timeStamp)
+                                   .row()
+                                   .add("tag" + hit, TreasTag.serialize(mutationTag));
+                }
+            }
+        }
+
+        else {
+            if (mutationTag.isLarger(localMaxTag)) {
+                mutationBuilder.update(tableMetadata)
+                               .timestamp(timeStamp)
+                               .row()
+                               .add("field" + maxTagColumn.substring(3),null)
+                               .add("field" + minTagColumn.substring(3), mutationValue)
+                               .add(minTagColumn,mutationTag);
+            }
+
+            else if (mutationTag.isLarger(localMinTag)){
+                mutationBuilder.update(tableMetadata)
+                               .timestamp(timeStamp)
+                               .row()
+                               .add(minTagColumn, TreasTag.serialize(mutationTag));
+            } else {
+                reply(id, replyTo);
+                return;
+            }
+        }
+
+        Mutation commitMutation = mutationBuilder.build();
+        // Commit this mutation
+        commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
+            failed();
+            return null;
+        });
+    }
+
+    public void doVerbABD(MessageIn<Mutation> message, int id)  throws IOException
     {
         // Check if there were any forwarding headers in this message
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);

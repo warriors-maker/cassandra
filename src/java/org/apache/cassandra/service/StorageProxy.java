@@ -1648,7 +1648,6 @@ public class StorageProxy implements StorageProxyMBean
             for (InetAddressAndPort destination : localDc)
             {
                 // Build unique Mutation for all replicas
-                String code = codeList.get(index);
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
                 long timeStamp = FBUtilities.timestampMicros();
