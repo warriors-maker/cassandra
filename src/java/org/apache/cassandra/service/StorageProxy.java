@@ -41,6 +41,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.audit.AuditLogManager;
@@ -3358,6 +3359,7 @@ public class StorageProxy implements StorageProxyMBean
             decoratedKey
             );
             tagValueReadList.add(tagValueRead);
+
         }
 
         // Individual elements inside here corresponds to one mutate command
@@ -3530,4 +3532,156 @@ public class StorageProxy implements StorageProxyMBean
     }
 
     //Another function to fetch the value and its maximun valid tag, which can help us to recover the data (Fetch Tag + Value)
+    private static List<DoubleTreasTag> fetchTagValueTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    throws UnavailableException, ReadFailureException, ReadTimeoutException
+    {
+        {
+            int cmdCount = commands.size();
+
+            AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
+
+            List<DoubleTreasTag> doubleTreasTags = new ArrayList<>();
+
+            for (int i = 0; i < cmdCount; i++)
+            {
+                reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
+            }
+
+            for (int i = 0; i < cmdCount; i++)
+            {
+                reads[i].executeAsyncTreas();
+            }
+
+//        // todo: this is not needed
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            reads[i].maybeTryAdditionalReplicas();
+//        }
+
+            for (int i = 0; i < cmdCount; i++)
+            {
+                // Better to be put here
+                // possibly can add a reference to awaitResponse
+                // This reference will store the information we want
+                // Or can do the main logic at the end
+                DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
+                doubleTreasTags.add(doubleTreasTag);
+                reads[i].awaitResponsesTreasTagValue(doubleTreasTag);
+            }
+
+//        // todo: this is not needed
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            reads[i].maybeRepairAdditionalReplicas();
+//        }
+//
+//        // todo: this is not needed
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            reads[i].awaitReadRepair();
+//        }
+
+            // Do the main logic here (Bad)
+//        List<ReadResponse> results = new ArrayList<>();
+//
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            results.add(reads[i].getResult());
+//        }
+
+            return doubleTreasTags;
+        }
+    }
+
+    // Read for Treas
+    private static PartitionIterator fetchRowsTreas (List < SinglePartitionReadCommand > commands, ConsistencyLevel
+                                                                                                   consistencyLevel,long queryStartNanoTime)
+    throws UnavailableException, ReadFailureException, ReadTimeoutException {
+        // first we have to create a full partition read based on the
+        // incoming read command to cover both value and tag_value column
+        List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
+        for (SinglePartitionReadCommand readCommand : commands)
+        {
+            SinglePartitionReadCommand tagValueRead =
+            SinglePartitionReadCommand.fullPartitionRead(
+            readCommand.metadata(),
+            FBUtilities.nowInSeconds(),
+            readCommand.partitionKey()
+            );
+            tagValueReadList.add(tagValueRead);
+        }
+
+        // execute the tag value read, the result will be the
+        // tag value pair with the largest tag
+
+        List<DoubleTreasTag> doubleTreasTagList = fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime());
+
+        List<PartitionIterator> piList = new ArrayList<>();
+        int idx = 0;
+        for (ReadResponse rr : tagValueResult)
+        {
+            SinglePartitionReadCommand command = commands.get(idx);
+            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command), command.nowInSec()));
+            idx++;
+        }
+
+        PartitionIterator pi = PartitionIterators.concat(piList);
+        List<IMutation> mutationList = new ArrayList<>();
+
+        // write the tag value pair with the largest tag to all servers
+        while (pi.hasNext())
+        {
+            // first we have to parse the value and tag from the result
+            // tagValueResult.next() returns a RowIterator
+
+
+            RowIterator ri = pi.next();
+
+            ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.TAG));
+            ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.VAL));
+
+            assert zValueMetadata != null && valueMetadata != null;
+
+            while (ri.hasNext())
+            {
+                Row r = ri.next();
+
+                ABDTag z = ABDTag.deserialize(r.getCell(zValueMetadata).value());
+
+                int value = ByteBufferUtil.toInt(r.getCell(valueMetadata).value());
+                TableMetadata tableMetadata = ri.metadata();
+
+                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(tableMetadata.keyspace, ri.partitionKey());
+
+                mutationBuilder.update(tableMetadata)
+                               .timestamp(FBUtilities.timestampMicros()).row()
+                               .add(ABDColomns.TAG, ABDTag.serialize(z))
+                               .add(ABDColomns.VAL, value);
+
+                Mutation tvMutation = mutationBuilder.build();
+
+                mutationList.add(tvMutation);
+            }
+
+
+            // then we will have to perform the mutatation we've
+            // just generated
+            mutateWithTag(mutationList, consistencyLevel, System.nanoTime());
+        }
+
+
+        piList.clear();
+        idx = 0;
+        for (ReadResponse rr : tagValueResult)
+        {
+            SinglePartitionReadCommand command = commands.get(idx);
+            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command), command.nowInSec()));
+            idx++;
+        }
+        return PartitionIterators.concat(piList);
+    }
+
+
+
+
 }
