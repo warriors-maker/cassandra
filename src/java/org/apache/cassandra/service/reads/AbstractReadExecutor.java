@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+
+import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,17 +39,22 @@ import org.apache.cassandra.db.SinglePartitionReadCommand;
 import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
+import org.apache.cassandra.db.rows.Cell;
+import org.apache.cassandra.db.rows.RowIterator;
 import org.apache.cassandra.exceptions.ReadFailureException;
 import org.apache.cassandra.exceptions.ReadTimeoutException;
 import org.apache.cassandra.exceptions.UnavailableException;
 import org.apache.cassandra.locator.InetAddressAndPort;
+import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
+import org.apache.cassandra.service.ABDTag;
 import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.service.StorageProxy.LocalReadRunnable;
 import org.apache.cassandra.tracing.TraceState;
 import org.apache.cassandra.tracing.Tracing;
+import org.apache.cassandra.transport.Message;
 
 /**
  * Sends a read request to the replicas needed to satisfy a given ConsistencyLevel.
@@ -162,7 +169,7 @@ public abstract class AbstractReadExecutor
      */
     public abstract void executeAsync();
 
-    public void executeAsyncAbd()
+    public void executeAsyncTreas()
     {
         // we don't need digest read for ABD,
         // all read requests issued are data requests
@@ -452,6 +459,83 @@ public abstract class AbstractReadExecutor
             setResult(digestResolver.getReadResponse());
         }
     }
+
+    public void awaitResponsesTreasTag(TreasTag maxTreasTag) throws ReadTimeoutException
+    {
+        try
+        {
+            handler.awaitResults();
+        }
+        catch (ReadTimeoutException e)
+        {
+            try
+            {
+                onReadTimeout();
+            }
+            finally
+            {
+                throw e;
+            }
+        }
+
+        if (digestResolver.responsesMatch())
+        {
+            ReadResponse readResponse = digestResolver.getReadResponse();
+            // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
+
+            TreasTag localMaxTreasTag = new TreasTag();
+
+            // Each readResponse represents a response from a Replica
+            for (MessageIn<ReadResponse> message : digestResolver.getMessages()) {
+
+                ReadResponse response = message.payload;
+
+
+                // check if the response is indeed a data response
+                // we shouldn't get a digest response here
+                assert response.isDigestResponse() == false;
+
+                // get the partition iterator corresponding to the
+                // current data response
+                PartitionIterator pi = UnfilteredPartitionIterators.filter(response.makeIterator(command), command.nowInSec());
+
+                while(pi.hasNext())
+                {
+                    // pi.next() returns a RowIterator
+                    RowIterator ri = pi.next();
+                    while(ri.hasNext())
+                    {
+                        TreasTag curTag = new TreasTag();
+                        for(Cell c : ri.next().cells())
+                        {
+                            // if it is a timeStamp field, we need to check it
+                            if(c.column().name.toString().startsWith("tag")) {
+                                curTag = TreasTag.deserialize(c.value());
+                                if(curTag.isLarger(localMaxTreasTag))
+                                {
+                                    localMaxTreasTag = curTag;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Set the maximum tag into the reference we pass
+            maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
+            maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
+            // TODO: May need to check here because I consume the Iterator
+            logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
+            setResult(readResponse);
+        }
+        else
+        {
+            Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
+//            readRepair.startRepair(digestResolver, handler.endpoints, getContactedReplicas(), this::setResult);
+        }
+    }
+
+
 
     public void awaitReadRepair() throws ReadTimeoutException
     {

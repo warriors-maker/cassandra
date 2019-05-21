@@ -19,6 +19,7 @@ package org.apache.cassandra.service;
 
 import java.lang.management.ManagementFactory;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
@@ -40,6 +41,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.Treas.TreasConfig;
+import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.audit.AuditLogManager;
 import org.apache.cassandra.batchlog.Batch;
 import org.apache.cassandra.batchlog.BatchlogManager;
@@ -81,6 +84,7 @@ import org.apache.cassandra.service.paxos.ProposeCallback;
 import org.apache.cassandra.service.paxos.ProposeVerbHandler;
 import org.apache.cassandra.net.MessagingService.Verb;
 import org.apache.cassandra.tracing.Tracing;
+import org.apache.cassandra.transport.Message;
 import org.apache.cassandra.triggers.TriggerExecutor;
 import org.apache.cassandra.utils.*;
 import org.apache.cassandra.utils.AbstractIterator;
@@ -684,7 +688,7 @@ public class StorageProxy implements StorageProxyMBean
      * @param consistency_level the consistency level for the operation
      * @param queryStartNanoTime the value of System.nanoTime() when the query started to be processed
      */
-    public static void mutate(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
+    public static void mutateABD(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
         Tracing.trace("Determining replicas for mutation");
@@ -1522,19 +1526,144 @@ public class StorageProxy implements StorageProxyMBean
             }
         }
 
+        // Fetch the corresponding key || maxTag || value (string)
+        TreasTag maxTreasTag = new TreasTag();
+        String value = "";
+
+        logger.debug("Current key is " + mutation.key().toString());
+        Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+        for (Cell cell : data.cells()) {
+            if (cell.column().name.toString().equals("tag1")) {
+                maxTreasTag = TreasTag.deserialize(cell.value());
+                System.out.println("Max TreasTag is " + maxTreasTag.toString());
+            } else if (cell.column().name.toString().equals("field0")) {
+                try {
+                    value = ByteBufferUtil.string(cell.value());
+                } catch (CharacterCodingException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        // TODO: In the future value will need to be broken down into codes but now is the whole data
+        List<String> codeList = new ArrayList<>();
+        for (int i = 0; i < TreasConfig.num_server; i++) {
+            codeList.add(value);
+        }
+
         if (backPressureHosts != null)
             MessagingService.instance().applyBackPressure(backPressureHosts, responseHandler.currentTimeout());
 
         if (endpointsToHint != null)
             submitHint(mutation, endpointsToHint, responseHandler);
 
+        // Send to MySelf
         if (insertLocal)
-            performLocally(stage, Optional.of(mutation), mutation::apply, responseHandler);
+        {
+            // Build my OWN Mutation
+            // Need to first fetch all the information locally
+            // replace the smallest tag
 
+            //Read Locally
+            SinglePartitionReadCommand localRead =
+            SinglePartitionReadCommand.fullPartitionRead(
+            mutation.getPartitionUpdates().iterator().next().metadata(),
+            FBUtilities.nowInSeconds(),
+            mutation.key()
+            );
+
+            String minTagColName = "";
+            TreasTag minTreasTag = null;
+            String minFieldColName = "";
+            int hit = 1;
+            try (ReadExecutionController executionController = localRead.executionController();
+                 UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
+            {
+                // first we have to transform it into a PartitionIterator
+                PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
+                while(pi.hasNext())
+                {
+                    RowIterator ri = pi.next();
+                    while(ri.hasNext())
+                    {
+                        Row r = ri.next();
+
+                        for (Cell cell : r.cells()) {
+
+                            String colName = cell.column().name.toString();
+
+                            if (colName.startsWith("tag")) {
+                                // If some of the tags are still null;
+                                hit++;
+                                if (cell.value() == null) {
+                                    minTagColName = colName;
+                                    break;
+                                } else {
+                                    // Fetch the tagValue
+                                    TreasTag localTag = TreasTag.deserialize(cell.value());
+
+                                    if (minTreasTag == null) {
+                                        minTreasTag = localTag;
+                                        minTagColName = colName;
+                                    } else {
+                                        if (minTreasTag.isLarger(localTag))
+                                        {
+                                            minTagColName = colName;
+                                            minTreasTag = localTag;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // If No data in the table
+            if (hit <= TreasConfig.num_concurrecy) {
+                minFieldColName = "field" + hit;
+                minTagColName = "tag" + hit;
+            }
+            else {
+                minFieldColName = "field" + minTagColName.substring(3);
+            }
+            Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
+
+            TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+            long timeStamp = FBUtilities.timestampMicros();
+            mutationBuilder.update(tableMetadata)
+                           .timestamp(timeStamp)
+                           .row()
+                           .add(minTagColName, TreasTag.serialize(maxTreasTag))
+                           .add(minFieldColName,codeList.get(0));
+
+            Mutation coordinatorMutation = mutationBuilder.build();
+            performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
+        }
+
+        // Send to Replica
         if (localDc != null)
         {
+            int index = 1;
             for (InetAddressAndPort destination : localDc)
-                MessagingService.instance().sendRR(message, destination, responseHandler, true);
+            {
+                // Build unique Mutation for all replicas
+                String code = codeList.get(index);
+                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
+                TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+                long timeStamp = FBUtilities.timestampMicros();
+                mutationBuilder.update(tableMetadata)
+                               .timestamp(timeStamp)
+                               .row()
+                               .add(TreasConfig.TAG_ONE, TreasTag.serialize(maxTreasTag))
+                               .add(TreasConfig.VAL_ONE,codeList.get(index));
+
+                Mutation uniqueMutation = mutationBuilder.build();
+                MessageOut uniqueReplicaMessage = uniqueMutation.createMessage();
+
+                MessagingService.instance().sendRR(uniqueReplicaMessage, destination, responseHandler, true);
+                index ++;
+            }
         }
         if (dcGroups != null)
         {
@@ -2084,6 +2213,7 @@ public class StorageProxy implements StorageProxyMBean
         return PartitionIterators.concat(piList);
     }
 
+
     private static List<ReadResponse> fetchTagValue(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
@@ -2098,7 +2228,7 @@ public class StorageProxy implements StorageProxyMBean
 
         for (int i=0; i<cmdCount; i++)
         {
-            reads[i].executeAsyncAbd();
+            reads[i].executeAsyncTreas();
         }
 
         // todo: this is not needed
@@ -2109,6 +2239,10 @@ public class StorageProxy implements StorageProxyMBean
 
         for (int i=0; i<cmdCount; i++)
         {
+            // Better to be put here
+            // possibly can add a reference to awaitResponse
+            // This reference will store the information we want
+            // Or can do the main logic at the end
             reads[i].awaitResponsesAbd();
         }
 
@@ -2123,13 +2257,16 @@ public class StorageProxy implements StorageProxyMBean
         {
             reads[i].awaitReadRepair();
         }
-    
+
+        // Do the main logic here (Bad)
         List<ReadResponse> results = new ArrayList<>();
 
         for (int i=0; i<cmdCount; i++)
         {
             results.add(reads[i].getResult());
         }
+
+        //Resulls here should be the max tag and the value
         return results;
     }
 
@@ -3197,4 +3334,201 @@ public class StorageProxy implements StorageProxyMBean
             return Objects.equals(ballot, that.ballot) && contentions == that.contentions;
         }
     }
+
+    // Mutate Treas, Write
+    public static void mutate(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
+    throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
+    {
+        Tracing.trace("Determining replicas for mutation");
+        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
+
+        long startTime = System.nanoTime();
+
+        // Treas get, need to get the maximum TimeStamp
+        // create an read command to fetch the tag value corresponding to the key from all the replicas including myself
+        List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>();
+        for (IMutation mutation : mutations)
+        {
+            TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+            int nowInSec = FBUtilities.nowInSeconds();
+            DecoratedKey  decoratedKey =  mutation.key();
+
+            SinglePartitionReadCommand tagValueRead = SinglePartitionReadCommand.fullPartitionRead(
+            tableMetadata,
+            nowInSec,
+            decoratedKey
+            );
+            tagValueReadList.add(tagValueRead);
+        }
+
+        // Individual elements inside here corresponds to one mutate command
+        // Also notice that Mutation List and this readList are in the correct corresponding order
+        // This will fetch the maximum tag corresponding to the current mutation
+        List<TreasTag> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
+        logger.debug("MutateTreas's size" + readList.size());
+        int index = 0;
+
+        // Build the mutation with the newly added value + maximum tag we get
+        List<IMutation> newMutations = new ArrayList<>();
+        for (IMutation mutation : mutations) {
+            Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
+
+            TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+            long timeStamp = FBUtilities.timestampMicros();
+
+            TreasTag maxCurrentTag = readList.get(index);
+            // Increment the tag value
+            maxCurrentTag.nextTag();
+            logger.debug("Max Tag is" + maxCurrentTag);
+
+            mutationBuilder.update(tableMetadata)
+                           .timestamp(timeStamp)
+                           .row()
+                           .add(TreasConfig.TAG_ONE, TreasTag.serialize(maxCurrentTag));
+
+            Mutation tagMutation = mutationBuilder.build();
+
+            // Merge the maxTimeStamp with the data
+            List<Mutation> mutationMergeList = new ArrayList<>();
+            mutationMergeList.add(tagMutation);
+            mutationMergeList.add((Mutation)mutation);
+            Mutation newMutation = Mutation.merge(mutationMergeList);
+            newMutations.add(newMutation);
+        }
+
+        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(newMutations.size());
+
+        try
+        {
+            for (IMutation mutation : newMutations)
+            {
+                if (mutation instanceof CounterMutation)
+                {
+                    responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
+                }
+                else
+                {
+                    WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+                    responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
+                }
+            }
+
+            // wait for writes.  throws TimeoutException if necessary
+            for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
+            {
+                responseHandler.get();
+            }
+        }
+        catch (WriteTimeoutException|WriteFailureException ex)
+        {
+            if (consistency_level == ConsistencyLevel.ANY)
+            {
+                hintMutations(newMutations);
+            }
+            else
+            {
+
+                if (ex instanceof WriteFailureException)
+                {
+                    writeMetrics.failures.mark();
+                    writeMetricsMap.get(consistency_level).failures.mark();
+                    WriteFailureException fe = (WriteFailureException)ex;
+                    Tracing.trace("Write failure; received {} of {} required replies, failed {} requests",
+                                  fe.received, fe.blockFor, fe.failureReasonByEndpoint.size());
+                }
+                else
+                {
+                    writeMetrics.timeouts.mark();
+                    writeMetricsMap.get(consistency_level).timeouts.mark();
+                    WriteTimeoutException te = (WriteTimeoutException)ex;
+                    Tracing.trace("Write timeout; received {} of {} required replies", te.received, te.blockFor);
+                }
+                throw ex;
+            }
+        }
+        catch (UnavailableException e)
+        {
+            writeMetrics.unavailables.mark();
+            writeMetricsMap.get(consistency_level).unavailables.mark();
+            Tracing.trace("Unavailable");
+            throw e;
+        }
+        catch (OverloadedException e)
+        {
+            writeMetrics.unavailables.mark();
+            writeMetricsMap.get(consistency_level).unavailables.mark();
+            Tracing.trace("Overloaded");
+            throw e;
+        }
+        finally
+        {
+            long latency = System.nanoTime() - startTime;
+            writeMetrics.addNano(latency);
+            writeMetricsMap.get(consistency_level).addNano(latency);
+            updateCoordinatorWriteLatencyTableMetric(newMutations, latency);
+        }
+    }
+
+    // Need a funcntion to only fetch maximun seen tag (Fetch Tag)
+    // get-tag
+    private static List<TreasTag> fetchTagTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    throws UnavailableException, ReadFailureException, ReadTimeoutException
+    {
+        int cmdCount = commands.size();
+
+        AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
+
+        List<TreasTag> treasTags = new ArrayList<>();
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
+        }
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].executeAsyncTreas();
+        }
+
+//        // todo: this is not needed
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            reads[i].maybeTryAdditionalReplicas();
+//        }
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            // Better to be put here
+            // possibly can add a reference to awaitResponse
+            // This reference will store the information we want
+            // Or can do the main logic at the end
+            TreasTag maxTreasTag = new TreasTag();
+            treasTags.add(maxTreasTag);
+            reads[i].awaitResponsesTreasTag(maxTreasTag);
+        }
+
+//        // todo: this is not needed
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            reads[i].maybeRepairAdditionalReplicas();
+//        }
+//
+//        // todo: this is not needed
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            reads[i].awaitReadRepair();
+//        }
+
+        // Do the main logic here (Bad)
+//        List<ReadResponse> results = new ArrayList<>();
+//
+//        for (int i=0; i<cmdCount; i++)
+//        {
+//            results.add(reads[i].getResult());
+//        }
+
+        return treasTags;
+    }
+
+    //Another function to fetch the value and its maximun valid tag, which can help us to recover the data (Fetch Tag + Value)
 }
