@@ -18,10 +18,12 @@
 package org.apache.cassandra.db.rows;
 
 import java.io.IOException;
+import java.util.List;
 
 import com.google.common.collect.Collections2;
 
 import net.nicoulaj.compilecommand.annotations.Inline;
+import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.Row.Deletion;
@@ -29,6 +31,7 @@ import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.io.util.FileDataInput;
+import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.SearchIterator;
 import org.apache.cassandra.utils.WrappedException;
 
@@ -443,6 +446,21 @@ public class UnfilteredSerializer
         }
     }
 
+    public Unfiltered deserialize(DataInputPlus in, SerializationHeader header, SerializationHelper helper, Row.Builder builder, DoubleTreasTag doubleTreasTag)
+    throws IOException
+    {
+        while (true)
+        {
+            Unfiltered unfiltered = deserializeOne(in, header, helper, builder, doubleTreasTag);
+            if (unfiltered == null)
+                return null;
+
+            // Skip empty rows, see deserializeOne javadoc
+            if (!unfiltered.isEmpty())
+                return unfiltered;
+        }
+    }
+
     /**
      * Deserialize a single {@link Unfiltered} from the provided input.
      * <p>
@@ -478,6 +496,48 @@ public class UnfilteredSerializer
 
             builder.newRow(Clustering.serializer.deserialize(in, helper.version, header.clusteringTypes()));
             return deserializeRowBody(in, header, helper, flags, extendedFlags, builder);
+        }
+    }
+
+    private Unfiltered deserializeOne(DataInputPlus in, SerializationHeader header, SerializationHelper helper, Row.Builder builder, DoubleTreasTag doubleTreasTag)
+    throws IOException
+    {
+        // It wouldn't be wrong per-se to use an unsorted builder, but it would be inefficient so make sure we don't do it by mistake
+        assert builder.isSorted();
+
+        int flags = in.readUnsignedByte();
+        if (isEndOfPartition(flags))
+            return null;
+
+        int extendedFlags = readExtendedFlags(in, flags);
+
+        if (kind(flags) == Unfiltered.Kind.RANGE_TOMBSTONE_MARKER)
+        {
+            ClusteringBoundOrBoundary bound = ClusteringBoundOrBoundary.serializer.deserialize(in, helper.version, header.clusteringTypes());
+            return deserializeMarkerBody(in, header, bound);
+        }
+        else
+        {
+            // deserializeStaticRow should be used for that.
+            if (isStatic(extendedFlags))
+                throw new IOException("Corrupt flags value for unfiltered partition (isStatic flag set): " + flags);
+
+            builder.newRow(Clustering.serializer.deserialize(in, helper.version, header.clusteringTypes()));
+            Row r =  deserializeRowBody(in, header, helper, flags, extendedFlags, builder);
+
+            for (Cell c : r.cells()) {
+                System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
+                if (c.column.name.toString().equals("field0")) {
+                    List<String> codes = doubleTreasTag.getCodes();
+                    if (codes == null) {
+                        c.setValue(ByteBufferUtil.bytes("failure"));
+                    } else {
+                        c.setValue(ByteBufferUtil.bytes(codes.get(0)));
+                    }
+
+                }
+            }
+            return r;
         }
     }
 

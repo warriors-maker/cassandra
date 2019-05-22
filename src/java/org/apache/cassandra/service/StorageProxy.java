@@ -51,6 +51,7 @@ import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.Row;
+import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.service.reads.AbstractReadExecutor;
 import org.apache.cassandra.service.reads.DataResolver;
@@ -1632,13 +1633,18 @@ public class StorageProxy implements StorageProxyMBean
 
             TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
             long timeStamp = FBUtilities.timestampMicros();
+
+            System.out.println("Insert into" + minTagColName);
+
             mutationBuilder.update(tableMetadata)
                            .timestamp(timeStamp)
                            .row()
                            .add(minTagColName, TreasTag.serialize(maxTreasTag))
-                           .add(minFieldColName,codeList.get(0));
+                           .add(minFieldColName,codeList.get(0))
+                           .add("field0","");
 
             Mutation coordinatorMutation = mutationBuilder.build();
+
             performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
         }
 
@@ -1656,7 +1662,8 @@ public class StorageProxy implements StorageProxyMBean
                                .timestamp(timeStamp)
                                .row()
                                .add(TreasConfig.TAG_ONE, TreasTag.serialize(maxTreasTag))
-                               .add(TreasConfig.VAL_ONE,codeList.get(index));
+                               .add(TreasConfig.VAL_ONE,codeList.get(index))
+                               .add("field0","");
 
                 Mutation uniqueMutation = mutationBuilder.build();
                 MessageOut uniqueReplicaMessage = uniqueMutation.createMessage();
@@ -2080,11 +2087,12 @@ public class StorageProxy implements StorageProxyMBean
         // the original fetchRows will be used, this is a workaround
         // to the initialization failure issue
         SinglePartitionReadCommand incomingRead = commands.iterator().next();
-        ColumnMetadata tagMetadata = incomingRead.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.TAG));
-        boolean isAbdRead = (tagMetadata != null);
-        if(isAbdRead)
+        ColumnMetadata tagMetadata = incomingRead.metadata().getColumn(ByteBufferUtil.bytes("tag1"));
+        boolean isTreasRead = (tagMetadata != null);
+        if(isTreasRead)
         {
-            return fetchRowsAbd(commands, consistencyLevel, queryStartNanoTime);
+            System.out.println("TreasRead");
+            return fetchRowsTreas(commands, consistencyLevel, queryStartNanoTime);
         }
 
         int cmdCount = commands.size();
@@ -3350,6 +3358,7 @@ public class StorageProxy implements StorageProxyMBean
         for (IMutation mutation : mutations)
         {
             TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+
             int nowInSec = FBUtilities.nowInSeconds();
             DecoratedKey  decoratedKey =  mutation.key();
 
@@ -3532,15 +3541,13 @@ public class StorageProxy implements StorageProxyMBean
     }
 
     //Another function to fetch the value and its maximun valid tag, which can help us to recover the data (Fetch Tag + Value)
-    private static List<DoubleTreasTag> fetchTagValueTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    private static List<ReadResponse> fetchTagValueTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel,
+                                                           long queryStartNanoTime, List<DoubleTreasTag> doubleTreasTags)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-        {
             int cmdCount = commands.size();
 
             AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
-
-            List<DoubleTreasTag> doubleTreasTags = new ArrayList<>();
 
             for (int i = 0; i < cmdCount; i++)
             {
@@ -3558,6 +3565,7 @@ public class StorageProxy implements StorageProxyMBean
 //            reads[i].maybeTryAdditionalReplicas();
 //        }
 
+        System.out.println("Comment Count" + cmdCount);
             for (int i = 0; i < cmdCount; i++)
             {
                 // Better to be put here
@@ -3589,8 +3597,12 @@ public class StorageProxy implements StorageProxyMBean
 //            results.add(reads[i].getResult());
 //        }
 
-            return doubleTreasTags;
-        }
+            List<ReadResponse> readResponses = new ArrayList<>();
+            for (AbstractReadExecutor read : reads) {
+                readResponses.add(read.getResult());
+            }
+
+        return readResponses;
     }
 
     // Read for Treas
@@ -3614,74 +3626,128 @@ public class StorageProxy implements StorageProxyMBean
         // execute the tag value read, the result will be the
         // tag value pair with the largest tag
 
-        List<DoubleTreasTag> doubleTreasTagList = fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime());
+        List<DoubleTreasTag> doubleTreasTagList = new ArrayList<>();
+        List<ReadResponse> responses= fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
+
+        // Do the writeBack
+        writebackTreas(doubleTreasTagList, consistencyLevel, System.nanoTime());
+
 
         List<PartitionIterator> piList = new ArrayList<>();
         int idx = 0;
-        for (ReadResponse rr : tagValueResult)
+        for (ReadResponse rr : responses)
         {
             SinglePartitionReadCommand command = commands.get(idx);
-            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command), command.nowInSec()));
-            idx++;
-        }
-
-        PartitionIterator pi = PartitionIterators.concat(piList);
-        List<IMutation> mutationList = new ArrayList<>();
-
-        // write the tag value pair with the largest tag to all servers
-        while (pi.hasNext())
-        {
-            // first we have to parse the value and tag from the result
-            // tagValueResult.next() returns a RowIterator
-
-
-            RowIterator ri = pi.next();
-
-            ColumnMetadata zValueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.TAG));
-            ColumnMetadata valueMetadata = ri.metadata().getColumn(ByteBufferUtil.bytes(ABDColomns.VAL));
-
-            assert zValueMetadata != null && valueMetadata != null;
-
-            while (ri.hasNext())
-            {
-                Row r = ri.next();
-
-                ABDTag z = ABDTag.deserialize(r.getCell(zValueMetadata).value());
-
-                int value = ByteBufferUtil.toInt(r.getCell(valueMetadata).value());
-                TableMetadata tableMetadata = ri.metadata();
-
-                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(tableMetadata.keyspace, ri.partitionKey());
-
-                mutationBuilder.update(tableMetadata)
-                               .timestamp(FBUtilities.timestampMicros()).row()
-                               .add(ABDColomns.TAG, ABDTag.serialize(z))
-                               .add(ABDColomns.VAL, value);
-
-                Mutation tvMutation = mutationBuilder.build();
-
-                mutationList.add(tvMutation);
-            }
-
-
-            // then we will have to perform the mutatation we've
-            // just generated
-            mutateWithTag(mutationList, consistencyLevel, System.nanoTime());
-        }
-
-
-        piList.clear();
-        idx = 0;
-        for (ReadResponse rr : tagValueResult)
-        {
-            SinglePartitionReadCommand command = commands.get(idx);
-            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command), command.nowInSec()));
+            DoubleTreasTag doubleTreasTag = doubleTreasTagList.get(idx);
+            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command, doubleTreasTag), command.nowInSec()));
             idx++;
         }
         return PartitionIterators.concat(piList);
     }
 
+    public static void writebackTreas(List<DoubleTreasTag> doubleTreasTags, ConsistencyLevel consistency_level, long queryStartNanoTime)
+    throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
+    {
+        // this function is the same as the original mutate function
+        Tracing.trace("Determining replicas for mutation");
+        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
+        long startTime = System.nanoTime();
 
+        // Fetch valid information
+        List<IMutation> mutations = new ArrayList<>();
+        for (DoubleTreasTag doubleTreasTag : doubleTreasTags) {
+            TreasTag quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
+            TreasTag decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
+            List<String> codes = doubleTreasTag.getCodes();
+            // TODO: Add Encoding here
+            DecoratedKey key = doubleTreasTag.getKey();
+            TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
+            String keySpace = doubleTreasTag.getKeySpace();
+
+            if (key != null && codes != null && codes.size() != 0 && !quorumMaxTag.isLarger(decodeMaxTag)) {
+                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(keySpace, key);
+                long timeStamp = FBUtilities.timestampMicros();
+                mutationBuilder.update(tableMetadata)
+                               .timestamp(timeStamp)
+                               .row()
+                               .add(TreasConfig.TAG_ONE, TreasTag.serialize(decodeMaxTag))
+                               .add("field0", codes.get(0)); // TODO: Later change get 0 to be the encoded value;
+                Mutation mutation = mutationBuilder.build();
+                mutations.add(mutation);
+            }
+        }
+
+        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
+
+        try
+        {
+            for (IMutation mutation : mutations)
+            {
+                if (mutation instanceof CounterMutation)
+                {
+                    responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
+                }
+                else
+                {
+                    WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+                    responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
+                }
+            }
+
+            // wait for writes.  throws TimeoutException if necessary
+            for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
+            {
+                responseHandler.get();
+            }
+        }
+        catch (WriteTimeoutException|WriteFailureException ex)
+        {
+            if (consistency_level == ConsistencyLevel.ANY)
+            {
+                hintMutations(mutations);
+            }
+            else
+            {
+                if (ex instanceof WriteFailureException)
+                {
+                    writeMetrics.failures.mark();
+                    writeMetricsMap.get(consistency_level).failures.mark();
+                    WriteFailureException fe = (WriteFailureException)ex;
+                    Tracing.trace("Write failure; received {} of {} required replies, failed {} requests",
+                                  fe.received, fe.blockFor, fe.failureReasonByEndpoint.size());
+                }
+                else
+                {
+                    writeMetrics.timeouts.mark();
+                    writeMetricsMap.get(consistency_level).timeouts.mark();
+                    WriteTimeoutException te = (WriteTimeoutException)ex;
+                    Tracing.trace("Write timeout; received {} of {} required replies", te.received, te.blockFor);
+                }
+                throw ex;
+            }
+        }
+        catch (UnavailableException e)
+        {
+            writeMetrics.unavailables.mark();
+            writeMetricsMap.get(consistency_level).unavailables.mark();
+            Tracing.trace("Unavailable");
+            throw e;
+        }
+        catch (OverloadedException e)
+        {
+            writeMetrics.unavailables.mark();
+            writeMetricsMap.get(consistency_level).unavailables.mark();
+            Tracing.trace("Overloaded");
+            throw e;
+        }
+        finally
+        {
+            long latency = System.nanoTime() - startTime;
+            writeMetrics.addNano(latency);
+            writeMetricsMap.get(consistency_level).addNano(latency);
+            updateCoordinatorWriteLatencyTableMetric(mutations, latency);
+        }
+    }
 
 }

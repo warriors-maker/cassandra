@@ -23,6 +23,7 @@ import java.util.*;
 
 import com.google.common.hash.Hasher;
 
+import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.db.rows.*;
@@ -316,7 +317,86 @@ public abstract class UnfilteredPartitionIterators
             out.writeBoolean(false);
         }
 
-        public UnfilteredPartitionIterator deserialize(final DataInputPlus in, final int version, final TableMetadata metadata, final ColumnFilter selection, final SerializationHelper.Flag flag) throws IOException
+        public UnfilteredPartitionIterator deserialize(final DataInputPlus in, final int version, final TableMetadata metadata,
+                                                       final ColumnFilter selection, final SerializationHelper.Flag flag,
+                                                       DoubleTreasTag doubleTreasTag) throws IOException
+        {
+            // Skip now unused isForThrift boolean
+            in.readBoolean();
+
+            return new AbstractUnfilteredPartitionIterator()
+            {
+                private UnfilteredRowIterator next;
+                private boolean hasNext;
+                private boolean nextReturned = true;
+
+                public TableMetadata metadata()
+                {
+                    return metadata;
+                }
+
+                public boolean hasNext()
+                {
+                    if (!nextReturned)
+                        return hasNext;
+
+                    /*
+                     * We must consume the previous iterator before we start deserializing the next partition, so
+                     * that we start from the right position in the byte stream.
+                     *
+                     * It's possible however that it hasn't been fully consumed by upstream consumers - for example,
+                     * if a per partition limit caused merge iterator to stop early (see CASSANDRA-13911).
+                     *
+                     * In that case we must drain the unconsumed iterator fully ourselves, here.
+                     *
+                     * NOTE: transformations of the upstream BaseRows won't be applied for these consumed elements,
+                     * so, for exmaple, they won't be counted.
+                     */
+                    if (null != next)
+                        while (next.hasNext())
+                            next.next();
+
+                    try
+                    {
+                        hasNext = in.readBoolean();
+                        nextReturned = false;
+                        return hasNext;
+                    }
+                    catch (IOException e)
+                    {
+                        throw new IOError(e);
+                    }
+                }
+
+                public UnfilteredRowIterator next()
+                {
+                    if (nextReturned && !hasNext())
+                        throw new NoSuchElementException();
+
+                    try
+                    {
+                        nextReturned = true;
+                        next = UnfilteredRowIteratorSerializer.serializer.deserialize(in, version, metadata, selection, flag, doubleTreasTag);
+                        return next;
+                    }
+                    catch (IOException e)
+                    {
+                        throw new IOError(e);
+                    }
+                }
+
+                @Override
+                public void close()
+                {
+                    if (next != null)
+                        next.close();
+                }
+            };
+        }
+
+        public UnfilteredPartitionIterator deserialize(final DataInputPlus in, final int version,
+                                                       final TableMetadata metadata, final ColumnFilter selection,
+                                                       final SerializationHelper.Flag flag) throws IOException
         {
             // Skip now unused isForThrift boolean
             in.readBoolean();

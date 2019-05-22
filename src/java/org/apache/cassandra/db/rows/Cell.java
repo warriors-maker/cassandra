@@ -56,6 +56,8 @@ public abstract class Cell extends ColumnData
 
     public static final Serializer serializer = new BufferCell.Serializer();
 
+    public abstract void setValue(ByteBuffer value);
+
     protected Cell(ColumnMetadata column)
     {
         super(column);

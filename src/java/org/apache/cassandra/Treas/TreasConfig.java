@@ -23,8 +23,8 @@ import org.apache.cassandra.cql3.ColumnIdentifier;
 public class TreasConfig
 {
     public final static int num_server = 5;
-    public final static int num_intersect = 4;
-    public final static int num_recover = 2;
+    public final static int num_intersect = 1;
+    public final static int num_recover = 1;
     public final static int num_concurrecy = 2;
 
     public static final String TAG_ONE  = "tag1";
@@ -34,6 +34,9 @@ public class TreasConfig
     public static final String VAL_ONE =  "field1";
     public static final String VAL_TWO =  "field2";
     public static final String VAL_THREE =  "field3";
+
+    public static final String VAL_PREFIX =  "field";
+    public static final String TAG_PREFIX =  "tag";
 
     public static  ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(TAG_ONE, true);
     public static  ColumnIdentifier tagTwoIdentifier = new ColumnIdentifier(TAG_TWO, true);

@@ -18,10 +18,22 @@
 
 package org.apache.cassandra.Treas;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.cassandra.db.DecoratedKey;
+import org.apache.cassandra.schema.TableMetadata;
+import sun.tools.jconsole.Tab;
+
 public class DoubleTreasTag
 {
-    private TreasTag quorumMaxTreasTag;
-    private TreasTag recoverMaxTreasTag;
+    private TreasTag quorumMaxTreasTag = new TreasTag();
+    private TreasTag recoverMaxTreasTag = new TreasTag();
+    private List<String> codes = null;
+
+    private DecoratedKey key;
+    private TableMetadata tableMetadata;
+    private String keySpace;
 
     public TreasTag getQuorumMaxTreasTag()
     {
@@ -41,5 +53,45 @@ public class DoubleTreasTag
     public void setRecoverMaxTreasTag(TreasTag recoverMaxTreasTag)
     {
         this.recoverMaxTreasTag = recoverMaxTreasTag;
+    }
+
+    public List<String> getCodes()
+    {
+        return codes;
+    }
+
+    public void setCodes(List<String> codes)
+    {
+        this.codes = codes;
+    }
+
+    public DecoratedKey getKey()
+    {
+        return key;
+    }
+
+    public void setKey(DecoratedKey key)
+    {
+        this.key = key;
+    }
+
+    public TableMetadata getTableMetadata()
+    {
+        return tableMetadata;
+    }
+
+    public void setTableMetadata(TableMetadata tableMetadata)
+    {
+        this.tableMetadata = tableMetadata;
+    }
+
+    public String getKeySpace()
+    {
+        return keySpace;
+    }
+
+    public void setKeySpace(String keySpace)
+    {
+        this.keySpace = keySpace;
     }
 }

@@ -168,6 +168,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
+                                   .add("field0","")
                                    .add("tag" + hit, TreasTag.serialize(mutationTag))
                                    .add("field" + hit, mutationValue)
                                    .add("field" + maxTagColumn.substring(3),null);
@@ -178,6 +179,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
+                                   .add("field0","")
                                    .add("tag" + hit, TreasTag.serialize(mutationTag));
                 }
             }

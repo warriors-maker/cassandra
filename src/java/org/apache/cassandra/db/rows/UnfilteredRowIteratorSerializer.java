@@ -23,6 +23,7 @@ import java.io.IOError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.io.util.DataInputPlus;
@@ -230,9 +231,41 @@ public class UnfilteredRowIteratorSerializer
         };
     }
 
+    public UnfilteredRowIterator deserialize(DataInputPlus in, int version, TableMetadata metadata, SerializationHelper.Flag flag, Header header, DoubleTreasTag doubleTreasTag) throws IOException
+    {
+        if (header.isEmpty)
+            return EmptyIterators.unfilteredRow(metadata, header.key, header.isReversed);
+
+        final SerializationHelper helper = new SerializationHelper(metadata, version, flag);
+        final SerializationHeader sHeader = header.sHeader;
+        return new AbstractUnfilteredRowIterator(metadata, header.key, header.partitionDeletion, sHeader.columns(), header.staticRow, header.isReversed, sHeader.stats())
+        {
+            private final Row.Builder builder = BTreeRow.sortedBuilder();
+
+            protected Unfiltered computeNext()
+            {
+                try
+                {
+                    Unfiltered unfiltered = UnfilteredSerializer.serializer.deserialize(in, sHeader, helper, builder, doubleTreasTag);
+                    return unfiltered == null ? endOfData() : unfiltered;
+                }
+                catch (IOException e)
+                {
+                    throw new IOError(e);
+                }
+            }
+        };
+    }
+
     public UnfilteredRowIterator deserialize(DataInputPlus in, int version, TableMetadata metadata, ColumnFilter selection, SerializationHelper.Flag flag) throws IOException
     {
         return deserialize(in, version, metadata, flag, deserializeHeader(metadata, selection, in, version, flag));
+    }
+
+    public UnfilteredRowIterator deserialize(DataInputPlus in, int version, TableMetadata metadata,
+                                             ColumnFilter selection, SerializationHelper.Flag flag, DoubleTreasTag doubleTreasTag) throws IOException
+    {
+        return deserialize(in, version, metadata, flag, deserializeHeader(metadata, selection, in, version, flag), doubleTreasTag);
     }
 
     public static class Header

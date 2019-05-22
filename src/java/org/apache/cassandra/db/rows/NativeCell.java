@@ -122,6 +122,12 @@ public class NativeCell extends AbstractCell
         return MemoryUtil.getInt(peer + DELETION);
     }
 
+    @Override
+    public void setValue(ByteBuffer value)
+    {
+        return;
+    }
+
     public ByteBuffer value()
     {
         int length = MemoryUtil.getInt(peer + LENGTH);

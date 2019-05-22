@@ -17,6 +17,8 @@
  */
 package org.apache.cassandra.service.reads;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -24,7 +26,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
+import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
+import org.apache.cassandra.cql3.ColumnIdentifier;
+import org.apache.cassandra.db.IMutation;
+import org.apache.cassandra.db.Mutation;
+import org.apache.cassandra.db.SimpleBuilders;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +48,7 @@ import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
 import org.apache.cassandra.db.rows.Cell;
+import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.RowIterator;
 import org.apache.cassandra.exceptions.ReadFailureException;
 import org.apache.cassandra.exceptions.ReadTimeoutException;
@@ -49,6 +57,8 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
+import org.apache.cassandra.schema.ColumnMetadata;
+import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.ABDTag;
 import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
@@ -56,6 +66,8 @@ import org.apache.cassandra.service.StorageProxy.LocalReadRunnable;
 import org.apache.cassandra.tracing.TraceState;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.transport.Message;
+import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.cassandra.utils.FBUtilities;
 
 /**
  * Sends a read request to the replicas needed to satisfy a given ConsistencyLevel.
@@ -554,21 +566,34 @@ public abstract class AbstractReadExecutor
             }
         }
 
+        HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
+        HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
+        TreasTag quorumTagMax = new TreasTag();
+        TreasTag decodeTagMax = new TreasTag();
+        List<String> decodeValMax = null;
+
+
+        String keySpaceName = "";
+        DecoratedKey key = null;
+        TableMetadata tableMetadata = null;
+
+        boolean quorumSatisfied = false;
+        boolean decodeSatisfied = false;
+
         if (digestResolver.responsesMatch())
         {
             ReadResponse readResponse = digestResolver.getReadResponse();
             // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
 
-            TreasTag localMaxTreasTag = new TreasTag();
-
+            System.out.println("Message size is" + digestResolver.getMessages().size());
             // Each readResponse represents a response from a Replica
             for (MessageIn<ReadResponse> message : digestResolver.getMessages()) {
 
+                if (message.from.equals(FBUtilities.getLocalAddressAndPort())) {
+                    System.out.println("This message is from me");
+                }
                 ReadResponse response = message.payload;
 
-
-                // check if the response is indeed a data response
-                // we shouldn't get a digest response here
                 assert response.isDigestResponse() == false;
 
                 // get the partition iterator corresponding to the
@@ -579,29 +604,111 @@ public abstract class AbstractReadExecutor
                 {
                     // pi.next() returns a RowIterator
                     RowIterator ri = pi.next();
+
+                    if (keySpaceName.equals("")) {
+                        key = ri.partitionKey();
+                        tableMetadata = ri.metadata();
+                        keySpaceName = tableMetadata.keyspace;
+                        doubleTreasTag.setKey(key);
+                        doubleTreasTag.setTableMetadata(tableMetadata);
+                        doubleTreasTag.setKeySpace(keySpaceName);
+                    }
+
                     while(ri.hasNext())
                     {
-                        TreasTag curTag = new TreasTag();
-                        for(Cell c : ri.next().cells())
+                        Row row = ri.next();
+                        for(Cell c : row.cells())
                         {
+                            String colName = c.column().name.toString();
+
                             // if it is a timeStamp field, we need to check it
-                            if(c.column().name.toString().startsWith("tag")) {
-                                curTag = TreasTag.deserialize(c.value());
-                                if(curTag.isLarger(localMaxTreasTag))
-                                {
-                                    localMaxTreasTag = curTag;
+                            if(colName.startsWith("tag")) {
+
+                                TreasTag curTag = TreasTag.deserialize(c.value());
+
+                                System.out.println(colName + ","+ curTag.toString());
+
+                                if (quorumMap.containsKey(curTag)) {
+                                    int currentCount = quorumMap.get(curTag) + 1;
+                                    quorumMap.put(curTag, currentCount);
+                                    // if has enough k values
+                                    if (currentCount == TreasConfig.num_intersect) {
+                                        if (curTag.isLarger(quorumTagMax)) {
+                                            quorumTagMax = curTag;
+                                        }
+                                    }
                                 }
+                                else {
+                                    quorumMap.put(curTag,1);
+                                    if (TreasConfig.num_intersect == 1) {
+                                        if (curTag.isLarger(quorumTagMax)) {
+                                            quorumTagMax = curTag;
+                                        }
+                                    }
+                                }
+                            }
+                            // Notice that only one column has the data
+                            else if (colName.startsWith("field") && !colName.equals("field0")) {
+                                // Fetch the code out
+                                String value = "";
+                                try {
+                                    value = ByteBufferUtil.string(c.value());
+                                } catch (Exception e) {
+                                    System.out.println("Cannot parseData");
+                                }
+
+                                // Find the corresponding index to fetch the tag value
+                                int index = Integer.parseInt(colName.substring(TreasConfig.VAL_PREFIX.length()));
+                                String treasTagColumn = "tag"+index;
+                                ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(treasTagColumn, true);
+                                ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
+                                Cell tagCell = row.getCell(columnMetadata);
+                                TreasTag treasTag = TreasTag.deserialize(tagCell.value());
+
+                                if (decodeMap.containsKey(treasTag)) {
+
+                                    decodeMap.get(treasTag).add(value);
+
+                                    List<String> codeList = decodeMap.get(treasTag);
+
+                                    if (codeList.size() == TreasConfig.num_recover) {
+                                        if (treasTag.isLarger(decodeTagMax)) {
+                                            decodeTagMax = treasTag;
+                                            decodeValMax = codeList;
+                                        }
+                                    }
+                                } else {
+                                    List<String> codelist = new ArrayList<>();
+                                    codelist.add(value);
+                                    decodeMap.put(treasTag, codelist);
+                                    if (TreasConfig.num_recover == 1) {
+                                        if (treasTag.isLarger(decodeTagMax)) {
+                                            decodeTagMax = treasTag;
+                                            decodeValMax = codelist;
+                                        }
+                                    }
+                                }
+
                             }
                         }
                     }
                 }
             }
+            System.out.println("Finish reading Quorum and Decodable");
+            System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
 
-            // Set the maximum tag into the reference we pass
-            maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
-            maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
+            // Either one of them is not satisfied stop the procedure;
+            if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1) {
+
+            } else {
+                doubleTreasTag.getQuorumMaxTreasTag().setWriterId(quorumTagMax.getWriterId());
+                doubleTreasTag.getQuorumMaxTreasTag().setLogicalTIme(quorumTagMax.getTime());
+                doubleTreasTag.getRecoverMaxTreasTag().setWriterId(decodeTagMax.getWriterId());
+                doubleTreasTag.getRecoverMaxTreasTag().setLogicalTIme(decodeTagMax.getTime());
+                doubleTreasTag.setCodes(decodeValMax);
+            }
             // TODO: May need to check here because I consume the Iterator
-            logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
+//            logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
             setResult(readResponse);
         }
         else

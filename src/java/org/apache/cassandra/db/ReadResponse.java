@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hasher;
 
+import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.db.partitions.*;
 import org.apache.cassandra.db.rows.*;
@@ -63,6 +64,9 @@ public abstract class ReadResponse
     }
 
     public abstract UnfilteredPartitionIterator makeIterator(ReadCommand command);
+
+    public abstract UnfilteredPartitionIterator makeIterator(ReadCommand command, DoubleTreasTag doubleTreasTag);
+
     public abstract ByteBuffer digest(ReadCommand command);
 
     public abstract boolean isDigestResponse();
@@ -127,6 +131,11 @@ public abstract class ReadResponse
         }
 
         public UnfilteredPartitionIterator makeIterator(ReadCommand command)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        public UnfilteredPartitionIterator makeIterator(ReadCommand command, DoubleTreasTag tag)
         {
             throw new UnsupportedOperationException();
         }
@@ -213,6 +222,28 @@ public abstract class ReadResponse
                 throw new RuntimeException(e);
             }
         }
+
+        public UnfilteredPartitionIterator makeIterator(ReadCommand command, DoubleTreasTag doubleTreasTag)
+        {
+            try (DataInputBuffer in = new DataInputBuffer(data, true))
+            {
+                // Note that the command parameter shadows the 'command' field and this is intended because
+                // the later can be null (for RemoteDataResponse as those are created in the serializers and
+                // those don't have easy access to the command). This is also why we need the command as parameter here.
+                return UnfilteredPartitionIterators.serializerForIntraNode().deserialize(in,
+                                                                                         dataSerializationVersion,
+                                                                                         command.metadata(),
+                                                                                         command.columnFilter(),
+                                                                                         flag,
+                                                                                         doubleTreasTag);
+            }
+            catch (IOException e)
+            {
+                // We're deserializing in memory so this shouldn't happen
+                throw new RuntimeException(e);
+            }
+        }
+
 
         public ByteBuffer digest(ReadCommand command)
         {
