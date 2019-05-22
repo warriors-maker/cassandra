@@ -125,9 +125,7 @@ public enum ConsistencyLevel
             case THREE:
                 return 3;
             case QUORUM:
-                int q = (keyspace.getReplicationStrategy().getReplicationFactor() + 1 + TreasConfig.num_intersect)/2;
-                logger.debug("Quorum size is: " + q + " "  + "Total Server size is" + keyspace.getReplicationStrategy().getReplicationFactor());
-                return q;
+                logger.debug("All " + keyspace.getReplicationStrategy().getReplicationFactor() );
             case SERIAL:
                 return quorumFor(keyspace);
             case ALL:
