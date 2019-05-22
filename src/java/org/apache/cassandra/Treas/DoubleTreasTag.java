@@ -18,12 +18,11 @@
 
 package org.apache.cassandra.Treas;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.cassandra.db.DecoratedKey;
 import org.apache.cassandra.schema.TableMetadata;
-import sun.tools.jconsole.Tab;
+
 
 public class DoubleTreasTag
 {

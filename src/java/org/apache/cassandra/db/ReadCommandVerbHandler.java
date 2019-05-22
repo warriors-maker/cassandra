@@ -43,6 +43,9 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         ReadCommand command = message.payload;
         command.setMonitoringTime(message.constructionTime, message.isCrossNode(), message.getTimeout(), message.getSlowQueryTimeout());
 
+        // TODO: In Memory:
+        // UnfilteredPartitionIterators.filter(rr.makeIterator(command, doubleTreasTag), command.nowInSec())
+        // doubleTreasTag will be put into the Iterator
         ReadResponse response;
         try (ReadExecutionController executionController = command.executionController();
              UnfilteredPartitionIterator iterator = command.executeLocally(executionController))
