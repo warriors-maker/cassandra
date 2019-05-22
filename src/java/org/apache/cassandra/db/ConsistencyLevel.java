@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.config.DatabaseDescriptor;
@@ -124,6 +125,9 @@ public enum ConsistencyLevel
             case THREE:
                 return 3;
             case QUORUM:
+                int q = (keyspace.getReplicationStrategy().getReplicationFactor() + 1 + TreasConfig.num_intersect)/2;
+                logger.debug("Quorum size is: " + q + " "  + "Total Server size is" + keyspace.getReplicationStrategy().getReplicationFactor());
+                return q;
             case SERIAL:
                 return quorumFor(keyspace);
             case ALL:
