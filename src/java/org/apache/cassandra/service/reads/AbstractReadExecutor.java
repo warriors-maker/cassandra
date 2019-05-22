@@ -585,11 +585,12 @@ public abstract class AbstractReadExecutor
             ReadResponse readResponse = digestResolver.getReadResponse();
             // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
 
-            System.out.println("Message size is" + digestResolver.getMessages().size());
+            logger.debug("Message size is" + digestResolver.getMessages().size());
             // Each readResponse represents a response from a Replica
             for (MessageIn<ReadResponse> message : digestResolver.getMessages()) {
 
                 if (message.from.equals(FBUtilities.getLocalAddressAndPort())) {
+                    logger.debug("This message is from me");
                     System.out.println("This message is from me");
                 }
                 ReadResponse response = message.payload;
@@ -694,13 +695,15 @@ public abstract class AbstractReadExecutor
                     }
                 }
             }
-            System.out.println("Finish reading Quorum and Decodable");
+            logger.debug("Finish reading Quorum and Decodable");
             System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+            logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
 
             // Either one of them is not satisfied stop the procedure;
             if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1) {
-
+                logger.debug("Fail to get enough result");
             } else {
+                logger.debug("Successfully get the result");
                 doubleTreasTag.getQuorumMaxTreasTag().setWriterId(quorumTagMax.getWriterId());
                 doubleTreasTag.getQuorumMaxTreasTag().setLogicalTIme(quorumTagMax.getTime());
                 doubleTreasTag.getRecoverMaxTreasTag().setWriterId(decodeTagMax.getWriterId());

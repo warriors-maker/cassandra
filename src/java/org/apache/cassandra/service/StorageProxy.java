@@ -3565,7 +3565,6 @@ public class StorageProxy implements StorageProxyMBean
 //            reads[i].maybeTryAdditionalReplicas();
 //        }
 
-        System.out.println("Comment Count" + cmdCount);
             for (int i = 0; i < cmdCount; i++)
             {
                 // Better to be put here
