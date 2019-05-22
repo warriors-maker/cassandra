@@ -1532,12 +1532,10 @@ public class StorageProxy implements StorageProxyMBean
         TreasTag maxTreasTag = new TreasTag();
         String value = "";
 
-        logger.debug("Current key is " + mutation.key().toString());
         Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         for (Cell cell : data.cells()) {
             if (cell.column().name.toString().equals("tag1")) {
                 maxTreasTag = TreasTag.deserialize(cell.value());
-                System.out.println("Max TreasTag is " + maxTreasTag.toString());
             } else if (cell.column().name.toString().equals("field0")) {
                 try {
                     value = ByteBufferUtil.string(cell.value());
@@ -1578,6 +1576,7 @@ public class StorageProxy implements StorageProxyMBean
             TreasTag minTreasTag = null;
             String minFieldColName = "";
             int hit = 1;
+            boolean exist = false;
             try (ReadExecutionController executionController = localRead.executionController();
                  UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
             {
@@ -1597,7 +1596,13 @@ public class StorageProxy implements StorageProxyMBean
                             if (colName.startsWith("tag")) {
                                 // If some of the tags are still null;
                                 hit++;
-                                if (cell.value() == null) {
+                                // If the tag already exists, ignore it.
+
+                                if (cell.value() != null && TreasTag.deserialize(cell.value()).equals(maxTreasTag)) {
+                                    exist = true;
+                                    break;
+                                }
+                                else if (cell.value() == null) {
                                     minTagColName = colName;
                                     break;
                                 } else {
@@ -1621,31 +1626,39 @@ public class StorageProxy implements StorageProxyMBean
                 }
             }
 
+            // Meaning the tag already exists, no need to write into the disk anymore
+            if (exist) {
+                logger.debug("Tag Already exists, no need to write into the disk");
+            }
             // If No data in the table
-            if (hit <= TreasConfig.num_concurrecy) {
+            else if (hit <= TreasConfig.num_concurrecy) {
                 minFieldColName = "field" + hit;
                 minTagColName = "tag" + hit;
             }
             else {
                 minFieldColName = "field" + minTagColName.substring(3);
             }
-            Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
 
-            TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
-            long timeStamp = FBUtilities.timestampMicros();
+            if (!exist) {
+                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
 
-            System.out.println("Insert into" + minTagColName);
+                TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+                long timeStamp = FBUtilities.timestampMicros();
 
-            mutationBuilder.update(tableMetadata)
-                           .timestamp(timeStamp)
-                           .row()
-                           .add(minTagColName, TreasTag.serialize(maxTreasTag))
-                           .add(minFieldColName,codeList.get(0))
-                           .add("field0","");
+                System.out.println("Insert into" + minTagColName);
 
-            Mutation coordinatorMutation = mutationBuilder.build();
+                mutationBuilder.update(tableMetadata)
+                               .timestamp(timeStamp)
+                               .row()
+                               .add(minTagColName, TreasTag.serialize(maxTreasTag))
+                               .add(minFieldColName,codeList.get(0))
+                               .add("field0","");
 
-            performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
+                Mutation coordinatorMutation = mutationBuilder.build();
+
+                performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
+            }
+
         }
 
         // Send to Replica

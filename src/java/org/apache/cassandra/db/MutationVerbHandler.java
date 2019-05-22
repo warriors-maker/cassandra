@@ -70,6 +70,27 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             replyTo = from;
         }
 
+        int hit = 1;
+        boolean exist = false;
+        String minTagColumn = "";
+        String maxTagColumn ="";
+        TreasTag localMinTag = null;
+        TreasTag localMaxTag = null;
+
+        TreasTag mutationTag = null;
+        String mutationValue = "";
+
+        // Read from the Mutation
+        Row data = message.payload.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+        for (Cell c : data.cells())
+        {
+            if (c.column().toString().equals("tag1")) {
+                mutationTag = TreasTag.deserialize(c.value());
+            } else if (c.column().toString().equals("field1")) {
+                mutationValue = ByteBufferUtil.string(c.value());
+            }
+        }
+
         // Read the value from the mutation
         // The tag sent from coordinator is always in tag1 and value is always in field 1
 
@@ -82,14 +103,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         message.payload.key()
         );
 
-        int hit = 1;
-        String minTagColumn = "";
-        String maxTagColumn ="";
-        TreasTag localMinTag = null;
-        TreasTag localMaxTag = null;
-
-        TreasTag mutationTag = null;
-        String mutationValue = "";
 
         // Read from local
         try (ReadExecutionController executionController = localRead.executionController();
@@ -110,7 +123,10 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                         if (colName.startsWith("tag")) {
                             TreasTag currentTag = TreasTag.deserialize(cell.value());
                             hit++;
-
+                            if (currentTag.equals(mutationTag)) {
+                                exist = true;
+                                break;
+                            }
                             if (localMaxTag == null && localMinTag == null) {
                                 localMaxTag = currentTag;
                                 maxTagColumn = colName;
@@ -133,18 +149,12 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                 }
             }
         }
-
-        // Read from the Mutation
-        Row data = message.payload.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
-        for (Cell c : data.cells())
-        {
-            if (c.column().toString().equals("tag1")) {
-                mutationTag = TreasTag.deserialize(c.value());
-            } else if (c.column().toString().equals("field1")) {
-                mutationValue = ByteBufferUtil.string(c.value());
-            }
+        
+        // The Tag Already exists, no need to write into the disk;
+        if (exist) {
+            reply(id, replyTo);
+            return;
         }
-
         Mutation mutation = message.payload;
         Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
         TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
