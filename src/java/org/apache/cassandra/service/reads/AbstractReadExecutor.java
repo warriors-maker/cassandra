@@ -568,10 +568,11 @@ public abstract class AbstractReadExecutor
                 throw e;
             }
         }
-
+        logger.debug("Inside now myAwait");
         if (digestResolver.responsesMatch()){
             // TODO: May need to check here because I consume the Iterator
 //            logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
+            logger.debug("Start Resolver");
             setResult(digestResolver.fetchTargetTags(doubleTreasTag));
             logger.debug("Result is set, no problem");
         }

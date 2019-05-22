@@ -3676,6 +3676,9 @@ public class StorageProxy implements StorageProxyMBean
         List<DoubleTreasTag> doubleTreasTagList = new ArrayList<>();
         List<ReadResponse> responses= fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
 
+
+        // Add the logic here to prevent
+
         // Do the writeBack
         writebackTreas(doubleTreasTagList, consistencyLevel, System.nanoTime());
 
@@ -3691,6 +3694,7 @@ public class StorageProxy implements StorageProxyMBean
         }
         return PartitionIterators.concat(piList);
     }
+    
 
     public static void writebackTreas(List<DoubleTreasTag> doubleTreasTags, ConsistencyLevel consistency_level, long queryStartNanoTime)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
