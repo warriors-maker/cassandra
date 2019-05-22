@@ -3612,6 +3612,7 @@ public class StorageProxy implements StorageProxyMBean
 
             for (int i = 0; i < cmdCount; i++)
             {
+                logger.debug("Inside commandCount");
                 // Better to be put here
                 // possibly can add a reference to awaitResponse
                 // This reference will store the information we want
@@ -3636,11 +3637,12 @@ public class StorageProxy implements StorageProxyMBean
             // Do the main logic here (Bad)
 //        List<ReadResponse> results = new ArrayList<>();
 //
+
 //        for (int i=0; i<cmdCount; i++)
 //        {
 //            results.add(reads[i].getResult());
 //        }
-
+            logger.debug("Start to get result without waiting");
             List<ReadResponse> readResponses = new ArrayList<>();
             for (AbstractReadExecutor read : reads) {
                 readResponses.add(read.getResult());

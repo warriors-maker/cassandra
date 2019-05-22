@@ -164,6 +164,8 @@ public class DigestResolver extends ResponseResolver
         DecoratedKey key = null;
         TableMetadata tableMetadata = null;
 
+        ReadResponse returnResponse = null;
+
         if (this.responsesMatch())
         {
             logger.debug("Digest Match");
@@ -174,11 +176,12 @@ public class DigestResolver extends ResponseResolver
             // Each readResponse represents a response from a Replica
             for (MessageIn<ReadResponse> message : this.getMessages())
             {
+                ReadResponse response = message.payload;
                 if (message.from.equals(FBUtilities.getLocalAddressAndPort()))
                 {
+                    returnResponse = response;
                     logger.debug("This message is from me");
                 }
-                ReadResponse response = message.payload;
 
                 assert response.isDigestResponse() == false;
 
@@ -317,7 +320,7 @@ public class DigestResolver extends ResponseResolver
                 doubleTreasTag.setCodes(decodeValMax);
             }
         }
-        return this.getReadResponse();
+        return returnResponse;
     }
 
     public boolean isDataPresent()
