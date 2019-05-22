@@ -1628,6 +1628,7 @@ public class StorageProxy implements StorageProxyMBean
 
             // Meaning the tag already exists, no need to write into the disk anymore
             if (exist) {
+                performLocally(stage, Optional.of(mutation),mutation::apply, responseHandler, true);
                 logger.debug("Tag Already exists, no need to write into the disk");
             }
             // If No data in the table
@@ -1763,6 +1764,36 @@ public class StorageProxy implements StorageProxyMBean
 
     private static void performLocally(Stage stage, Optional<IMutation> mutation, final Runnable runnable, final IAsyncCallbackWithFailure<?> handler)
     {
+        StageManager.getStage(stage).maybeExecuteImmediately(new LocalMutationRunnable(mutation)
+        {
+            public void runMayThrow()
+            {
+                try
+                {
+                    runnable.run();
+                    handler.response(null);
+                }
+                catch (Exception ex)
+                {
+                    if (!(ex instanceof WriteTimeoutException))
+                        logger.error("Failed to apply mutation locally : ", ex);
+                    handler.onFailure(FBUtilities.getBroadcastAddressAndPort(), RequestFailureReason.UNKNOWN);
+                }
+            }
+
+            @Override
+            protected Verb verb()
+            {
+                return MessagingService.Verb.MUTATION;
+            }
+        });
+    }
+
+    private static void performLocally(Stage stage, Optional<IMutation> mutation, final Runnable runnable, final IAsyncCallbackWithFailure<?> handler, boolean exist)
+    {
+        if (exist) {
+            handler.response(null);
+        }
         StageManager.getStage(stage).maybeExecuteImmediately(new LocalMutationRunnable(mutation)
         {
             public void runMayThrow()
