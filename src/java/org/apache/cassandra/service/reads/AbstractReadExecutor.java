@@ -566,6 +566,7 @@ public abstract class AbstractReadExecutor
             }
         }
 
+        logger.debug("Inside awaitResponsesTreasTagValue");
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
         TreasTag quorumTagMax = new TreasTag();
@@ -577,21 +578,17 @@ public abstract class AbstractReadExecutor
         DecoratedKey key = null;
         TableMetadata tableMetadata = null;
 
-        boolean quorumSatisfied = false;
-        boolean decodeSatisfied = false;
-
         if (digestResolver.responsesMatch())
         {
+            logger.debug("Digest Match");
             ReadResponse readResponse = digestResolver.getReadResponse();
             // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
 
             logger.debug("Message size is" + digestResolver.getMessages().size());
             // Each readResponse represents a response from a Replica
             for (MessageIn<ReadResponse> message : digestResolver.getMessages()) {
-
                 if (message.from.equals(FBUtilities.getLocalAddressAndPort())) {
                     logger.debug("This message is from me");
-                    System.out.println("This message is from me");
                 }
                 ReadResponse response = message.payload;
 

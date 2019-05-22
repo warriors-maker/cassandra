@@ -93,6 +93,32 @@ public class TreasTag implements Serializable{
         }
     }
 
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + this.getTime();
+        return result;
+    }
+
+    //Compare only account numbers
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        TreasTag other = (TreasTag) obj;
+        if (this.getTime() != other.getTime() || !this.getWriterId().equals(other.getWriterId()))
+            return false;
+        return true;
+    }
+
+
+
     public String toString() {
         return logicalTIme + ";" + writerId;
     }

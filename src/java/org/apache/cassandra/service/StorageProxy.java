@@ -3545,6 +3545,7 @@ public class StorageProxy implements StorageProxyMBean
                                                            long queryStartNanoTime, List<DoubleTreasTag> doubleTreasTags)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
+            logger.debug("Inside fetchTagValueTreas");
             int cmdCount = commands.size();
 
             AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
@@ -3610,6 +3611,7 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException {
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and tag_value column
+        logger.debug("Inside fetchRowTreas");
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
         for (SinglePartitionReadCommand readCommand : commands)
         {
