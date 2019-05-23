@@ -20,6 +20,9 @@ package org.apache.cassandra.db;
 import java.io.IOException;
 import java.util.Iterator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.cql3.ColumnIdentifier;
@@ -36,12 +39,14 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
+import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
 
 public class MutationVerbHandler implements IVerbHandler<Mutation>
 {
+    private static final Logger logger = LoggerFactory.getLogger(MutationVerbHandler.class);
     private void reply(int id, InetAddressAndPort replyTo)
     {
         Tracing.trace("Enqueuing response to {}", replyTo);
@@ -154,6 +159,12 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             reply(id, replyTo);
             return;
         }
+
+        logger.debug("Max Tag: " + localMaxTag.toString());
+        logger.debug("Max Tag colname: " + maxTagColumn);
+        logger.debug("Min Tag: " + localMinTag.toString());
+        logger.debug("Min Tag colName: " + minTagColumn);
+
         Mutation mutation = message.payload;
         Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
         TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
