@@ -165,132 +165,126 @@ public class DigestResolver extends ResponseResolver
         TableMetadata tableMetadata = null;
 
         logger.debug("Before Digest Match");
-        if (this.responsesMatch())
+        logger.debug("Message size is" + this.getMessages().size());
+        // Each readResponse represents a response from a Replica
+        for (MessageIn<ReadResponse> message : this.getMessages())
         {
-            logger.debug("Digest Match");
-            // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
-
-            logger.debug("Message size is" + this.getMessages().size());
-            // Each readResponse represents a response from a Replica
-            for (MessageIn<ReadResponse> message : this.getMessages())
+            ReadResponse response = message.payload;
+            if (message.from.equals(FBUtilities.getLocalAddressAndPort()))
             {
-                ReadResponse response = message.payload;
-                if (message.from.equals(FBUtilities.getLocalAddressAndPort()))
+                logger.debug("This message is from me");
+            }
+
+            assert response.isDigestResponse() == false;
+
+            // get the partition iterator corresponding to the
+            // current data response
+            PartitionIterator pi = UnfilteredPartitionIterators.filter(response.makeIterator(command), command.nowInSec());
+
+            while (pi.hasNext())
+            {
+                // pi.next() returns a RowIterator
+                RowIterator ri = pi.next();
+
+                if (keySpaceName.equals(""))
                 {
-                    logger.debug("This message is from me");
+                    key = ri.partitionKey();
+                    tableMetadata = ri.metadata();
+                    keySpaceName = tableMetadata.keyspace;
+                    doubleTreasTag.setKey(key);
+                    doubleTreasTag.setTableMetadata(tableMetadata);
+                    doubleTreasTag.setKeySpace(keySpaceName);
                 }
 
-                assert response.isDigestResponse() == false;
-
-                // get the partition iterator corresponding to the
-                // current data response
-                PartitionIterator pi = UnfilteredPartitionIterators.filter(response.makeIterator(command), command.nowInSec());
-
-                while (pi.hasNext())
+                while (ri.hasNext())
                 {
-                    // pi.next() returns a RowIterator
-                    RowIterator ri = pi.next();
-
-                    if (keySpaceName.equals(""))
+                    Row row = ri.next();
+                    for (Cell c : row.cells())
                     {
-                        key = ri.partitionKey();
-                        tableMetadata = ri.metadata();
-                        keySpaceName = tableMetadata.keyspace;
-                        doubleTreasTag.setKey(key);
-                        doubleTreasTag.setTableMetadata(tableMetadata);
-                        doubleTreasTag.setKeySpace(keySpaceName);
-                    }
+                        String colName = c.column().name.toString();
 
-                    while (ri.hasNext())
-                    {
-                        Row row = ri.next();
-                        for (Cell c : row.cells())
+                        // if it is a timeStamp field, we need to check it
+                        if (colName.startsWith("tag"))
                         {
-                            String colName = c.column().name.toString();
 
-                            // if it is a timeStamp field, we need to check it
-                            if (colName.startsWith("tag"))
+                            TreasTag curTag = TreasTag.deserialize(c.value());
+
+                            System.out.println(colName + "," + curTag.toString());
+
+                            if (quorumMap.containsKey(curTag))
                             {
-
-                                TreasTag curTag = TreasTag.deserialize(c.value());
-
-                                System.out.println(colName + "," + curTag.toString());
-
-                                if (quorumMap.containsKey(curTag))
+                                int currentCount = quorumMap.get(curTag) + 1;
+                                quorumMap.put(curTag, currentCount);
+                                // if has enough k values
+                                if (currentCount == TreasConfig.num_intersect)
                                 {
-                                    int currentCount = quorumMap.get(curTag) + 1;
-                                    quorumMap.put(curTag, currentCount);
-                                    // if has enough k values
-                                    if (currentCount == TreasConfig.num_intersect)
+                                    if (curTag.isLarger(quorumTagMax))
                                     {
-                                        if (curTag.isLarger(quorumTagMax))
-                                        {
-                                            quorumTagMax = curTag;
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    quorumMap.put(curTag, 1);
-                                    if (TreasConfig.num_intersect == 1)
-                                    {
-                                        if (curTag.isLarger(quorumTagMax))
-                                        {
-                                            quorumTagMax = curTag;
-                                        }
+                                        quorumTagMax = curTag;
                                     }
                                 }
                             }
-                            // Notice that only one column has the data
-                            else if (colName.startsWith("field") && !colName.equals("field0"))
+                            else
                             {
-                                // Fetch the code out
-                                String value = "";
-                                try
+                                quorumMap.put(curTag, 1);
+                                if (TreasConfig.num_intersect == 1)
                                 {
-                                    value = ByteBufferUtil.string(c.value());
-                                }
-                                catch (Exception e)
-                                {
-                                    System.out.println("Cannot parseData");
-                                }
-
-                                // Find the corresponding index to fetch the tag value
-                                int index = Integer.parseInt(colName.substring(TreasConfig.VAL_PREFIX.length()));
-                                String treasTagColumn = "tag" + index;
-                                ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(treasTagColumn, true);
-                                ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
-                                Cell tagCell = row.getCell(columnMetadata);
-                                TreasTag treasTag = TreasTag.deserialize(tagCell.value());
-
-                                if (decodeMap.containsKey(treasTag))
-                                {
-
-                                    decodeMap.get(treasTag).add(value);
-
-                                    List<String> codeList = decodeMap.get(treasTag);
-
-                                    if (codeList.size() == TreasConfig.num_recover)
+                                    if (curTag.isLarger(quorumTagMax))
                                     {
-                                        if (treasTag.isLarger(decodeTagMax))
-                                        {
-                                            decodeTagMax = treasTag;
-                                            decodeValMax = codeList;
-                                        }
+                                        quorumTagMax = curTag;
                                     }
                                 }
-                                else
+                            }
+                        }
+                        // Notice that only one column has the data
+                        else if (colName.startsWith("field") && !colName.equals("field0"))
+                        {
+                            // Fetch the code out
+                            String value = "";
+                            try
+                            {
+                                value = ByteBufferUtil.string(c.value());
+                            }
+                            catch (Exception e)
+                            {
+                                System.out.println("Cannot parseData");
+                            }
+
+                            // Find the corresponding index to fetch the tag value
+                            int index = Integer.parseInt(colName.substring(TreasConfig.VAL_PREFIX.length()));
+                            String treasTagColumn = "tag" + index;
+                            ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(treasTagColumn, true);
+                            ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
+                            Cell tagCell = row.getCell(columnMetadata);
+                            TreasTag treasTag = TreasTag.deserialize(tagCell.value());
+
+                            if (decodeMap.containsKey(treasTag))
+                            {
+
+                                decodeMap.get(treasTag).add(value);
+
+                                List<String> codeList = decodeMap.get(treasTag);
+
+                                if (codeList.size() == TreasConfig.num_recover)
                                 {
-                                    List<String> codelist = new ArrayList<>();
-                                    codelist.add(value);
-                                    decodeMap.put(treasTag, codelist);
-                                    if (TreasConfig.num_recover == 1)
+                                    if (treasTag.isLarger(decodeTagMax))
                                     {
-                                        if (treasTag.isLarger(decodeTagMax))
-                                        {
-                                            decodeTagMax = treasTag;
-                                            decodeValMax = codelist;
-                                        }
+                                        decodeTagMax = treasTag;
+                                        decodeValMax = codeList;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                List<String> codelist = new ArrayList<>();
+                                codelist.add(value);
+                                decodeMap.put(treasTag, codelist);
+                                if (TreasConfig.num_recover == 1)
+                                {
+                                    if (treasTag.isLarger(decodeTagMax))
+                                    {
+                                        decodeTagMax = treasTag;
+                                        decodeValMax = codelist;
                                     }
                                 }
                             }
@@ -298,26 +292,28 @@ public class DigestResolver extends ResponseResolver
                     }
                 }
             }
-            logger.debug("Finish reading Quorum and Decodable");
-            System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
-            logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+        }
+        logger.debug("Finish reading Quorum and Decodable");
+        System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+        logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
 
-            // Either one of them is not satisfied stop the procedure;
-            if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1)
-            {
-                logger.debug("Fail to get enough result");
-            }
-            else
-            {
-                logger.debug("Successfully get the result");
-                doubleTreasTag.getQuorumMaxTreasTag().setWriterId(quorumTagMax.getWriterId());
-                doubleTreasTag.getQuorumMaxTreasTag().setLogicalTIme(quorumTagMax.getTime());
-                doubleTreasTag.getRecoverMaxTreasTag().setWriterId(decodeTagMax.getWriterId());
-                doubleTreasTag.getRecoverMaxTreasTag().setLogicalTIme(decodeTagMax.getTime());
-                doubleTreasTag.setCodes(decodeValMax);
-            }
+        // Either one of them is not satisfied stop the procedure;
+        if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1)
+        {
+            logger.debug("Fail to get enough result");
+        }
+        else
+        {
+            logger.debug("Successfully get the result");
+            doubleTreasTag.getQuorumMaxTreasTag().setWriterId(quorumTagMax.getWriterId());
+            doubleTreasTag.getQuorumMaxTreasTag().setLogicalTIme(quorumTagMax.getTime());
+            doubleTreasTag.getRecoverMaxTreasTag().setWriterId(decodeTagMax.getWriterId());
+            doubleTreasTag.getRecoverMaxTreasTag().setLogicalTIme(decodeTagMax.getTime());
+            doubleTreasTag.setCodes(decodeValMax);
         }
     }
+
+
 
     public boolean isDataPresent()
     {

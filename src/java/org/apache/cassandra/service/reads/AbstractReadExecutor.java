@@ -514,97 +514,67 @@ public abstract class AbstractReadExecutor
             }
         }
 
-        if (digestResolver.responsesMatch())
+        ReadResponse readResponse = digestResolver.getReadResponse();
+        // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
+
+        TreasTag localMaxTreasTag = new TreasTag();
+
+        // Each readResponse represents a response from a Replica
+        for (MessageIn<ReadResponse> message : digestResolver.getMessages())
         {
-            ReadResponse readResponse = digestResolver.getReadResponse();
-            // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
 
-            TreasTag localMaxTreasTag = new TreasTag();
+            ReadResponse response = message.payload;
 
-            // Each readResponse represents a response from a Replica
-            for (MessageIn<ReadResponse> message : digestResolver.getMessages())
+
+            // check if the response is indeed a data response
+            // we shouldn't get a digest response here
+            assert response.isDigestResponse() == false;
+
+            // get the partition iterator corresponding to the
+            // current data response
+            PartitionIterator pi = UnfilteredPartitionIterators.filter(response.makeIterator(command), command.nowInSec());
+
+            while (pi.hasNext())
             {
-
-                ReadResponse response = message.payload;
-
-
-                // check if the response is indeed a data response
-                // we shouldn't get a digest response here
-                assert response.isDigestResponse() == false;
-
-                // get the partition iterator corresponding to the
-                // current data response
-                PartitionIterator pi = UnfilteredPartitionIterators.filter(response.makeIterator(command), command.nowInSec());
-
-                while (pi.hasNext())
+                // pi.next() returns a RowIterator
+                RowIterator ri = pi.next();
+                while (ri.hasNext())
                 {
-                    // pi.next() returns a RowIterator
-                    RowIterator ri = pi.next();
-                    while (ri.hasNext())
+                    TreasTag curTag = new TreasTag();
+                    for (Cell c : ri.next().cells())
                     {
-                        TreasTag curTag = new TreasTag();
-                        for (Cell c : ri.next().cells())
+                        // if it is a timeStamp field, we need to check it
+                        if (c.column().name.toString().startsWith("tag"))
                         {
-                            // if it is a timeStamp field, we need to check it
-                            if (c.column().name.toString().startsWith("tag"))
+                            curTag = TreasTag.deserialize(c.value());
+                            logger.debug(curTag.toString());
+                            if (curTag.isLarger(localMaxTreasTag))
                             {
-                                curTag = TreasTag.deserialize(c.value());
-                                if (curTag.isLarger(localMaxTreasTag))
-                                {
-                                    localMaxTreasTag = curTag;
-                                }
+                                localMaxTreasTag = curTag;
                             }
                         }
                     }
                 }
             }
+        }
 
-            // Set the maximum tag into the reference we pass
-            maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
-            maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
-            // TODO: May need to check here because I consume the Iterator
-            logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
-            setResult(readResponse);
-        }
-        else
-        {
-            Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
-//            readRepair.startRepair(digestResolver, handler.endpoints, getContactedReplicas(), this::setResult);
-        }
+        // Set the maximum tag into the reference we pass
+        maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
+        maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
+        // TODO: May need to check here because I consume the Iterator
+        logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
+        setResult(readResponse);
+
+//        if (digestResolver.responsesMatch())
+//        {
+//
+//        }
+//        else
+//        {
+//            Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
+////            readRepair.startRepair(digestResolver, handler.endpoints, getContactedReplicas(), this::setResult);
+//        }
     }
-
-//    public void awaitResponsesTreasTagValue(DoubleTreasTag doubleTreasTag) throws ReadTimeoutException
-//    {
-//        try
-//        {
-//            handler.awaitResults();
-//        }
-//        catch (ReadTimeoutException e)
-//        {
-//            try
-//            {
-//                onReadTimeout();
-//            }
-//            finally
-//            {
-//                throw e;
-//            }
-//        }
-//        logger.debug("Inside now myAwait");
-//        if (digestResolver.responsesMatch()){
-//            // TODO: May need to check here because I consume the Iterator
-////            logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
-//            logger.debug("Start Resolver");
-//            setResult(digestResolver.fetchTargetTags(doubleTreasTag));
-//            logger.debug("Result is set, no problem");
-//        }
-//        else {
-//        Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
-////      readRepair.startRepair(digestResolver, handler.endpoints, getContactedReplicas(), this::setResult);
-//        }
-//    }
-
-
 
 
 
