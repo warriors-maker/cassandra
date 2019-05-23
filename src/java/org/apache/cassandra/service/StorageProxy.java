@@ -1822,6 +1822,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         if (exist) {
             handler.response(null);
+            return;
         }
         StageManager.getStage(stage).maybeExecuteImmediately(new LocalMutationRunnable(mutation)
         {
