@@ -125,7 +125,7 @@ public enum ConsistencyLevel
             case THREE:
                 return 3;
             case QUORUM:
-                return (TreasConfig.num_intersect + TreasConfig.num_server + 1) /2;
+//                return (TreasConfig.num_intersect + TreasConfig.num_server + 1) /2;
             case SERIAL:
                 return quorumFor(keyspace);
             case ALL:
