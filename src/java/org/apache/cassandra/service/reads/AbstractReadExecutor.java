@@ -435,6 +435,28 @@ public abstract class AbstractReadExecutor
         }
     }
 
+    public void awaitTreasResponses(DoubleTreasTag treasTag) throws ReadTimeoutException
+    {
+        try
+        {
+            handler.awaitResults();
+        }
+        catch (ReadTimeoutException e)
+        {
+            try
+            {
+                onReadTimeout();
+            }
+            finally
+            {
+                throw e;
+            }
+        }
+
+        digestResolver.fetchTargetTags(treasTag);
+        treasTag.setReadResponse(digestResolver.getReadResponse());
+    }
+
     public void awaitResponsesAbd() throws ReadTimeoutException
     {
         try

@@ -3588,7 +3588,7 @@ public class StorageProxy implements StorageProxyMBean
 
 
     //Another function to fetch the value and its maximun valid tag, which can help us to recover the data (Fetch Tag + Value)
-    private static List<ReadResponse> fetchTagValueTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel,
+    private static void fetchTagValueTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel,
                                                            long queryStartNanoTime, List<DoubleTreasTag> doubleTreasTags)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
@@ -3607,35 +3607,26 @@ public class StorageProxy implements StorageProxyMBean
                 reads[i].executeAsyncTreas();
             }
 
-//        // todo: this is not needed
-//        for (int i=0; i<cmdCount; i++)
-//        {
-//            reads[i].maybeTryAdditionalReplicas();
-//        }
+            // todo: this is not needed
+            for (int i=0; i<cmdCount; i++)
+            {
+                reads[i].maybeTryAdditionalReplicas();
+            }
 
             for (int i = 0; i < cmdCount; i++)
             {
-                reads[i].awaitResponses();
-            }
-
-            for (int i = 0; i < cmdCount; i++) {
-                logger.debug("Inside commandCount");
-                // Better to be put here
-                // possibly can add a reference to awaitResponse
-                // This reference will store the information we want
-                // Or can do the main logic at the end
-                AbstractReadExecutor read = reads[i];
-                DigestResolver resolver = read.digestResolver;
                 DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
                 doubleTreasTags.add(doubleTreasTag);
-                resolver.fetchTargetTags(doubleTreasTag);
+                reads[i].awaitTreasResponses(doubleTreasTag);
             }
 
+
 //        // todo: this is not needed
-//        for (int i=0; i<cmdCount; i++)
-//        {
-//            reads[i].maybeRepairAdditionalReplicas();
-//        }
+//            for (int i=0; i<cmdCount; i++)
+//            {
+//                reads[i].maybeRepairAdditionalReplicas();
+//            }
+
 //
 //        // todo: this is not needed
 //        for (int i=0; i<cmdCount; i++)
@@ -3651,13 +3642,8 @@ public class StorageProxy implements StorageProxyMBean
 //        {
 //            results.add(reads[i].getResult());
 //        }
-            logger.debug("Start to get result without waiting");
-            List<ReadResponse> readResponses = new ArrayList<>();
-            for (AbstractReadExecutor read : reads) {
-                readResponses.add(read.getResult());
-            }
 
-        return readResponses;
+
     }
 
     // Read for Treas
@@ -3683,7 +3669,7 @@ public class StorageProxy implements StorageProxyMBean
         // tag value pair with the largest tag
 
         List<DoubleTreasTag> doubleTreasTagList = new ArrayList<>();
-        List<ReadResponse> responses= fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
+        fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
 
 
         // Add the logic here to prevent
@@ -3694,10 +3680,10 @@ public class StorageProxy implements StorageProxyMBean
 
         List<PartitionIterator> piList = new ArrayList<>();
         int idx = 0;
-        for (ReadResponse rr : responses)
+        for (DoubleTreasTag doubleTreasTag : doubleTreasTagList)
         {
+            ReadResponse rr = doubleTreasTag.getReadResponse();
             SinglePartitionReadCommand command = commands.get(idx);
-            DoubleTreasTag doubleTreasTag = doubleTreasTagList.get(idx);
             piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command, doubleTreasTag), command.nowInSec()));
             idx++;
         }

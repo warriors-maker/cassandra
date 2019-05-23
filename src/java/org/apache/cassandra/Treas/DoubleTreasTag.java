@@ -21,6 +21,7 @@ package org.apache.cassandra.Treas;
 import java.util.List;
 
 import org.apache.cassandra.db.DecoratedKey;
+import org.apache.cassandra.db.ReadResponse;
 import org.apache.cassandra.schema.TableMetadata;
 
 
@@ -29,6 +30,7 @@ public class DoubleTreasTag
     private TreasTag quorumMaxTreasTag = new TreasTag();
     private TreasTag recoverMaxTreasTag = new TreasTag();
     private List<String> codes = null;
+    private ReadResponse readResponse;
 
     private DecoratedKey key;
     private TableMetadata tableMetadata;
@@ -92,5 +94,15 @@ public class DoubleTreasTag
     public void setKeySpace(String keySpace)
     {
         this.keySpace = keySpace;
+    }
+
+    public ReadResponse getReadResponse()
+    {
+        return readResponse;
+    }
+
+    public void setReadResponse(ReadResponse readResponse)
+    {
+        this.readResponse = readResponse;
     }
 }

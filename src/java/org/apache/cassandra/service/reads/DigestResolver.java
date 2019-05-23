@@ -164,11 +164,10 @@ public class DigestResolver extends ResponseResolver
         DecoratedKey key = null;
         TableMetadata tableMetadata = null;
 
-
+        logger.debug("Before Digest Match");
         if (this.responsesMatch())
         {
             logger.debug("Digest Match");
-            ReadResponse readResponse = this.getReadResponse();
             // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
 
             logger.debug("Message size is" + this.getMessages().size());
