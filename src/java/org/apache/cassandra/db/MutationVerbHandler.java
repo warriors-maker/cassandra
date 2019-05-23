@@ -66,7 +66,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         }
         else
         {
-
             replyTo = from;
         }
 
@@ -84,9 +83,9 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         Row data = message.payload.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         for (Cell c : data.cells())
         {
-            if (c.column().toString().equals("tag1")) {
+            if (c.column().name.toString().equals("tag1")) {
                 mutationTag = TreasTag.deserialize(c.value());
-            } else if (c.column().toString().equals("field1")) {
+            } else if (c.column().name.toString().equals("field1")) {
                 mutationValue = ByteBufferUtil.string(c.value());
             }
         }
@@ -118,7 +117,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                     Row r = ri.next();
 
                     for (Cell cell : r.cells()) {
-                        String colName = cell.column().toString();
+                        String colName = cell.column().name.toString();
 
                         if (colName.startsWith("tag")) {
                             TreasTag currentTag = TreasTag.deserialize(cell.value());
@@ -202,7 +201,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                                .row()
                                .add("field" + maxTagColumn.substring(3),null)
                                .add("field" + minTagColumn.substring(3), mutationValue)
-                               .add(minTagColumn,mutationTag);
+                               .add(minTagColumn,TreasTag.serialize(mutationTag));
             }
 
             else if (mutationTag.isLarger(localMinTag)){

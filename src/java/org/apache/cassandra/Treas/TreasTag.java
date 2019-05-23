@@ -37,14 +37,14 @@ public class TreasTag implements Serializable{
     public TreasTag(){
         this.logicalTIme = -1;
         this.writerId = FBUtilities.getLocalAddressAndPort().toString(false);
-        logger.info(this.toString());
+//        logger.info(this.toString());
     }
 
     private TreasTag(String tagString){
         String[] tagArray = tagString.split(";");
         this.logicalTIme = Integer.parseInt(tagArray[0]);
         this.writerId = tagArray[1];
-        logger.info(this.toString());
+//        logger.info(this.toString());
     }
 
     public void setLogicalTIme(int logicalTIme) {
@@ -65,7 +65,7 @@ public class TreasTag implements Serializable{
 
     public TreasTag nextTag(){
         this.logicalTIme++;
-        logger.info(this.toString());
+//        logger.info(this.toString());
         return this;
     }
 
