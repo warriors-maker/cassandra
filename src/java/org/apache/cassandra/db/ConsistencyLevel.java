@@ -117,7 +117,7 @@ public enum ConsistencyLevel
             case CASFIVE:
                 return casFor(keyspace,5);
             case TREAS:
-                return (TreasConfig.num_intersect + TreasConfig.num_server + 1) /2;
+                return casFor(keyspace,(TreasConfig.num_intersect + TreasConfig.num_server + 1) /2);
             case ONE:
             case LOCAL_ONE:
                 return 1;
