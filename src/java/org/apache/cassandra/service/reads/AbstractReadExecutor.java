@@ -85,7 +85,7 @@ public abstract class AbstractReadExecutor
     protected final ConsistencyLevel consistency;
     protected final List<InetAddressAndPort> targetReplicas;
     protected final ReadRepair readRepair;
-    protected final DigestResolver digestResolver;
+    public final DigestResolver digestResolver;
     protected final ReadCallback handler;
     protected final TraceState traceState;
     protected final ColumnFamilyStore cfs;
@@ -551,36 +551,36 @@ public abstract class AbstractReadExecutor
         }
     }
 
-    public void awaitResponsesTreasTagValue(DoubleTreasTag doubleTreasTag) throws ReadTimeoutException
-    {
-        try
-        {
-            handler.awaitResults();
-        }
-        catch (ReadTimeoutException e)
-        {
-            try
-            {
-                onReadTimeout();
-            }
-            finally
-            {
-                throw e;
-            }
-        }
-        logger.debug("Inside now myAwait");
-        if (digestResolver.responsesMatch()){
-            // TODO: May need to check here because I consume the Iterator
-//            logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
-            logger.debug("Start Resolver");
-            setResult(digestResolver.fetchTargetTags(doubleTreasTag));
-            logger.debug("Result is set, no problem");
-        }
-        else {
-        Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
-//      readRepair.startRepair(digestResolver, handler.endpoints, getContactedReplicas(), this::setResult);
-        }
-    }
+//    public void awaitResponsesTreasTagValue(DoubleTreasTag doubleTreasTag) throws ReadTimeoutException
+//    {
+//        try
+//        {
+//            handler.awaitResults();
+//        }
+//        catch (ReadTimeoutException e)
+//        {
+//            try
+//            {
+//                onReadTimeout();
+//            }
+//            finally
+//            {
+//                throw e;
+//            }
+//        }
+//        logger.debug("Inside now myAwait");
+//        if (digestResolver.responsesMatch()){
+//            // TODO: May need to check here because I consume the Iterator
+////            logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
+//            logger.debug("Start Resolver");
+//            setResult(digestResolver.fetchTargetTags(doubleTreasTag));
+//            logger.debug("Result is set, no problem");
+//        }
+//        else {
+//        Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
+////      readRepair.startRepair(digestResolver, handler.endpoints, getContactedReplicas(), this::setResult);
+//        }
+//    }
 
 
 

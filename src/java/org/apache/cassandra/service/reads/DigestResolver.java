@@ -151,7 +151,7 @@ public class DigestResolver extends ResponseResolver
         return maxZResponse;
     }
 
-    public ReadResponse fetchTargetTags(DoubleTreasTag doubleTreasTag) {
+    public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
         logger.debug("Inside awaitResponsesTreasTagValue");
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
@@ -164,7 +164,6 @@ public class DigestResolver extends ResponseResolver
         DecoratedKey key = null;
         TableMetadata tableMetadata = null;
 
-        ReadResponse returnResponse = null;
 
         if (this.responsesMatch())
         {
@@ -179,7 +178,6 @@ public class DigestResolver extends ResponseResolver
                 ReadResponse response = message.payload;
                 if (message.from.equals(FBUtilities.getLocalAddressAndPort()))
                 {
-                    returnResponse = response;
                     logger.debug("This message is from me");
                 }
 
@@ -320,7 +318,6 @@ public class DigestResolver extends ResponseResolver
                 doubleTreasTag.setCodes(decodeValMax);
             }
         }
-        return returnResponse;
     }
 
     public boolean isDataPresent()

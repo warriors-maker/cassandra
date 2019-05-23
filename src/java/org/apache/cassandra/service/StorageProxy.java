@@ -55,6 +55,7 @@ import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.service.reads.AbstractReadExecutor;
 import org.apache.cassandra.service.reads.DataResolver;
+import org.apache.cassandra.service.reads.DigestResolver;
 import org.apache.cassandra.service.reads.ReadCallback;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.schema.TableMetadata;
@@ -3584,6 +3585,8 @@ public class StorageProxy implements StorageProxyMBean
         return treasTags;
     }
 
+
+
     //Another function to fetch the value and its maximun valid tag, which can help us to recover the data (Fetch Tag + Value)
     private static List<ReadResponse> fetchTagValueTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel,
                                                            long queryStartNanoTime, List<DoubleTreasTag> doubleTreasTags)
@@ -3612,14 +3615,20 @@ public class StorageProxy implements StorageProxyMBean
 
             for (int i = 0; i < cmdCount; i++)
             {
+                reads[i].awaitResponses();
+            }
+
+            for (int i = 0; i < cmdCount; i++) {
                 logger.debug("Inside commandCount");
                 // Better to be put here
                 // possibly can add a reference to awaitResponse
                 // This reference will store the information we want
                 // Or can do the main logic at the end
+                AbstractReadExecutor read = reads[i];
+                DigestResolver resolver = read.digestResolver;
                 DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
                 doubleTreasTags.add(doubleTreasTag);
-                reads[i].awaitResponsesTreasTagValue(doubleTreasTag);
+                resolver.fetchTargetTags(doubleTreasTag);
             }
 
 //        // todo: this is not needed
@@ -3694,7 +3703,7 @@ public class StorageProxy implements StorageProxyMBean
         }
         return PartitionIterators.concat(piList);
     }
-    
+
 
     public static void writebackTreas(List<DoubleTreasTag> doubleTreasTags, ConsistencyLevel consistency_level, long queryStartNanoTime)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
