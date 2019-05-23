@@ -1529,14 +1529,14 @@ public class StorageProxy implements StorageProxyMBean
             }
         }
 
-        // Fetch the corresponding key || maxTag || value (string)
-        TreasTag maxTreasTag = new TreasTag();
+        // Fetch the corresponding maxTag || value (string) from the incoming mutation
+        TreasTag mutationTreasTag = new TreasTag();
         String value = "";
 
         Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         for (Cell cell : data.cells()) {
             if (cell.column().name.toString().equals("tag1")) {
-                maxTreasTag = TreasTag.deserialize(cell.value());
+                mutationTreasTag = TreasTag.deserialize(cell.value());
             } else if (cell.column().name.toString().equals("field0")) {
                 try {
                     value = ByteBufferUtil.string(cell.value());
@@ -1576,6 +1576,12 @@ public class StorageProxy implements StorageProxyMBean
             String minTagColName = "";
             TreasTag minTreasTag = null;
             String minFieldColName = "";
+
+            String maxTagColName = "";
+            TreasTag maxTreasTag = null;
+            String oldMaxFieldName = "";
+
+
             int hit = 1;
             boolean exist = false;
             try (ReadExecutionController executionController = localRead.executionController();
@@ -1595,16 +1601,10 @@ public class StorageProxy implements StorageProxyMBean
                             String colName = cell.column().name.toString();
 
                             if (colName.startsWith("tag")) {
-                                // If some of the tags are still null;
                                 hit++;
                                 // If the tag already exists, ignore it.
-
-                                if (cell.value() != null && TreasTag.deserialize(cell.value()).equals(maxTreasTag)) {
+                                if (TreasTag.deserialize(cell.value()).equals(mutationTreasTag)) {
                                     exist = true;
-                                    break;
-                                }
-                                else if (cell.value() == null) {
-                                    minTagColName = colName;
                                     break;
                                 } else {
                                     // Fetch the tagValue
@@ -1613,8 +1613,13 @@ public class StorageProxy implements StorageProxyMBean
                                     if (minTreasTag == null) {
                                         minTreasTag = localTag;
                                         minTagColName = colName;
+                                        maxTagColName = colName;
+                                        maxTreasTag = localTag;
                                     } else {
-                                        if (minTreasTag.isLarger(localTag))
+                                        if (localTag.isLarger(maxTreasTag)) {
+                                            maxTagColName = colName;
+                                            maxTreasTag = localTag;
+                                        } else if (minTreasTag.isLarger(localTag))
                                         {
                                             minTagColName = colName;
                                             minTreasTag = localTag;
@@ -1627,8 +1632,13 @@ public class StorageProxy implements StorageProxyMBean
                 }
             }
 
-            // Meaning the tag already exists, no need to write into the disk anymore
-            if (exist) {
+            if (!maxTagColName.equals("")) {
+                oldMaxFieldName = "field" + maxTagColName.substring(3);
+            }
+            // Meaning the tag already exists,
+            // no need to write into the disk anymore
+            // or if the tag is smaller than what we have seen before.
+            if (exist || (minTreasTag != null && minTreasTag.isLarger(mutationTreasTag))) {
                 performLocally(stage, Optional.of(mutation),mutation::apply, responseHandler, true);
                 logger.debug("Tag Already exists, no need to write into the disk");
             }
@@ -1649,12 +1659,30 @@ public class StorageProxy implements StorageProxyMBean
 
                 System.out.println("Insert into" + minTagColName);
 
-                mutationBuilder.update(tableMetadata)
-                               .timestamp(timeStamp)
-                               .row()
-                               .add(minTagColName, TreasTag.serialize(maxTreasTag))
-                               .add(minFieldColName,codeList.get(0))
-                               .add("field0","");
+                if (hit == 1) {
+                    mutationBuilder.update(tableMetadata)
+                                   .timestamp(timeStamp)
+                                   .row()
+                                   .add(minTagColName, TreasTag.serialize(mutationTreasTag))
+                                   .add(minFieldColName,codeList.get(0))
+                                   .add("field0","");
+                }
+                else if (mutationTreasTag.isLarger(maxTreasTag)) {
+                    mutationBuilder.update(tableMetadata)
+                                   .timestamp(timeStamp)
+                                   .row()
+                                   .add(minTagColName, TreasTag.serialize(mutationTreasTag))
+                                   .add(minFieldColName,codeList.get(0))
+                                   .add("field0","")
+                                   .add(oldMaxFieldName, null);
+                } else {
+                    mutationBuilder.update(tableMetadata)
+                                   .timestamp(timeStamp)
+                                   .row()
+                                   .add(minTagColName, TreasTag.serialize(mutationTreasTag))
+                                   .add("field0","");
+                }
+
 
                 Mutation coordinatorMutation = mutationBuilder.build();
 
@@ -1676,7 +1704,7 @@ public class StorageProxy implements StorageProxyMBean
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
-                               .add(TreasConfig.TAG_ONE, TreasTag.serialize(maxTreasTag))
+                               .add(TreasConfig.TAG_ONE, TreasTag.serialize(mutationTreasTag))
                                .add(TreasConfig.VAL_ONE,codeList.get(index))
                                .add("field0","");
 
