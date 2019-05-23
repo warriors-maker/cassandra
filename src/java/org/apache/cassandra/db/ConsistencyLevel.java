@@ -50,8 +50,7 @@ public enum ConsistencyLevel
     LOCAL_SERIAL(9),
     LOCAL_ONE   (10, true),
     CASTHREE    (11),
-    CASFIVE     (12),
-    TREAS       (13);
+    CASFIVE     (12);
 
     private static final Logger logger = LoggerFactory.getLogger(ConsistencyLevel.class);
 
@@ -116,8 +115,6 @@ public enum ConsistencyLevel
                 return casFor(keyspace,3);
             case CASFIVE:
                 return casFor(keyspace,5);
-            case TREAS:
-                return casFor(keyspace,(TreasConfig.num_intersect + TreasConfig.num_server + 1) /2);
             case ONE:
             case LOCAL_ONE:
                 return 1;
@@ -128,7 +125,7 @@ public enum ConsistencyLevel
             case THREE:
                 return 3;
             case QUORUM:
-                logger.debug("All " + keyspace.getReplicationStrategy().getReplicationFactor() );
+                return (TreasConfig.num_intersect + TreasConfig.num_server + 1) /2;
             case SERIAL:
                 return quorumFor(keyspace);
             case ALL:
