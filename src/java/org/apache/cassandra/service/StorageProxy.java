@@ -3435,102 +3435,32 @@ public class StorageProxy implements StorageProxyMBean
         // Treas get, need to get the maximum TimeStamp
         // create an read command to fetch the tag value corresponding to the key from all the replicas including myself
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>();
-        if (firstTime) {
-            List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
-            try
-            {
-                for (IMutation mutation : mutations)
-                {
-                    if (mutation instanceof CounterMutation)
-                    {
-                        responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
-                    }
-                    else
-                    {
-                        WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
-                        responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
-                    }
-                }
 
-                // wait for writes.  throws TimeoutException if necessary
-                for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
-                {
-                    responseHandler.get();
-                }
-            }
-            catch (WriteTimeoutException|WriteFailureException ex)
-            {
-                if (consistency_level == ConsistencyLevel.ANY)
-                {
-                    hintMutations(mutations);
-                }
-                else
-                {
 
-                    if (ex instanceof WriteFailureException)
-                    {
-                        writeMetrics.failures.mark();
-                        writeMetricsMap.get(consistency_level).failures.mark();
-                        WriteFailureException fe = (WriteFailureException)ex;
-                        Tracing.trace("Write failure; received {} of {} required replies, failed {} requests",
-                                      fe.received, fe.blockFor, fe.failureReasonByEndpoint.size());
-                    }
-                    else
-                    {
-                        writeMetrics.timeouts.mark();
-                        writeMetricsMap.get(consistency_level).timeouts.mark();
-                        WriteTimeoutException te = (WriteTimeoutException)ex;
-                        Tracing.trace("Write timeout; received {} of {} required replies", te.received, te.blockFor);
-                    }
-                    throw ex;
-                }
-            }
-            catch (UnavailableException e)
-            {
-                writeMetrics.unavailables.mark();
-                writeMetricsMap.get(consistency_level).unavailables.mark();
-                Tracing.trace("Unavailable");
-                throw e;
-            }
-            catch (OverloadedException e)
-            {
-                writeMetrics.unavailables.mark();
-                writeMetricsMap.get(consistency_level).unavailables.mark();
-                Tracing.trace("Overloaded");
-                throw e;
-            }
-            finally
-            {
-                long latency = System.nanoTime() - startTime;
-                writeMetrics.addNano(latency);
-                writeMetricsMap.get(consistency_level).addNano(latency);
-                updateCoordinatorWriteLatencyTableMetric(mutations, latency);
-            }
-            firstTime = !firstTime;
-            return;
-        }
+        // Build the mutation with the newly added value + maximum tag we get
+        List<IMutation> newMutations = new ArrayList<>();
+        List<IMutation> notDataMutations = new ArrayList<>();
 
-        consistency_level = ConsistencyLevel.TREAS;
         for (IMutation mutation : mutations)
         {
             if (mutation.getKeyspaceName().equals("ycsb")) {
                 logger.debug("Is ycsb");
+                TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+
+                int nowInSec = FBUtilities.nowInSeconds();
+                DecoratedKey  decoratedKey =  mutation.key();
+
+                SinglePartitionReadCommand tagValueRead = SinglePartitionReadCommand.fullPartitionRead(
+                tableMetadata,
+                nowInSec,
+                decoratedKey
+                );
+                tagValueReadList.add(tagValueRead);
             } else {
+                notDataMutations.add(mutation);
                 logger.debug("This is not YCSB");
             }
-
-            TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
-
-            int nowInSec = FBUtilities.nowInSeconds();
-            DecoratedKey  decoratedKey =  mutation.key();
-
-            SinglePartitionReadCommand tagValueRead = SinglePartitionReadCommand.fullPartitionRead(
-            tableMetadata,
-            nowInSec,
-            decoratedKey
-            );
-            tagValueReadList.add(tagValueRead);
-
+            
         }
 
         // Individual elements inside here corresponds to one mutate command
@@ -3540,8 +3470,7 @@ public class StorageProxy implements StorageProxyMBean
         logger.debug("MutateTreas's size" + readList.size());
         int index = 0;
 
-        // Build the mutation with the newly added value + maximum tag we get
-        List<IMutation> newMutations = new ArrayList<>();
+
         for (IMutation mutation : mutations) {
             Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
 
@@ -3568,12 +3497,24 @@ public class StorageProxy implements StorageProxyMBean
             newMutations.add(newMutation);
         }
 
-        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(newMutations.size());
+        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(newMutations.size() + notDataMutations.size());
 
         try
         {
             for (IMutation mutation : newMutations)
             {
+                if (mutation instanceof CounterMutation)
+                {
+                    responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
+                }
+                else
+                {
+                    WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+                    responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
+            }
+            }
+
+            for (IMutation mutation : notDataMutations) {
                 if (mutation instanceof CounterMutation)
                 {
                     responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
