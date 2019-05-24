@@ -746,7 +746,7 @@ public class RepairRunnable extends WrappedRunnable implements ProgressEventNoti
                     }
                     ByteBuffer tminBytes = ByteBufferUtil.bytes(UUIDGen.minTimeUUID(tlast - 1000));
                     ByteBuffer tmaxBytes = ByteBufferUtil.bytes(UUIDGen.maxTimeUUID(tcur = System.currentTimeMillis()));
-                    QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.ONE, Lists.newArrayList(sessionIdBytes,
+                    QueryOptions options = QueryOptions.forInternalCalls(ConsistencyLevel.TREAS, Lists.newArrayList(sessionIdBytes,
                                                                                                                   tminBytes,
                                                                                                                   tmaxBytes));
                     ResultMessage.Rows rows = statement.execute(QueryState.forInternalCalls(), options, System.nanoTime());

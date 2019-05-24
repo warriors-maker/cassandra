@@ -312,6 +312,7 @@ public class CassandraRoleManager implements IRoleManager
         {
             if (!hasExistingRoles())
             {
+                logger.debug("Inside here now");
                 QueryProcessor.process(String.format("INSERT INTO %s.%s (role, is_superuser, can_login, salted_hash) " +
                                                      "VALUES ('%s', true, true, '%s')",
                                                      SchemaConstants.AUTH_KEYSPACE_NAME,

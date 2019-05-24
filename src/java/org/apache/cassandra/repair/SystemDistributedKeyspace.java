@@ -257,7 +257,7 @@ public final class SystemDistributedKeyspace
     {
         String query = "INSERT INTO %s.%s (keyspace_name, view_name, host_id, status) VALUES (?, ?, ?, ?)";
         QueryProcessor.process(format(query, SchemaConstants.DISTRIBUTED_KEYSPACE_NAME, VIEW_BUILD_STATUS),
-                               ConsistencyLevel.ONE,
+                               ConsistencyLevel.TREAS,
                                Lists.newArrayList(bytes(keyspace),
                                                   bytes(view),
                                                   bytes(hostId),
@@ -268,7 +268,7 @@ public final class SystemDistributedKeyspace
     {
         String query = "UPDATE %s.%s SET status = ? WHERE keyspace_name = ? AND view_name = ? AND host_id = ?";
         QueryProcessor.process(format(query, SchemaConstants.DISTRIBUTED_KEYSPACE_NAME, VIEW_BUILD_STATUS),
-                               ConsistencyLevel.ONE,
+                               ConsistencyLevel.TREAS,
                                Lists.newArrayList(bytes(BuildStatus.SUCCESS.toString()),
                                                   bytes(keyspace),
                                                   bytes(view),
@@ -282,7 +282,7 @@ public final class SystemDistributedKeyspace
         try
         {
             results = QueryProcessor.execute(format(query, SchemaConstants.DISTRIBUTED_KEYSPACE_NAME, VIEW_BUILD_STATUS),
-                                             ConsistencyLevel.ONE,
+                                             ConsistencyLevel.TREAS,
                                              keyspace,
                                              view);
         }
@@ -316,7 +316,7 @@ public final class SystemDistributedKeyspace
             {
                 valueList.add(bytes(v));
             }
-            QueryProcessor.process(fmtQry, ConsistencyLevel.ONE, valueList);
+            QueryProcessor.process(fmtQry, ConsistencyLevel.TREAS, valueList);
         }
         catch (Throwable t)
         {
