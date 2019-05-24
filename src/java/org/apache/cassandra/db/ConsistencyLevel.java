@@ -279,6 +279,7 @@ public enum ConsistencyLevel
                 if (currentLive != TreasConfig.QUORUM) {
                     throw new UnavailableException(this, TreasConfig.QUORUM, currentLive);
                 }
+                break;
             case LOCAL_QUORUM:
                 int localLive = countLocalEndpoints(liveEndpoints);
                 if (localLive < blockFor)
