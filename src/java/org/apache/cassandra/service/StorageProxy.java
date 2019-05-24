@@ -1241,7 +1241,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         WriteResponseHandler<?> handler = new WriteResponseHandler<>(endpoints,
                                                                      Collections.emptyList(),
-                                                                     endpoints.size() == 1 ? ConsistencyLevel.TREAS : ConsistencyLevel.TWO,
+                                                                     endpoints.size() == 1 ? ConsistencyLevel.ONE : ConsistencyLevel.TWO,
                                                                      Keyspace.open(SchemaConstants.SYSTEM_KEYSPACE_NAME),
                                                                      null,
                                                                      WriteType.BATCH_LOG,
@@ -1424,7 +1424,7 @@ public class StorageProxy implements StorageProxyMBean
             if (consistencyLevel == ConsistencyLevel.ANY)
                 return Collections.singleton(FBUtilities.getBroadcastAddressAndPort());
 
-            throw new UnavailableException(ConsistencyLevel.TREAS, 1, 0);
+            throw new UnavailableException(ConsistencyLevel.ONE, 1, 0);
         }
 
         return chosenEndpoints;
@@ -3623,6 +3623,7 @@ public class StorageProxy implements StorageProxyMBean
                                                            long queryStartNanoTime, List<DoubleTreasTag> doubleTreasTags)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
+            ConsistencyLevel consistencyLevel1 = ConsistencyLevel.TREAS;
             logger.debug("Inside fetchTagValueTreas");
             int cmdCount = commands.size();
 
@@ -3684,6 +3685,7 @@ public class StorageProxy implements StorageProxyMBean
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and tag_value column
         logger.debug("Inside fetchRowTreas");
+        consistencyLevel = ConsistencyLevel.TREAS;
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
         for (SinglePartitionReadCommand readCommand : commands)
         {
@@ -3727,6 +3729,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         // this function is the same as the original mutate function
         Tracing.trace("Determining replicas for mutation");
+        consistency_level = ConsistencyLevel.TREAS;
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();

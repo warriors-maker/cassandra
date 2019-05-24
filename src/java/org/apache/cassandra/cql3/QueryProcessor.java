@@ -259,7 +259,7 @@ public class QueryProcessor implements QueryHandler
 
     private static QueryOptions makeInternalOptions(ParsedStatement.Prepared prepared, Object[] values)
     {
-        return makeInternalOptions(prepared, values, ConsistencyLevel.TREAS);
+        return makeInternalOptions(prepared, values, ConsistencyLevel.ONE);
     }
 
     private static QueryOptions makeInternalOptions(ParsedStatement.Prepared prepared, Object[] values, ConsistencyLevel cl)

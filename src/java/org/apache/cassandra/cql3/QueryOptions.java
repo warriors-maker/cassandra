@@ -43,7 +43,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
  */
 public abstract class QueryOptions
 {
-    public static final QueryOptions DEFAULT = new DefaultQueryOptions(ConsistencyLevel.TREAS,
+    public static final QueryOptions DEFAULT = new DefaultQueryOptions(ConsistencyLevel.ONE,
                                                                        Collections.<ByteBuffer>emptyList(),
                                                                        false,
                                                                        SpecificOptions.DEFAULT,
@@ -61,7 +61,7 @@ public abstract class QueryOptions
 
     public static QueryOptions forInternalCalls(List<ByteBuffer> values)
     {
-        return new DefaultQueryOptions(ConsistencyLevel.TREAS, values, false, SpecificOptions.DEFAULT, ProtocolVersion.V3);
+        return new DefaultQueryOptions(ConsistencyLevel.ONE, values, false, SpecificOptions.DEFAULT, ProtocolVersion.V3);
     }
 
     public static QueryOptions forProtocolVersion(ProtocolVersion protocolVersion)
