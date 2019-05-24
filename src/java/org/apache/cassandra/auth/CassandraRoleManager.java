@@ -322,6 +322,7 @@ public class CassandraRoleManager implements IRoleManager
                                        consistencyForRole(DEFAULT_SUPERUSER_NAME));
                 logger.info("Created default superuser role '{}'", DEFAULT_SUPERUSER_NAME);
             }
+            logger.debug("OutSide this Existing Function");
         }
         catch (RequestExecutionException e)
         {
