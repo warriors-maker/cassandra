@@ -359,6 +359,7 @@ public class CassandraRoleManager implements IRoleManager
                 catch (Exception e)
                 {
                     logger.info("Setup task failed with error, rescheduling");
+                    e.printStackTrace();
                     scheduleSetupTask(setupTask);
                 }
             }
