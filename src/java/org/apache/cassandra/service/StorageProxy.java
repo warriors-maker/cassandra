@@ -1013,7 +1013,7 @@ public class StorageProxy implements StorageProxyMBean
                 Set<Mutation> nonLocalMutations = new HashSet<>(mutations);
                 Token baseToken = StorageService.instance.getTokenMetadata().partitioner.getToken(dataKey);
 
-                ConsistencyLevel consistencyLevel = ConsistencyLevel.TREAS;
+                ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
 
                 //Since the base -> view replication is 1:1 we only need to store the BL locally
                 final Collection<InetAddressAndPort> batchlogEndpoints = Collections.singleton(FBUtilities.getBroadcastAddressAndPort());
@@ -3426,7 +3426,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-
+        logger.debug("Inside mutate");
         consistency_level = ConsistencyLevel.TREAS;
 
         long startTime = System.nanoTime();
@@ -3688,7 +3688,7 @@ public class StorageProxy implements StorageProxyMBean
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and tag_value column
         logger.debug("Inside fetchRowTreas");
-        consistencyLevel = ConsistencyLevel.TREAS;
+//        consistencyLevel = ConsistencyLevel.TREAS;
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
         for (SinglePartitionReadCommand readCommand : commands)
         {
