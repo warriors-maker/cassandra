@@ -3460,7 +3460,7 @@ public class StorageProxy implements StorageProxyMBean
                 notDataMutations.add(mutation);
                 logger.debug("This is not YCSB");
             }
-            
+
         }
 
         // Individual elements inside here corresponds to one mutate command
@@ -3472,6 +3472,10 @@ public class StorageProxy implements StorageProxyMBean
 
 
         for (IMutation mutation : mutations) {
+            if (!mutation.getKeyspaceName().equals("ycsb")) {
+                continue;
+            }
+
             Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
 
             TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
@@ -3495,6 +3499,7 @@ public class StorageProxy implements StorageProxyMBean
             mutationMergeList.add((Mutation)mutation);
             Mutation newMutation = Mutation.merge(mutationMergeList);
             newMutations.add(newMutation);
+            index ++;
         }
 
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(newMutations.size() + notDataMutations.size());
