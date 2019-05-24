@@ -117,7 +117,7 @@ public enum ConsistencyLevel
             case CASFIVE:
                 return casFor(keyspace,5);
             case TREAS:
-                return (TreasConfig.num_server + TreasConfig.num_intersect + 1) /2;
+                return TreasConfig.QUORUM;
             case ONE:
             case LOCAL_ONE:
                 return 1;
@@ -274,6 +274,11 @@ public enum ConsistencyLevel
                 if (countLocalEndpoints(liveEndpoints) == 0)
                     throw new UnavailableException(this, 1, 0);
                 break;
+            case TREAS:
+                int currentLive = countLocalEndpoints(liveEndpoints);
+                if (currentLive != TreasConfig.QUORUM) {
+                    throw new UnavailableException(this, TreasConfig.QUORUM, currentLive);
+                }
             case LOCAL_QUORUM:
                 int localLive = countLocalEndpoints(liveEndpoints);
                 if (localLive < blockFor)
