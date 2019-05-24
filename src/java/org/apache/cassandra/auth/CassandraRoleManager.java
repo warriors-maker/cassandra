@@ -336,7 +336,9 @@ public class CassandraRoleManager implements IRoleManager
         String allUsersQuery = String.format("SELECT * FROM %s.%s LIMIT 1", SchemaConstants.AUTH_KEYSPACE_NAME, AuthKeyspace.ROLES);
         return !QueryProcessor.process(defaultSUQuery, ConsistencyLevel.ONE).isEmpty()
                || !QueryProcessor.process(defaultSUQuery, ConsistencyLevel.QUORUM).isEmpty()
-               || !QueryProcessor.process(allUsersQuery, ConsistencyLevel.QUORUM).isEmpty();
+               || !QueryProcessor.process(allUsersQuery, ConsistencyLevel.QUORUM).isEmpty()
+               || !QueryProcessor.process(allUsersQuery, ConsistencyLevel.TREAS).isEmpty()
+               || !QueryProcessor.process(defaultSUQuery, ConsistencyLevel.TREAS).isEmpty();
     }
 
     private void scheduleSetupTask(final Callable<Void> setupTask)
