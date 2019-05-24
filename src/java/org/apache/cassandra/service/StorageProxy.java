@@ -3436,6 +3436,13 @@ public class StorageProxy implements StorageProxyMBean
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>();
         for (IMutation mutation : mutations)
         {
+            if (mutation.getKeyspaceName().equals("ycsb")) {
+                logger.debug("Is ycsb");
+            } else {
+                logger.debug("This is not YCSB");
+            }
+            logger.debug(mutation.toString());
+
             TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
 
             int nowInSec = FBUtilities.nowInSeconds();
@@ -3563,7 +3570,10 @@ public class StorageProxy implements StorageProxyMBean
     private static List<TreasTag> fetchTagTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-        consistencyLevel = ConsistencyLevel.TREAS;
+        logger.debug("Old Configuration:" + consistencyLevel);
+
+        ConsistencyLevel treasConsistencyLevel = ConsistencyLevel.TREAS;
+
         int cmdCount = commands.size();
 
         AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
