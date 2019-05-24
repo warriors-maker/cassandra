@@ -3427,7 +3427,7 @@ public class StorageProxy implements StorageProxyMBean
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
         logger.debug("Inside mutate");
-        consistency_level = ConsistencyLevel.TREAS;
+//        consistency_level = ConsistencyLevel.TREAS;
 
         long startTime = System.nanoTime();
 
@@ -3626,7 +3626,7 @@ public class StorageProxy implements StorageProxyMBean
                                                            long queryStartNanoTime, List<DoubleTreasTag> doubleTreasTags)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-            ConsistencyLevel consistencyLevel1 = ConsistencyLevel.TREAS;
+//            ConsistencyLevel consistencyLevel1 = ConsistencyLevel.TREAS;
             logger.debug("Inside fetchTagValueTreas");
             int cmdCount = commands.size();
 
@@ -3732,7 +3732,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         // this function is the same as the original mutate function
         Tracing.trace("Determining replicas for mutation");
-        consistency_level = ConsistencyLevel.TREAS;
+//        consistency_level = ConsistencyLevel.TREAS;
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();

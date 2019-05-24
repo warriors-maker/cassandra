@@ -340,8 +340,7 @@ public class CassandraRoleManager implements IRoleManager
         logger.debug("Inside function hasExsistingRoles 2");
         return !QueryProcessor.process(defaultSUQuery, ConsistencyLevel.ONE).isEmpty()
                || !QueryProcessor.process(defaultSUQuery, ConsistencyLevel.QUORUM).isEmpty()
-               || !QueryProcessor.process(allUsersQuery, ConsistencyLevel.QUORUM).isEmpty()
-               || !QueryProcessor.process(defaultSUQuery, ConsistencyLevel.TREAS).isEmpty();
+               || !QueryProcessor.process(allUsersQuery, ConsistencyLevel.QUORUM).isEmpty();
     }
 
     private void scheduleSetupTask(final Callable<Void> setupTask)
