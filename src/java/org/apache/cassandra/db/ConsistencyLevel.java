@@ -50,8 +50,8 @@ public enum ConsistencyLevel
     LOCAL_SERIAL(9),
     LOCAL_ONE   (10, true),
     CASTHREE    (11),
-    CASFIVE     (12);
-//    TREAS       (13);
+    CASFIVE     (12),
+    TREAS       (13);
 
     private static final Logger logger = LoggerFactory.getLogger(ConsistencyLevel.class);
 
@@ -116,8 +116,8 @@ public enum ConsistencyLevel
                 return casFor(keyspace,3);
             case CASFIVE:
                 return casFor(keyspace,5);
-//            case TREAS:
-//                return TreasConfig.QUORUM;
+            case TREAS:
+                return TreasConfig.QUORUM;
             case ONE:
             case LOCAL_ONE:
                 return 1;
@@ -273,13 +273,13 @@ public enum ConsistencyLevel
                 if (countLocalEndpoints(liveEndpoints) == 0)
                     throw new UnavailableException(this, 1, 0);
                 break;
-//            case TREAS:
-//                int currentLive = countLocalEndpoints(liveEndpoints);
-//                logger.debug( "CurrentLive: " + currentLive + " , Needed: " + TreasConfig.QUORUM);
-////                if (currentLive != TreasConfig.QUORUM) {
-////                    throw new UnavailableException(this, TreasConfig.QUORUM, currentLive);
-////                }
-//                break;
+            case TREAS:
+                int currentLive = countLocalEndpoints(liveEndpoints);
+                logger.debug( "CurrentLive: " + currentLive + " , Needed: " + TreasConfig.QUORUM);
+                if (currentLive != TreasConfig.QUORUM) {
+                    throw new UnavailableException(this, TreasConfig.QUORUM, currentLive);
+                }
+                break;
             case LOCAL_QUORUM:
                 int localLive = countLocalEndpoints(liveEndpoints);
                 if (localLive < blockFor)

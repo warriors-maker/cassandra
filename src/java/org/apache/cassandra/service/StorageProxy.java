@@ -3563,6 +3563,7 @@ public class StorageProxy implements StorageProxyMBean
     private static List<TreasTag> fetchTagTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
+        consistencyLevel = ConsistencyLevel.TREAS;
         int cmdCount = commands.size();
 
         AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
@@ -3626,7 +3627,7 @@ public class StorageProxy implements StorageProxyMBean
                                                            long queryStartNanoTime, List<DoubleTreasTag> doubleTreasTags)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-//            ConsistencyLevel consistencyLevel1 = ConsistencyLevel.TREAS;
+            consistencyLevel = ConsistencyLevel.TREAS;
             logger.debug("Inside fetchTagValueTreas");
             int cmdCount = commands.size();
 
@@ -3688,7 +3689,7 @@ public class StorageProxy implements StorageProxyMBean
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and tag_value column
         logger.debug("Inside fetchRowTreas");
-//        consistencyLevel = ConsistencyLevel.TREAS;
+        consistencyLevel = ConsistencyLevel.TREAS;
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
         for (SinglePartitionReadCommand readCommand : commands)
         {
@@ -3732,7 +3733,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         // this function is the same as the original mutate function
         Tracing.trace("Determining replicas for mutation");
-//        consistency_level = ConsistencyLevel.TREAS;
+        consistency_level = ConsistencyLevel.TREAS;
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();
