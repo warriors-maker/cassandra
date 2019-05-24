@@ -124,6 +124,8 @@ public class StorageProxy implements StorageProxyMBean
 
     private static final double CONCURRENT_SUBREQUESTS_MARGIN = 0.10;
 
+    private static boolean firstTime = true;
+
     private StorageProxy()
     {
     }
@@ -3427,13 +3429,88 @@ public class StorageProxy implements StorageProxyMBean
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
         logger.debug("Inside mutate");
-//        consistency_level = ConsistencyLevel.TREAS;
 
         long startTime = System.nanoTime();
 
         // Treas get, need to get the maximum TimeStamp
         // create an read command to fetch the tag value corresponding to the key from all the replicas including myself
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>();
+        if (firstTime) {
+            List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
+            try
+            {
+                for (IMutation mutation : mutations)
+                {
+                    if (mutation instanceof CounterMutation)
+                    {
+                        responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
+                    }
+                    else
+                    {
+                        WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+                        responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
+                    }
+                }
+
+                // wait for writes.  throws TimeoutException if necessary
+                for (AbstractWriteResponseHandler<IMutation> responseHandler : responseHandlers)
+                {
+                    responseHandler.get();
+                }
+            }
+            catch (WriteTimeoutException|WriteFailureException ex)
+            {
+                if (consistency_level == ConsistencyLevel.ANY)
+                {
+                    hintMutations(mutations);
+                }
+                else
+                {
+
+                    if (ex instanceof WriteFailureException)
+                    {
+                        writeMetrics.failures.mark();
+                        writeMetricsMap.get(consistency_level).failures.mark();
+                        WriteFailureException fe = (WriteFailureException)ex;
+                        Tracing.trace("Write failure; received {} of {} required replies, failed {} requests",
+                                      fe.received, fe.blockFor, fe.failureReasonByEndpoint.size());
+                    }
+                    else
+                    {
+                        writeMetrics.timeouts.mark();
+                        writeMetricsMap.get(consistency_level).timeouts.mark();
+                        WriteTimeoutException te = (WriteTimeoutException)ex;
+                        Tracing.trace("Write timeout; received {} of {} required replies", te.received, te.blockFor);
+                    }
+                    throw ex;
+                }
+            }
+            catch (UnavailableException e)
+            {
+                writeMetrics.unavailables.mark();
+                writeMetricsMap.get(consistency_level).unavailables.mark();
+                Tracing.trace("Unavailable");
+                throw e;
+            }
+            catch (OverloadedException e)
+            {
+                writeMetrics.unavailables.mark();
+                writeMetricsMap.get(consistency_level).unavailables.mark();
+                Tracing.trace("Overloaded");
+                throw e;
+            }
+            finally
+            {
+                long latency = System.nanoTime() - startTime;
+                writeMetrics.addNano(latency);
+                writeMetricsMap.get(consistency_level).addNano(latency);
+                updateCoordinatorWriteLatencyTableMetric(mutations, latency);
+            }
+            firstTime = !firstTime;
+            return;
+        }
+
+        consistency_level = ConsistencyLevel.TREAS;
         for (IMutation mutation : mutations)
         {
             if (mutation.getKeyspaceName().equals("ycsb")) {
@@ -3441,7 +3518,6 @@ public class StorageProxy implements StorageProxyMBean
             } else {
                 logger.debug("This is not YCSB");
             }
-            logger.debug(mutation.toString());
 
             TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
 
