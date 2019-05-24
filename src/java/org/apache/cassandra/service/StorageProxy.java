@@ -3424,6 +3424,8 @@ public class StorageProxy implements StorageProxyMBean
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
+        consistency_level = ConsistencyLevel.TREAS;
+
         long startTime = System.nanoTime();
 
         // Treas get, need to get the maximum TimeStamp
@@ -3681,6 +3683,7 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException {
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and tag_value column
+        consistencyLevel = ConsistencyLevel.TREAS;
         logger.debug("Inside fetchRowTreas");
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
         for (SinglePartitionReadCommand readCommand : commands)
@@ -3725,6 +3728,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         // this function is the same as the original mutate function
         Tracing.trace("Determining replicas for mutation");
+        consistency_level = ConsistencyLevel.TREAS;
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();
