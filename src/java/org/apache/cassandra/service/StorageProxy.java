@@ -2009,6 +2009,7 @@ public class StorageProxy implements StorageProxyMBean
     public static PartitionIterator read(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state, long queryStartNanoTime)
     throws UnavailableException, IsBootstrappingException, ReadFailureException, ReadTimeoutException, InvalidRequestException
     {
+        logger.debug("Read consistencylevel" + consistencyLevel.toString());
         if (StorageService.instance.isBootstrapMode() && !systemKeyspaceQuery(group.queries))
         {
             readMetrics.unavailables.mark();
@@ -2100,6 +2101,7 @@ public class StorageProxy implements StorageProxyMBean
     private static PartitionIterator readRegular(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
+        logger.debug("Read Regular: " + consistencyLevel.toString());
         long start = System.nanoTime();
         try
         {
@@ -2162,10 +2164,11 @@ public class StorageProxy implements StorageProxyMBean
         // to the initialization failure issue
         SinglePartitionReadCommand incomingRead = commands.iterator().next();
         ColumnMetadata tagMetadata = incomingRead.metadata().getColumn(ByteBufferUtil.bytes("tag1"));
+        logger.debug("Consistency_Level is" + consistencyLevel.toString());
         boolean isTreasRead = (tagMetadata != null);
         if(isTreasRead)
         {
-            System.out.println("TreasRead");
+            logger.debug("Inside TreasRead");
             return fetchRowsTreas(commands, consistencyLevel, queryStartNanoTime);
         }
 
