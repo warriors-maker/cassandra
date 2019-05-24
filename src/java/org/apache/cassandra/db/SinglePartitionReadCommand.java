@@ -362,6 +362,7 @@ public class SinglePartitionReadCommand extends ReadCommand implements SinglePar
 
     public PartitionIterator execute(ConsistencyLevel consistency, ClientState clientState, long queryStartNanoTime) throws RequestExecutionException
     {
+        consistency = ConsistencyLevel.TREAS;
         return StorageProxy.read(Group.one(this), consistency, clientState, queryStartNanoTime);
     }
 
