@@ -17,6 +17,7 @@
  */
 package org.apache.cassandra.db;
 
+import org.apache.cassandra.Treas.TreasMap;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.net.IVerbHandler;
@@ -28,6 +29,7 @@ import org.apache.cassandra.tracing.Tracing;
 
 public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 {
+    private TreasMap treasMap = TreasMap.getInstance();
     protected IVersionedSerializer<ReadResponse> serializer()
     {
         return ReadResponse.serializer;

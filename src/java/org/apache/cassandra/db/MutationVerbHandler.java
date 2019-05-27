@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.Treas.TreasConfig;
+import org.apache.cassandra.Treas.TreasMap;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.partitions.PartitionIterator;
@@ -47,6 +48,13 @@ import org.apache.cassandra.utils.FBUtilities;
 public class MutationVerbHandler implements IVerbHandler<Mutation>
 {
     private static final Logger logger = LoggerFactory.getLogger(MutationVerbHandler.class);
+
+    private TreasMap treasMap;
+
+    public MutationVerbHandler () {
+        this.treasMap = TreasMap.getInstance();
+    }
+
     private void reply(int id, InetAddressAndPort replyTo)
     {
         Tracing.trace("Enqueuing response to {}", replyTo);

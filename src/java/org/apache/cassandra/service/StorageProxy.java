@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.TreasConfig;
+import org.apache.cassandra.Treas.TreasMap;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.audit.AuditLogManager;
 import org.apache.cassandra.batchlog.Batch;
@@ -102,6 +103,8 @@ public class StorageProxy implements StorageProxyMBean
     private static final WritePerformer standardWritePerformer;
     private static final WritePerformer counterWritePerformer;
     private static final WritePerformer counterWriteOnCoordinatorPerformer;
+
+    private static TreasMap treasMap = TreasMap.getInstance();
 
     public static final StorageProxy instance = new StorageProxy();
 
@@ -3441,10 +3444,25 @@ public class StorageProxy implements StorageProxyMBean
         List<IMutation> newMutations = new ArrayList<>();
         List<IMutation> notDataMutations = new ArrayList<>();
 
+        HashMap<String, List<TreasTag>> readMap = new HashMap<>();
+
         for (IMutation mutation : mutations)
         {
+            // Read the currentKey time from the treasMap;
             if (mutation.getKeyspaceName().equals("ycsb")) {
                 logger.debug("Is ycsb");
+
+                String key = mutation.key().toString();
+
+                // Null if currentServer have not seen this key yet;
+
+                List<TreasTag> treasTime = treasMap.getTreasList(key);
+                if (treasTime == null) {
+                    readMap.put(key, null);
+                } else {
+                    readMap.put(key, treasTime);
+                }
+
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
 
                 int nowInSec = FBUtilities.nowInSeconds();
@@ -3865,5 +3883,4 @@ public class StorageProxy implements StorageProxyMBean
             updateCoordinatorWriteLatencyTableMetric(mutations, latency);
         }
     }
-
 }

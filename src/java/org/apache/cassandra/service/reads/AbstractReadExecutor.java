@@ -546,6 +546,9 @@ public abstract class AbstractReadExecutor
                         // if it is a timeStamp field, we need to check it
                         if (c.column().name.toString().startsWith("tag"))
                         {
+                            if (c.column().name.toString().isEmpty()) {
+                                continue;
+                            }
                             curTag = TreasTag.deserialize(c.value());
                             logger.debug(curTag.toString());
                             if (curTag.isLarger(localMaxTreasTag))
@@ -561,19 +564,8 @@ public abstract class AbstractReadExecutor
         // Set the maximum tag into the reference we pass
         maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
         maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
-        // TODO: May need to check here because I consume the Iterator
         logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
         setResult(readResponse);
-
-//        if (digestResolver.responsesMatch())
-//        {
-//
-//        }
-//        else
-//        {
-//            Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
-////            readRepair.startRepair(digestResolver, handler.endpoints, getContactedReplicas(), this::setResult);
-//        }
     }
 
 
