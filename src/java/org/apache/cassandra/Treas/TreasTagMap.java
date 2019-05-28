@@ -21,7 +21,11 @@ package org.apache.cassandra.Treas;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.db.Mutation;
+import org.apache.cassandra.db.MutationVerbHandler;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.utils.FBUtilities;
 
@@ -29,6 +33,8 @@ public class TreasTagMap
 {
     private HashMap<TreasTag, String> localData = null;
     // Only if we have not seen this data will this mutation be return;
+
+    private static final Logger logger = LoggerFactory.getLogger(TreasTagMap.class);
 
 
     public synchronized TreasValueID readTag() {
@@ -53,7 +59,9 @@ public class TreasTagMap
 
     public synchronized Mutation putTreasTag(TreasTag mutationTag, String value, Mutation mutation) {
         // Haven't seen this data
+        logger.debug("Inside putTreasTag");
         if (localData == null) {
+            logger.debug("First time see this data");
             localData = new HashMap<>();
             localData.put(mutationTag, value);
 

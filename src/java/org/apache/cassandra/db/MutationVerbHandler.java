@@ -98,16 +98,19 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         TreasTagMap localTag = treasMap.putIfAbsent(mutationKey, new TreasTagMap());
 
         if (localTag == null) {
+            logger.debug("First time seen this data");
             localTag = TreasMap.getInternalMap().get(mutationKey);
         }
 
         // Put the data into the Memory
+        logger.debug("MutationTag is " + mutationTag.toString());
         Mutation commitMutation = localTag.putTreasTag(mutationTag, mutationValue, mutation);
         // Debug purpose
         localTag.printTagMap();
 
-        if (commitMutation == null) {
+        if (commitMutation != null) {
             // Commit this mutation
+            logger.debug("Commit this Mutation");
             commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
                 failed();
                 return null;
