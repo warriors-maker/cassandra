@@ -80,6 +80,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
             return;
         }
 
+        logger.debug("Send Response");
         Tracing.trace("Enqueuing response to {}", message.from);
         MessageOut<ReadResponse> reply = new MessageOut<>(MessagingService.Verb.REQUEST_RESPONSE, response, serializer());
         MessagingService.instance().sendReply(reply, id, message.from);

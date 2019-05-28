@@ -515,6 +515,7 @@ public class UnfilteredSerializer
     private Unfiltered deserializeOne(DataInputPlus in, SerializationHeader header, SerializationHelper helper, Row.Builder builder, DoubleTreasTag doubleTreasTag)
     throws IOException
     {
+        logger.debug("Inside DeserializeOne");
         // It wouldn't be wrong per-se to use an unsorted builder, but it would be inefficient so make sure we don't do it by mistake
         assert builder.isSorted();
 
