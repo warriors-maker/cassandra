@@ -17,6 +17,9 @@
  */
 package org.apache.cassandra.db;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.TreasMap;
 import org.apache.cassandra.db.partitions.PartitionIterator;
@@ -29,6 +32,7 @@ import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.service.StorageService;
+import org.apache.cassandra.service.reads.AbstractReadExecutor;
 import org.apache.cassandra.tracing.Tracing;
 
 public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
@@ -38,8 +42,11 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         return ReadResponse.serializer;
     }
 
+    private static final Logger logger = LoggerFactory.getLogger(ReadCommandVerbHandler.class);
+
     public void doVerb(MessageIn<ReadCommand> message, int id)
     {
+        logger.debug("I am here in ReadCommandDoverb");
         if (StorageService.instance.isBootstrapMode())
         {
             throw new RuntimeException("Cannot service reads while bootstrapping!");

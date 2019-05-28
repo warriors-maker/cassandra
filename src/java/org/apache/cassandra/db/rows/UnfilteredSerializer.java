@@ -24,6 +24,9 @@ import java.util.Map;
 
 import com.google.common.collect.Collections2;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import net.nicoulaj.compilecommand.annotations.Inline;
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.TreasConfig;
@@ -38,6 +41,7 @@ import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputBuffer;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.io.util.FileDataInput;
+import org.apache.cassandra.service.reads.AbstractReadExecutor;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.SearchIterator;
 import org.apache.cassandra.utils.WrappedException;
@@ -104,6 +108,8 @@ import org.apache.cassandra.utils.WrappedException;
 public class UnfilteredSerializer
 {
     public static final UnfilteredSerializer serializer = new UnfilteredSerializer();
+
+    private static final Logger logger = LoggerFactory.getLogger(UnfilteredSerializer.class);
 
     /*
      * Unfiltered flags constants.
@@ -535,7 +541,7 @@ public class UnfilteredSerializer
 
             // Return the Iterator to the coordinator
             if (doubleTreasTag.isTagIndicator()) {
-
+                logger.debug("Needs to send to Coordinator");
                 String key = doubleTreasTag.getKey().toString();
 
                 // Prevent Concurrency Issues
@@ -554,6 +560,7 @@ public class UnfilteredSerializer
                     String colName = c.column.name.toString();
                     if (colName.startsWith(TreasConfig.TAG_PREFIX)) {
                         TreasTag tag =  tagList[index];
+                        logger.debug("Tag sent is" + tag.toString());
                         c.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tag)));
                         index ++;
                     }
