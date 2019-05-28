@@ -69,7 +69,9 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
             DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
             // Indicate that this Iterator is going to sent to the Coordinator
             doubleTreasTag.setTagIndicator();
+            logger.debug("Create our Iterator");
             UnfilteredPartitionIterator sendIterator = dummyResponse.makeIterator(command, doubleTreasTag);
+            logger.debug("Finish Create our Iterator, and now make a new response");
             response = command.createResponse(sendIterator);
         }
 
