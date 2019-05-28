@@ -464,6 +464,7 @@ public class UnfilteredSerializer
     {
         while (true)
         {
+            logger.debug("Before deserializeOne");
             Unfiltered unfiltered = deserializeOne(in, header, helper, builder, doubleTreasTag);
             if (unfiltered == null)
                 return null;

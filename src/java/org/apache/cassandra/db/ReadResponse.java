@@ -23,6 +23,9 @@ import java.nio.ByteBuffer;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.Hasher;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.db.partitions.*;
@@ -64,6 +67,8 @@ public abstract class ReadResponse
     }
 
     public abstract UnfilteredPartitionIterator makeIterator(ReadCommand command);
+
+    private static final Logger logger = LoggerFactory.getLogger(ReadResponse.class);
 
     public abstract UnfilteredPartitionIterator makeIterator(ReadCommand command, DoubleTreasTag doubleTreasTag);
 
@@ -230,6 +235,7 @@ public abstract class ReadResponse
                 // Note that the command parameter shadows the 'command' field and this is intended because
                 // the later can be null (for RemoteDataResponse as those are created in the serializers and
                 // those don't have easy access to the command). This is also why we need the command as parameter here.
+                logger.debug("makeIterator");
                 return UnfilteredPartitionIterators.serializerForIntraNode().deserialize(in,
                                                                                          dataSerializationVersion,
                                                                                          command.metadata(),

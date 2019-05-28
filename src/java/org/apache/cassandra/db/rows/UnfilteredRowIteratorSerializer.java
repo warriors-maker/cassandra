@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.ColumnFilter;
+import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.io.util.DataInputPlus;
 import org.apache.cassandra.io.util.DataOutputPlus;
 import org.apache.cassandra.schema.TableMetadata;
@@ -246,6 +247,7 @@ public class UnfilteredRowIteratorSerializer
             {
                 try
                 {
+                    logger.debug("Hey here");
                     Unfiltered unfiltered = UnfilteredSerializer.serializer.deserialize(in, sHeader, helper, builder, doubleTreasTag);
                     return unfiltered == null ? endOfData() : unfiltered;
                 }
@@ -265,6 +267,8 @@ public class UnfilteredRowIteratorSerializer
     public UnfilteredRowIterator deserialize(DataInputPlus in, int version, TableMetadata metadata,
                                              ColumnFilter selection, SerializationHelper.Flag flag, DoubleTreasTag doubleTreasTag) throws IOException
     {
+        Logger logger = LoggerFactory.getLogger(UnfilteredRowIteratorSerializer.class);
+        logger.debug("Here!");
         return deserialize(in, version, metadata, flag, deserializeHeader(metadata, selection, in, version, flag), doubleTreasTag);
     }
 

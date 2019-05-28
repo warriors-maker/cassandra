@@ -23,6 +23,9 @@ import java.util.*;
 
 import com.google.common.hash.Hasher;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.ColumnFilter;
@@ -317,6 +320,7 @@ public abstract class UnfilteredPartitionIterators
             out.writeBoolean(false);
         }
 
+
         public UnfilteredPartitionIterator deserialize(final DataInputPlus in, final int version, final TableMetadata metadata,
                                                        final ColumnFilter selection, final SerializationHelper.Flag flag,
                                                        DoubleTreasTag doubleTreasTag) throws IOException
@@ -376,6 +380,8 @@ public abstract class UnfilteredPartitionIterators
                     try
                     {
                         nextReturned = true;
+                        Logger logger = LoggerFactory.getLogger(UnfilteredPartitionIterators.class);
+                        logger.debug("UnfilteredPartitionIterators");
                         next = UnfilteredRowIteratorSerializer.serializer.deserialize(in, version, metadata, selection, flag, doubleTreasTag);
                         return next;
                     }
