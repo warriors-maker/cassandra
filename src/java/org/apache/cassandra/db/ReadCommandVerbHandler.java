@@ -17,8 +17,12 @@
  */
 package org.apache.cassandra.db;
 
+import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.TreasMap;
+import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
+import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
+import org.apache.cassandra.db.rows.Unfiltered;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.MessageIn;
@@ -29,7 +33,6 @@ import org.apache.cassandra.tracing.Tracing;
 
 public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 {
-    private TreasMap treasMap = TreasMap.getInstance();
     protected IVersionedSerializer<ReadResponse> serializer()
     {
         return ReadResponse.serializer;
@@ -48,11 +51,19 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         // TODO: In Memory:
         // UnfilteredPartitionIterators.filter(rr.makeIterator(command, doubleTreasTag), command.nowInSec())
         // doubleTreasTag will be put into the Iterator
+
+        // Seems like doing Twice Read here.
+        ReadResponse dummyResponse;
         ReadResponse response;
         try (ReadExecutionController executionController = command.executionController();
              UnfilteredPartitionIterator iterator = command.executeLocally(executionController))
         {
-            response = command.createResponse(iterator);
+            dummyResponse = command.createResponse(iterator);
+            DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
+            // Indicate that this Iterator is going to sent to the Coordinator
+            doubleTreasTag.setTagIndicator();
+            UnfilteredPartitionIterator sendIterator = dummyResponse.makeIterator(command, doubleTreasTag);
+            response = command.createResponse(sendIterator);
         }
 
         if (!command.complete())

@@ -36,6 +36,8 @@ public class DoubleTreasTag
     private TableMetadata tableMetadata;
     private String keySpace;
 
+    private boolean isTagIndicator = false;
+
     public TreasTag getQuorumMaxTreasTag()
     {
         return quorumMaxTreasTag;
@@ -104,5 +106,13 @@ public class DoubleTreasTag
     public void setReadResponse(ReadResponse readResponse)
     {
         this.readResponse = readResponse;
+    }
+
+    public void setTagIndicator() {
+        this.isTagIndicator = true;
+    }
+
+    public boolean isTagIndicator() {
+        return this.isTagIndicator;
     }
 }

@@ -18,36 +18,23 @@
 
 package org.apache.cassandra.Treas;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 
 public class TreasMap
 {
-    private static TreasMap treasMap = null;
-    private Map<String, List<TreasTag>> map;
+    private static TreasMap treasMap = new TreasMap();
+    private Map<String, TreasTagMap> map;
 
     private TreasMap() {
-        this.map = new HashMap<>(10000);
-    }
-
-    public synchronized void putTreasList(String key, List<TreasTag> treasList) {
-        map.put(key, treasList);
+        this.map = new ConcurrentHashMap<>(10000);
     }
 
 
-    public synchronized List<TreasTag> getTreasList(String key) {
-        if (map.containsKey(key)) {
-            return map.get(key);
-        }
-        return null;
+    public static Map<String, TreasTagMap> getInternalMap()
+    {
+        return treasMap.map;
     }
 
-
-    public synchronized static TreasMap getInstance() {
-        if (treasMap == null) {
-            treasMap = new TreasMap();
-        }
-        return treasMap;
-    }
 }

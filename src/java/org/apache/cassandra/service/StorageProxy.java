@@ -45,6 +45,7 @@ import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasMap;
 import org.apache.cassandra.Treas.TreasTag;
+import org.apache.cassandra.Treas.TreasTagMap;
 import org.apache.cassandra.audit.AuditLogManager;
 import org.apache.cassandra.batchlog.Batch;
 import org.apache.cassandra.batchlog.BatchlogManager;
@@ -104,7 +105,6 @@ public class StorageProxy implements StorageProxyMBean
     private static final WritePerformer counterWritePerformer;
     private static final WritePerformer counterWriteOnCoordinatorPerformer;
 
-    private static TreasMap treasMap = TreasMap.getInstance();
 
     public static final StorageProxy instance = new StorageProxy();
 
@@ -1566,134 +1566,25 @@ public class StorageProxy implements StorageProxyMBean
         // Send to MySelf
         if (insertLocal)
         {
-            // Build my OWN Mutation
-            // Need to first fetch all the information locally
-            // replace the smallest tag
+            String key = mutation.key().toString();
 
-            //Read Locally
-            SinglePartitionReadCommand localRead =
-            SinglePartitionReadCommand.fullPartitionRead(
-            mutation.getPartitionUpdates().iterator().next().metadata(),
-            FBUtilities.nowInSeconds(),
-            mutation.key()
-            );
+            // Need to make sure this part is locked
+            TreasTagMap treasTagMap = new TreasTagMap();
+            treasTagMap = TreasMap.getInternalMap().putIfAbsent(key, treasTagMap);
 
-            String minTagColName = "";
-            TreasTag minTreasTag = null;
-            String minFieldColName = "";
-
-            String maxTagColName = "";
-            TreasTag maxTreasTag = null;
-            String oldMaxFieldName = "";
-
-
-            int hit = 1;
-            boolean exist = false;
-            try (ReadExecutionController executionController = localRead.executionController();
-                 UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
-            {
-                // first we have to transform it into a PartitionIterator
-                PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
-                while(pi.hasNext())
-                {
-                    RowIterator ri = pi.next();
-                    while(ri.hasNext())
-                    {
-                        Row r = ri.next();
-
-                        for (Cell cell : r.cells()) {
-
-                            String colName = cell.column().name.toString();
-
-                            if (colName.startsWith("tag")) {
-                                hit++;
-                                // If the tag already exists, ignore it.
-                                if (TreasTag.deserialize(cell.value()).equals(mutationTreasTag)) {
-                                    exist = true;
-                                    break;
-                                } else {
-                                    // Fetch the tagValue
-                                    TreasTag localTag = TreasTag.deserialize(cell.value());
-
-                                    if (minTreasTag == null) {
-                                        minTreasTag = localTag;
-                                        minTagColName = colName;
-                                        maxTagColName = colName;
-                                        maxTreasTag = localTag;
-                                    } else {
-                                        if (localTag.isLarger(maxTreasTag)) {
-                                            maxTagColName = colName;
-                                            maxTreasTag = localTag;
-                                        } else if (minTreasTag.isLarger(localTag))
-                                        {
-                                            minTagColName = colName;
-                                            minTreasTag = localTag;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+            if (treasTagMap == null) {
+                treasTagMap = TreasMap.getInternalMap().get(key);
             }
 
-            if (!maxTagColName.equals("")) {
-                oldMaxFieldName = "field" + maxTagColName.substring(3);
-            }
-            // Meaning the tag already exists,
-            // no need to write into the disk anymore
-            // or if the tag is smaller than what we have seen before.
-            if (exist || (minTreasTag != null && minTreasTag.isLarger(mutationTreasTag))) {
-                performLocally(stage, Optional.of(mutation),mutation::apply, responseHandler, true);
-                logger.debug("Tag Already exists, no need to write into the disk");
-            }
-            // If No data in the table
-            else if (hit <= TreasConfig.num_concurrecy) {
-                minFieldColName = "field" + hit;
-                minTagColName = "tag" + hit;
+            Mutation commitMutation = treasTagMap.putTreasTag(mutationTreasTag, value, mutation);
+            treasTagMap.printTagMap();
+
+            if (commitMutation == null) {
+                performLocally(responseHandler);
             }
             else {
-                minFieldColName = "field" + minTagColName.substring(3);
+                performLocally(stage, Optional.of(mutation), commitMutation::apply, responseHandler);
             }
-
-            if (!exist) {
-                Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
-
-                TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
-                long timeStamp = FBUtilities.timestampMicros();
-
-                System.out.println("Insert into" + minTagColName);
-
-                if (hit == 1) {
-                    mutationBuilder.update(tableMetadata)
-                                   .timestamp(timeStamp)
-                                   .row()
-                                   .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add(minFieldColName,codeList.get(0))
-                                   .add("field0","");
-                }
-                else if (mutationTreasTag.isLarger(maxTreasTag)) {
-                    mutationBuilder.update(tableMetadata)
-                                   .timestamp(timeStamp)
-                                   .row()
-                                   .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add(minFieldColName,codeList.get(0))
-                                   .add("field0","")
-                                   .add(oldMaxFieldName, null);
-                } else {
-                    mutationBuilder.update(tableMetadata)
-                                   .timestamp(timeStamp)
-                                   .row()
-                                   .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add("field0","");
-                }
-
-
-                Mutation coordinatorMutation = mutationBuilder.build();
-
-                performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
-            }
-
         }
 
         // Send to Replica
@@ -1824,34 +1715,39 @@ public class StorageProxy implements StorageProxyMBean
     }
 
     private static void performLocally(Stage stage, Optional<IMutation> mutation, final Runnable runnable, final IAsyncCallbackWithFailure<?> handler, boolean exist)
+{
+    if (exist) {
+        handler.response(null);
+        return;
+    }
+    StageManager.getStage(stage).maybeExecuteImmediately(new LocalMutationRunnable(mutation)
     {
-        if (exist) {
-            handler.response(null);
-            return;
-        }
-        StageManager.getStage(stage).maybeExecuteImmediately(new LocalMutationRunnable(mutation)
+        public void runMayThrow()
         {
-            public void runMayThrow()
+            try
             {
-                try
-                {
-                    runnable.run();
-                    handler.response(null);
-                }
-                catch (Exception ex)
-                {
-                    if (!(ex instanceof WriteTimeoutException))
-                        logger.error("Failed to apply mutation locally : ", ex);
-                    handler.onFailure(FBUtilities.getBroadcastAddressAndPort(), RequestFailureReason.UNKNOWN);
-                }
+                runnable.run();
+                handler.response(null);
             }
+            catch (Exception ex)
+            {
+                if (!(ex instanceof WriteTimeoutException))
+                    logger.error("Failed to apply mutation locally : ", ex);
+                handler.onFailure(FBUtilities.getBroadcastAddressAndPort(), RequestFailureReason.UNKNOWN);
+            }
+        }
 
-            @Override
-            protected Verb verb()
-            {
-                return MessagingService.Verb.MUTATION;
-            }
-        });
+        @Override
+        protected Verb verb()
+        {
+            return MessagingService.Verb.MUTATION;
+        }
+    });
+}
+
+    private static void performLocally( final IAsyncCallbackWithFailure<?> handler)
+    {
+        handler.response(null);
     }
 
     /**
@@ -3444,24 +3340,13 @@ public class StorageProxy implements StorageProxyMBean
         List<IMutation> newMutations = new ArrayList<>();
         List<IMutation> notDataMutations = new ArrayList<>();
 
-        HashMap<String, List<TreasTag>> readMap = new HashMap<>();
+        HashMap<String, Map<TreasTag,String>> readMap = new HashMap<>();
 
         for (IMutation mutation : mutations)
         {
             // Read the currentKey time from the treasMap;
             if (mutation.getKeyspaceName().equals("ycsb")) {
                 logger.debug("Is ycsb");
-
-                String key = mutation.key().toString();
-
-                // Null if currentServer have not seen this key yet;
-
-                List<TreasTag> treasTime = treasMap.getTreasList(key);
-                if (treasTime == null) {
-                    readMap.put(key, null);
-                } else {
-                    readMap.put(key, treasTime);
-                }
 
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
 
@@ -3485,9 +3370,10 @@ public class StorageProxy implements StorageProxyMBean
         // Also notice that Mutation List and this readList are in the correct corresponding order
         // This will fetch the maximum tag corresponding to the current mutation
         List<TreasTag> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
-        logger.debug("MutateTreas's size" + readList.size());
-        int index = 0;
 
+        logger.debug("MutateTreas's size" + readList.size());
+
+        int index = 0;
 
         for (IMutation mutation : mutations) {
             if (!mutation.getKeyspaceName().equals("ycsb")) {
@@ -3500,8 +3386,10 @@ public class StorageProxy implements StorageProxyMBean
             long timeStamp = FBUtilities.timestampMicros();
 
             TreasTag maxCurrentTag = readList.get(index);
+
             // Increment the tag value
             maxCurrentTag.nextTag();
+
             logger.debug("Max Tag is" + maxCurrentTag);
 
             mutationBuilder.update(tableMetadata)
@@ -3705,30 +3593,6 @@ public class StorageProxy implements StorageProxyMBean
                 doubleTreasTags.add(doubleTreasTag);
                 reads[i].awaitTreasResponses(doubleTreasTag);
             }
-
-
-//        // todo: this is not needed
-//            for (int i=0; i<cmdCount; i++)
-//            {
-//                reads[i].maybeRepairAdditionalReplicas();
-//            }
-
-//
-//        // todo: this is not needed
-//        for (int i=0; i<cmdCount; i++)
-//        {
-//            reads[i].awaitReadRepair();
-//        }
-
-            // Do the main logic here (Bad)
-//        List<ReadResponse> results = new ArrayList<>();
-//
-
-//        for (int i=0; i<cmdCount; i++)
-//        {
-//            results.add(reads[i].getResult());
-//        }
-
 
     }
 

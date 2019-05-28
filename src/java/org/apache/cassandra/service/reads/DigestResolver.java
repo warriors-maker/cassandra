@@ -27,7 +27,10 @@ import com.google.common.base.Preconditions;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.TreasConfig;
+import org.apache.cassandra.Treas.TreasMap;
 import org.apache.cassandra.Treas.TreasTag;
+import org.apache.cassandra.Treas.TreasTagMap;
+import org.apache.cassandra.Treas.TreasValueID;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.partitions.PartitionIterator;
@@ -151,8 +154,11 @@ public class DigestResolver extends ResponseResolver
         return maxZResponse;
     }
 
-    public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
+    public void fetchTargetTagValue(DoubleTreasTag doubleTreasTag) {
         logger.debug("Inside awaitResponsesTreasTagValue");
+
+        System.out.println("Inside awaitResponsesTreasTagValue");
+
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
         TreasTag quorumTagMax = new TreasTag();
@@ -164,8 +170,11 @@ public class DigestResolver extends ResponseResolver
         DecoratedKey key = null;
         TableMetadata tableMetadata = null;
 
+
+
         logger.debug("Before Digest Match");
         logger.debug("Message size is" + this.getMessages().size());
+        System.out.println("Message size is" + this.getMessages().size());
         // Each readResponse represents a response from a Replica
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
@@ -186,7 +195,7 @@ public class DigestResolver extends ResponseResolver
                 // pi.next() returns a RowIterator
                 RowIterator ri = pi.next();
 
-                if (keySpaceName.equals(""))
+                if (keySpaceName.isEmpty())
                 {
                     key = ri.partitionKey();
                     tableMetadata = ri.metadata();
@@ -194,6 +203,24 @@ public class DigestResolver extends ResponseResolver
                     doubleTreasTag.setKey(key);
                     doubleTreasTag.setTableMetadata(tableMetadata);
                     doubleTreasTag.setKeySpace(keySpaceName);
+
+                    TreasTagMap localTagMap = TreasMap.getInternalMap().putIfAbsent(key.toString(), new TreasTagMap());
+                    TreasValueID obj = localTagMap.readTag();
+                    TreasTag localTag = obj.maxTag;
+                    String value = obj.value;
+                    quorumMap.put(localTag,1);
+                    List<String> codeList = new ArrayList<>();
+                    codeList.add(value);
+                    decodeMap.put(localTag,codeList);
+
+                    if (TreasConfig.num_intersect == 1) {
+                        quorumTagMax = localTag;
+                    }
+
+                    if (TreasConfig.num_recover == 1) {
+                        decodeTagMax = localTag;
+                        decodeValMax = codeList;
+                    }
                 }
 
                 while (ri.hasNext())
@@ -204,8 +231,15 @@ public class DigestResolver extends ResponseResolver
                         String colName = c.column().name.toString();
 
                         // if it is a timeStamp field, we need to check it
-                        if (colName.startsWith("tag"))
+                        if (colName.startsWith(TreasConfig.TAG_PREFIX))
                         {
+                            try {
+                                if (ByteBufferUtil.string(c.value()).isEmpty()) {
+                                    continue;
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
 
                             TreasTag curTag = TreasTag.deserialize(c.value());
 
@@ -248,6 +282,10 @@ public class DigestResolver extends ResponseResolver
                             catch (Exception e)
                             {
                                 System.out.println("Cannot parseData");
+                            }
+
+                            if (value.isEmpty()) {
+                                continue;
                             }
 
                             // Find the corresponding index to fetch the tag value
@@ -293,8 +331,11 @@ public class DigestResolver extends ResponseResolver
                 }
             }
         }
+
         logger.debug("Finish reading Quorum and Decodable");
+
         System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+
         logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
 
         // Either one of them is not satisfied stop the procedure;
@@ -305,6 +346,7 @@ public class DigestResolver extends ResponseResolver
         else
         {
             logger.debug("Successfully get the result");
+            System.out.println("Succesfully get the result");
             doubleTreasTag.getQuorumMaxTreasTag().setWriterId(quorumTagMax.getWriterId());
             doubleTreasTag.getQuorumMaxTreasTag().setLogicalTIme(quorumTagMax.getTime());
             doubleTreasTag.getRecoverMaxTreasTag().setWriterId(decodeTagMax.getWriterId());

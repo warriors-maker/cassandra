@@ -18,12 +18,19 @@
 package org.apache.cassandra.db.rows;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.google.common.collect.Collections2;
 
 import net.nicoulaj.compilecommand.annotations.Inline;
 import org.apache.cassandra.Treas.DoubleTreasTag;
+import org.apache.cassandra.Treas.TreasConfig;
+import org.apache.cassandra.Treas.TreasMap;
+import org.apache.cassandra.Treas.TreasTag;
+import org.apache.cassandra.Treas.TreasTagMap;
+import org.apache.cassandra.Treas.TreasValueID;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.rows.Row.Deletion;
@@ -525,18 +532,54 @@ public class UnfilteredSerializer
             builder.newRow(Clustering.serializer.deserialize(in, helper.version, header.clusteringTypes()));
             Row r =  deserializeRowBody(in, header, helper, flags, extendedFlags, builder);
 
-            for (Cell c : r.cells()) {
-                System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
-                if (c.column.name.toString().equals("field0")) {
-                    List<String> codes = doubleTreasTag.getCodes();
-                    if (codes == null) {
-                        c.setValue(ByteBufferUtil.bytes("failure"));
-                    } else {
-                        c.setValue(ByteBufferUtil.bytes(codes.get(0)));
-                    }
 
+            // Return the Iterator to the coordinator
+            if (doubleTreasTag.isTagIndicator()) {
+
+                String key = doubleTreasTag.getKey().toString();
+
+                // Prevent Concurrency Issues
+                TreasTagMap treasTagMap = TreasMap.getInternalMap().putIfAbsent(key, new TreasTagMap());
+
+                TreasValueID obj = treasTagMap.readTag();
+
+                TreasTag[] tagList = obj.tagList;
+                String value = obj.value;
+                int id = obj.id;
+
+                int index = 0;
+
+                for (Cell c : r.cells()) {
+                    System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
+                    String colName = c.column.name.toString();
+                    if (colName.startsWith(TreasConfig.TAG_PREFIX)) {
+                        TreasTag tag =  tagList[index];
+                        c.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tag)));
+                        index ++;
+                    }
+                    else if (colName.equals(TreasConfig.VAL_PREFIX + id)) {
+                        c.setValue(ByteBufferUtil.bytes(value));
+                    }
                 }
             }
+
+            // Return the data to the Client
+            else {
+                System.out.println("Inside UnfilteredSerializer");
+                for (Cell c : r.cells()) {
+                    System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
+                    if (c.column.name.toString().equals("field0")) {
+                        List<String> codes = doubleTreasTag.getCodes();
+                        if (codes == null) {
+                            c.setValue(ByteBufferUtil.bytes("failure"));
+                        } else {
+                            c.setValue(ByteBufferUtil.bytes(codes.get(0)));
+                        }
+
+                    }
+                }
+            }
+
             return r;
         }
     }

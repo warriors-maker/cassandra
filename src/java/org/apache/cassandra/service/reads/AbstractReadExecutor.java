@@ -17,8 +17,6 @@
  */
 package org.apache.cassandra.service.reads;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -27,15 +25,14 @@ import com.google.common.collect.Iterables;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.TreasConfig;
+import org.apache.cassandra.Treas.TreasMap;
 import org.apache.cassandra.Treas.TreasTag;
-import org.apache.cassandra.cql3.ColumnIdentifier;
-import org.apache.cassandra.db.IMutation;
-import org.apache.cassandra.db.Mutation;
-import org.apache.cassandra.db.SimpleBuilders;
-import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.Treas.TreasTagMap;
+import org.apache.cassandra.Treas.TreasValueID;
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.db.ColumnFamilyStore;
@@ -48,7 +45,6 @@ import org.apache.cassandra.db.Keyspace;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
 import org.apache.cassandra.db.rows.Cell;
-import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.RowIterator;
 import org.apache.cassandra.exceptions.ReadFailureException;
 import org.apache.cassandra.exceptions.ReadTimeoutException;
@@ -57,17 +53,12 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
-import org.apache.cassandra.schema.ColumnMetadata;
-import org.apache.cassandra.schema.TableMetadata;
-import org.apache.cassandra.service.ABDTag;
 import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.service.StorageProxy.LocalReadRunnable;
 import org.apache.cassandra.tracing.TraceState;
 import org.apache.cassandra.tracing.Tracing;
-import org.apache.cassandra.transport.Message;
 import org.apache.cassandra.utils.ByteBufferUtil;
-import org.apache.cassandra.utils.FBUtilities;
 
 /**
  * Sends a read request to the replicas needed to satisfy a given ConsistencyLevel.
@@ -453,7 +444,7 @@ public abstract class AbstractReadExecutor
             }
         }
 
-        digestResolver.fetchTargetTags(treasTag);
+        digestResolver.fetchTargetTagValue(treasTag);
         treasTag.setReadResponse(digestResolver.getReadResponse());
     }
 
@@ -517,9 +508,17 @@ public abstract class AbstractReadExecutor
         ReadResponse readResponse = digestResolver.getReadResponse();
         // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
 
-        TreasTag localMaxTreasTag = new TreasTag();
+        // Set the localMaxTreasTag as myself;
+        System.out.println("Current key is " + getKey().toString());
+        TreasTagMap treasTagMap = TreasMap.getInternalMap().get(getKey().toString());
 
-        // Each readResponse represents a response from a Replica
+        TreasTag localMaxTreasTag = new TreasTag();
+        if (treasTagMap != null) {
+            TreasValueID obj = treasTagMap.readTag();
+            localMaxTreasTag = obj.maxTag;
+        }
+
+
         for (MessageIn<ReadResponse> message : digestResolver.getMessages())
         {
 
@@ -544,11 +543,18 @@ public abstract class AbstractReadExecutor
                     for (Cell c : ri.next().cells())
                     {
                         // if it is a timeStamp field, we need to check it
-                        if (c.column().name.toString().startsWith("tag"))
+                        if (c.column().name.toString().startsWith(TreasConfig.TAG_PREFIX))
                         {
-                            if (c.column().name.toString().isEmpty()) {
-                                continue;
+                            try {
+                                if (ByteBufferUtil.string(c.value()).isEmpty()) {
+                                    System.out.println("Is Empty");
+                                    continue;
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
+
+                            System.out.println("Is not Empty" + curTag.toString());
                             curTag = TreasTag.deserialize(c.value());
                             logger.debug(curTag.toString());
                             if (curTag.isLarger(localMaxTreasTag))
@@ -561,7 +567,8 @@ public abstract class AbstractReadExecutor
             }
         }
 
-        // Set the maximum tag into the reference we pass
+
+
         maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
         maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
         logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
