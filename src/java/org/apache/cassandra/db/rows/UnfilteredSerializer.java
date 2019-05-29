@@ -562,9 +562,11 @@ public class UnfilteredSerializer
                     System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
                     String colName = c.column.name.toString();
                     if (colName.startsWith(TreasConfig.TAG_PREFIX)) {
-                        TreasTag tag =  tagList[index];
-                        logger.debug("Tag sent is" + tag.toString());
-                        c.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tag)));
+                        if (index < tagList.length) {
+                            TreasTag tag =  tagList[index];
+                            logger.debug("Tag sent is" + tag.toString());
+                            c.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tag)));
+                        }
                         index ++;
                     }
                     else if (colName.equals(TreasConfig.VAL_PREFIX + id)) {
