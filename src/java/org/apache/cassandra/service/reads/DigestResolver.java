@@ -291,6 +291,8 @@ public class DigestResolver extends ResponseResolver
                                 continue;
                             }
 
+                            logger.debug("The value I get from replica is" + value);
+
                             // Find the corresponding index to fetch the tag value
                             int index = Integer.parseInt(colName.substring(TreasConfig.VAL_PREFIX.length()));
                             String treasTagColumn = "tag" + index;

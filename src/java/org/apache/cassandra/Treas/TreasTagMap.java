@@ -41,7 +41,7 @@ public class TreasTagMap
         TreasTag[] tagList = localData.keySet().toArray(new TreasTag[localData.keySet().size()]);
 
         String value = "";
-        int id = 0;
+        int id = 1;
 
         TreasTag maxTag = null;
 
