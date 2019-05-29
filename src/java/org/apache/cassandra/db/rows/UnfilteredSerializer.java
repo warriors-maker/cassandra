@@ -219,7 +219,6 @@ public class UnfilteredSerializer
         }
         else
         {
-            logger.debug("Not for SSTABLE");
             // TODO: Change the row format here.
             serializeRowBody(row, flags, header, out);
         }
