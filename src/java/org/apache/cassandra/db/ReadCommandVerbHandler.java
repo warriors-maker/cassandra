@@ -19,6 +19,7 @@ package org.apache.cassandra.db;
 
 import java.security.Key;
 
+import org.apache.commons.math3.analysis.function.Sin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,26 +66,36 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         // doubleTreasTag will be put into the Iterator
 
         // Seems like doing Twice Read here.
-        ReadResponse dummyResponse;
+
         ReadResponse response;
 
-        SinglePartitionReadCommand singlePartitionReadCommand = (SinglePartitionReadCommand) command;
-        DecoratedKey decoratedKeyKey = singlePartitionReadCommand.partitionKey();
+        DecoratedKey decoratedKey = null;
+        if (command instanceof SinglePartitionReadCommand) {
+            logger.debug("Is SinglePartitionReadComand");
+            SinglePartitionReadCommand singlePartitionReadCommand = (SinglePartitionReadCommand) command;
+            decoratedKey = singlePartitionReadCommand.partitionKey();
+        }
+
 
         try (ReadExecutionController executionController = command.executionController();
              UnfilteredPartitionIterator iterator = command.executeLocally(executionController))
         {
-            dummyResponse = command.createResponse(iterator);
+            // TODO: Can Change the underlying iterator following this
+            // Optimization: Only one read of disk;
+            response = command.createResponse(iterator);
 
-            DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
+            if (command instanceof SinglePartitionReadCommand) {
+                DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
 
-            // Indicate that this Iterator is going to sent to the Coordinator
-            doubleTreasTag.setTagIndicator();
-            doubleTreasTag.setKey(decoratedKeyKey);
+                // Indicate that this Iterator is going to sent to the Coordinator
+                doubleTreasTag.setTagIndicator();
+                doubleTreasTag.setKey(decoratedKey);
 
-            UnfilteredPartitionIterator sendIterator = dummyResponse.makeIterator(command, doubleTreasTag);
-            logger.debug("Finish Create our Iterator, and now make a new response");
-            response = command.createResponse(sendIterator);
+                UnfilteredPartitionIterator sendIterator = response.makeIterator(command, doubleTreasTag);
+                logger.debug("Finish Create our Iterator, and now make a new response");
+                response = command.createResponse(sendIterator);
+            }
+
         }
 
         if (!command.complete())
@@ -96,6 +107,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 
         logger.debug("Send Response");
         Tracing.trace("Enqueuing response to {}", message.from);
+        // possibly add the data in readResponse
         MessageOut<ReadResponse> reply = new MessageOut<>(MessagingService.Verb.REQUEST_RESPONSE, response, serializer());
         MessagingService.instance().sendReply(reply, id, message.from);
     }

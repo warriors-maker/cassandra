@@ -161,6 +161,7 @@ public class UnfilteredSerializer
         serialize(row, header, out, 0, version);
     }
 
+    // TODO: ADD something here
     private void serialize(Row row, SerializationHeader header, DataOutputPlus out, long previousUnfilteredSize, int version)
     throws IOException
     {
@@ -218,6 +219,8 @@ public class UnfilteredSerializer
         }
         else
         {
+            logger.debug("Not for SSTABLE");
+            // TODO: Change the row format here.
             serializeRowBody(row, flags, header, out);
         }
     }
@@ -539,7 +542,6 @@ public class UnfilteredSerializer
 
             builder.newRow(Clustering.serializer.deserialize(in, helper.version, header.clusteringTypes()));
             Row r =  deserializeRowBody(in, header, helper, flags, extendedFlags, builder);
-
 
             // Return the Iterator to the coordinator
             if (doubleTreasTag.isTagIndicator()) {
