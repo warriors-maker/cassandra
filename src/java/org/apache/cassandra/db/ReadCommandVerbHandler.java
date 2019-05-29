@@ -17,6 +17,8 @@
  */
 package org.apache.cassandra.db;
 
+import java.security.Key;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,9 +33,11 @@ import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
+import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.service.reads.AbstractReadExecutor;
 import org.apache.cassandra.tracing.Tracing;
+import org.apache.cassandra.utils.ByteBufferUtil;
 
 public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 {
@@ -53,6 +57,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         }
 
         ReadCommand command = message.payload;
+
         command.setMonitoringTime(message.constructionTime, message.isCrossNode(), message.getTimeout(), message.getSlowQueryTimeout());
 
         // TODO: In Memory:
@@ -62,17 +67,21 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         // Seems like doing Twice Read here.
         ReadResponse dummyResponse;
         ReadResponse response;
+
+        SinglePartitionReadCommand singlePartitionReadCommand = (SinglePartitionReadCommand) command;
+        DecoratedKey decoratedKeyKey = singlePartitionReadCommand.partitionKey();
+
         try (ReadExecutionController executionController = command.executionController();
              UnfilteredPartitionIterator iterator = command.executeLocally(executionController))
         {
             dummyResponse = command.createResponse(iterator);
+
             DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
+
             // Indicate that this Iterator is going to sent to the Coordinator
             doubleTreasTag.setTagIndicator();
-            logger.debug("Create our Iterator");
-            if (dummyResponse == null) {
-                logger.debug("dummyResponse is null");
-            }
+            doubleTreasTag.setKey(decoratedKeyKey);
+
             UnfilteredPartitionIterator sendIterator = dummyResponse.makeIterator(command, doubleTreasTag);
             logger.debug("Finish Create our Iterator, and now make a new response");
             response = command.createResponse(sendIterator);
