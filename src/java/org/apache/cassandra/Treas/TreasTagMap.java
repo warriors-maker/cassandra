@@ -47,6 +47,7 @@ public class TreasTagMap
 
         for (Map.Entry entry : localData.entrySet()) {
             value = (String) entry.getValue();
+            logger.debug("Value is" + value);
             if (!value.isEmpty()) {
                 maxTag = (TreasTag) entry.getKey();
                 break;
