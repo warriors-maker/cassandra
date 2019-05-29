@@ -48,6 +48,7 @@ public class TreasTagMap
         for (TreasTag tag : tagList) {
             value = localData.get(tag);
             if (!value.isEmpty()) {
+                maxTag = tag;
                 break;
             }
             id ++;

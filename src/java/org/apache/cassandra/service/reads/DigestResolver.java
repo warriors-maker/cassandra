@@ -205,6 +205,7 @@ public class DigestResolver extends ResponseResolver
                     doubleTreasTag.setKeySpace(keySpaceName);
 
                     TreasTagMap localTagMap = TreasMap.getInternalMap().putIfAbsent(key.toString(), new TreasTagMap());
+
                     TreasValueID obj = localTagMap.readTag();
                     TreasTag localTag = obj.maxTag;
                     String value = obj.value;
