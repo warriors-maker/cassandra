@@ -213,6 +213,8 @@ public class DigestResolver extends ResponseResolver
                     codeList.add(value);
                     decodeMap.put(localTag,codeList);
 
+                    logger.debug(localTag.toString());
+
                     if (TreasConfig.num_intersect == 1) {
                         quorumTagMax = localTag;
                     }
@@ -243,7 +245,7 @@ public class DigestResolver extends ResponseResolver
 
                             TreasTag curTag = TreasTag.deserialize(c.value());
 
-                            System.out.println(colName + "," + curTag.toString());
+                            logger.debug(curTag.toString());
 
                             if (quorumMap.containsKey(curTag))
                             {
@@ -294,6 +296,7 @@ public class DigestResolver extends ResponseResolver
                             ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(treasTagColumn, true);
                             ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
                             Cell tagCell = row.getCell(columnMetadata);
+
                             TreasTag treasTag = TreasTag.deserialize(tagCell.value());
 
                             if (decodeMap.containsKey(treasTag))

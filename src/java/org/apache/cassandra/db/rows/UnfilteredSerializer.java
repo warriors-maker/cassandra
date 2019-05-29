@@ -566,6 +566,9 @@ public class UnfilteredSerializer
                             TreasTag tag =  tagList[index];
                             logger.debug("Tag sent is" + tag.toString());
                             c.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tag)));
+                            if (index == id) {
+                                c.setValue(ByteBufferUtil.bytes(value));
+                            }
                         }
                         index ++;
                     }
