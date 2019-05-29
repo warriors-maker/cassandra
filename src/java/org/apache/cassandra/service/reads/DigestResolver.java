@@ -273,7 +273,7 @@ public class DigestResolver extends ResponseResolver
                             }
                         }
                         // Notice that only one column has the data
-                        else if (colName.startsWith("field") && !colName.equals("field0"))
+                        else if (colName.startsWith(TreasConfig.VAL_PREFIX) && !colName.equals("field0"))
                         {
                             // Fetch the code out
                             String value = "";

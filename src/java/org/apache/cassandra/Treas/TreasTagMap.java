@@ -45,16 +45,15 @@ public class TreasTagMap
 
         TreasTag maxTag = null;
 
-        for (Map.Entry entry : localData.entrySet()) {
-            value = (String) entry.getValue();
-            logger.debug("Value is" + value);
+        for (TreasTag tag : tagList) {
+            value = localData.get(tag);
             if (!value.isEmpty()) {
-                maxTag = (TreasTag) entry.getKey();
                 break;
             }
             id ++;
         }
 
+        logger.debug("Value is" + value);
         return new TreasValueID(id, value, tagList, maxTag);
     }
 

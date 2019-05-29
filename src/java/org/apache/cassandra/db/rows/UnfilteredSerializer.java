@@ -572,6 +572,7 @@ public class UnfilteredSerializer
                         index ++;
                     }
                     else if (colName.equals(TreasConfig.VAL_PREFIX + id)) {
+                        logger.debug("Value sent is " + value);
                         c.setValue(ByteBufferUtil.bytes(value));
                     }
                 }
