@@ -219,6 +219,13 @@ public abstract class ReadCommand extends AbstractReadQuery
              : ReadResponse.createDataResponse(iterator, this);
     }
 
+    public ReadResponse createResponse(UnfilteredPartitionIterator iterator, DecoratedKey key)
+    {
+        return isDigestQuery()
+               ? ReadResponse.createDigestResponse(iterator, this)
+               : ReadResponse.createDataResponse(iterator, this, key);
+    }
+
     long indexSerializedSize(int version)
     {
         return null != index

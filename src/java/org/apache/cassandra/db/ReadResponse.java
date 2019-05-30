@@ -55,6 +55,12 @@ public abstract class ReadResponse
         return new LocalDataResponse(data, command);
     }
 
+    public static ReadResponse createDataResponse(UnfilteredPartitionIterator data, ReadCommand command, DecoratedKey key)
+    {
+        logger.debug("It is data response");
+        return new LocalDataResponse(data, command, key);
+    }
+
     @VisibleForTesting
     public static ReadResponse createRemoteDataResponse(UnfilteredPartitionIterator data, ReadCommand command)
     {
@@ -168,6 +174,26 @@ public abstract class ReadResponse
             super(build(iter, command.columnFilter()), MessagingService.current_version, SerializationHelper.Flag.LOCAL);
         }
 
+        private LocalDataResponse(UnfilteredPartitionIterator iter, ReadCommand command, DecoratedKey key)
+        {
+            super(build(iter, command.columnFilter(), key), MessagingService.current_version, SerializationHelper.Flag.LOCAL);
+        }
+
+
+        private static ByteBuffer build(UnfilteredPartitionIterator iter, ColumnFilter selection, DecoratedKey key)
+        {
+            try (DataOutputBuffer buffer = new DataOutputBuffer())
+            {
+                UnfilteredPartitionIterators.serializerForIntraNode().serialize(iter, selection, buffer, MessagingService.current_version, key);
+                return buffer.buffer();
+            }
+            catch (IOException e)
+            {
+                // We're serializing in memory so this shouldn't happen
+                throw new RuntimeException(e);
+            }
+        }
+
         private static ByteBuffer build(UnfilteredPartitionIterator iter, ColumnFilter selection)
         {
             try (DataOutputBuffer buffer = new DataOutputBuffer())
@@ -181,6 +207,8 @@ public abstract class ReadResponse
                 throw new RuntimeException(e);
             }
         }
+
+
     }
 
     // built on the coordinator node receiving a response

@@ -82,6 +82,11 @@ public class UnfilteredRowIteratorSerializer
     }
 
     // Should only be used for the on-wire format.
+    public void serialize(UnfilteredRowIterator iterator, ColumnFilter selection, DataOutputPlus out, int version, DecoratedKey key) throws IOException
+    {
+        serialize(iterator, selection, out, version, -1, key);
+    }
+
 
     public void serialize(UnfilteredRowIterator iterator, ColumnFilter selection, DataOutputPlus out, int version, int rowEstimate) throws IOException
     {
@@ -93,6 +98,18 @@ public class UnfilteredRowIteratorSerializer
 
         serialize(iterator, header, selection, out, version, rowEstimate);
     }
+
+    public void serialize(UnfilteredRowIterator iterator, ColumnFilter selection, DataOutputPlus out, int version, int rowEstimate, DecoratedKey key) throws IOException
+    {
+
+        SerializationHeader header = new SerializationHeader(false,
+                                                             iterator.metadata(),
+                                                             iterator.columns(),
+                                                             iterator.stats());
+
+        serialize(iterator, header, selection, out, version, rowEstimate, key);
+    }
+
 
     // Should only be used for the on-wire format.
     public void serialize(UnfilteredRowIterator iterator, SerializationHeader header, ColumnFilter selection, DataOutputPlus out, int version, int rowEstimate) throws IOException
@@ -137,6 +154,52 @@ public class UnfilteredRowIteratorSerializer
 
         while (iterator.hasNext())
             UnfilteredSerializer.serializer.serialize(iterator.next(), header, out, version);
+        UnfilteredSerializer.serializer.writeEndOfPartition(out);
+    }
+
+
+    public void serialize(UnfilteredRowIterator iterator, SerializationHeader header, ColumnFilter selection, DataOutputPlus out, int version, int rowEstimate, DecoratedKey key) throws IOException
+    {
+        assert !header.isForSSTable();
+
+        ByteBufferUtil.writeWithVIntLength(iterator.partitionKey().getKey(), out);
+
+        int flags = 0;
+        if (iterator.isReverseOrder())
+            flags |= IS_REVERSED;
+
+        if (iterator.isEmpty())
+        {
+            out.writeByte((byte)(flags | IS_EMPTY));
+            return;
+        }
+
+        DeletionTime partitionDeletion = iterator.partitionLevelDeletion();
+        if (!partitionDeletion.isLive())
+            flags |= HAS_PARTITION_DELETION;
+        Row staticRow = iterator.staticRow();
+        boolean hasStatic = staticRow != Rows.EMPTY_STATIC_ROW;
+        if (hasStatic)
+            flags |= HAS_STATIC_ROW;
+
+        if (rowEstimate >= 0)
+            flags |= HAS_ROW_ESTIMATE;
+
+        out.writeByte((byte)flags);
+
+        SerializationHeader.serializer.serializeForMessaging(header, selection, out, hasStatic);
+
+        if (!partitionDeletion.isLive())
+            header.writeDeletionTime(partitionDeletion, out);
+
+        if (hasStatic)
+            UnfilteredSerializer.serializer.serialize(staticRow, header, out, version);
+
+        if (rowEstimate >= 0)
+            out.writeUnsignedVInt(rowEstimate);
+
+        while (iterator.hasNext())
+            UnfilteredSerializer.serializer.serialize(iterator.next(), header, out, version, key);
         UnfilteredSerializer.serializer.writeEndOfPartition(out);
     }
 

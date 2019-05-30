@@ -320,6 +320,22 @@ public abstract class UnfilteredPartitionIterators
             out.writeBoolean(false);
         }
 
+        public void serialize(UnfilteredPartitionIterator iter, ColumnFilter selection, DataOutputPlus out, int version, DecoratedKey key) throws IOException
+        {
+            // Previously, a boolean indicating if this was for a thrift query.
+            // Unused since 4.0 but kept on wire for compatibility.
+            out.writeBoolean(false);
+            while (iter.hasNext())
+            {
+                out.writeBoolean(true);
+                try (UnfilteredRowIterator partition = iter.next())
+                {
+                    UnfilteredRowIteratorSerializer.serializer.serialize(partition, selection, out, version, key);
+                }
+            }
+            out.writeBoolean(false);
+        }
+
 
         public UnfilteredPartitionIterator deserialize(final DataInputPlus in, final int version, final TableMetadata metadata,
                                                        final ColumnFilter selection, final SerializationHelper.Flag flag,

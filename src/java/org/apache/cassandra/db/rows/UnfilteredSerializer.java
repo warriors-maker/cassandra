@@ -141,6 +141,13 @@ public class UnfilteredSerializer
         serialize(unfiltered, header, out, 0, version);
     }
 
+    public void serialize(Unfiltered unfiltered, SerializationHeader header, DataOutputPlus out, int version, DecoratedKey key)
+    throws IOException
+    {
+        assert !header.isForSSTable();
+        serialize(unfiltered, header, out, 0, version, key);
+    }
+
     public void serialize(Unfiltered unfiltered, SerializationHeader header, DataOutputPlus out, long previousUnfilteredSize, int version)
     throws IOException
     {
@@ -151,6 +158,20 @@ public class UnfilteredSerializer
         else
         {
             serialize((Row) unfiltered, header, out, previousUnfilteredSize, version);
+        }
+    }
+
+    public void serialize(Unfiltered unfiltered, SerializationHeader header, DataOutputPlus out, long previousUnfilteredSize, int version, DecoratedKey key)
+    throws IOException
+    {
+        if (unfiltered.kind() == Unfiltered.Kind.RANGE_TOMBSTONE_MARKER)
+        {
+            serialize((RangeTombstoneMarker) unfiltered, header, out, previousUnfilteredSize, version);
+        }
+        else
+        {
+            logger.debug("Row data");
+            serialize((Row) unfiltered, header, out, previousUnfilteredSize, version, key);
         }
     }
 
@@ -219,7 +240,93 @@ public class UnfilteredSerializer
         }
         else
         {
+            serializeRowBody(row, flags, header, out);
+        }
+    }
+
+    private void serialize(Row row, SerializationHeader header, DataOutputPlus out, long previousUnfilteredSize, int version, DecoratedKey key)
+    throws IOException
+    {
+        logger.debug("The value comes into here IF Statement");
+        int flags = 0;
+        int extendedFlags = 0;
+        boolean isStatic = row.isStatic();
+        Columns headerColumns = header.columns(isStatic);
+        LivenessInfo pkLiveness = row.primaryKeyLivenessInfo();
+        Row.Deletion deletion = row.deletion();
+        boolean hasComplexDeletion = row.hasComplexDeletion();
+        boolean hasAllColumns = (row.size() == headerColumns.size());
+        boolean hasExtendedFlags = hasExtendedFlags(row);
+
+        if (isStatic)
+            extendedFlags |= IS_STATIC;
+
+        if (!pkLiveness.isEmpty())
+            flags |= HAS_TIMESTAMP;
+        if (pkLiveness.isExpiring())
+            flags |= HAS_TTL;
+        if (!deletion.isLive())
+        {
+            flags |= HAS_DELETION;
+            if (deletion.isShadowable())
+                extendedFlags |= HAS_SHADOWABLE_DELETION;
+        }
+        if (hasComplexDeletion)
+            flags |= HAS_COMPLEX_DELETION;
+        if (hasAllColumns)
+            flags |= HAS_ALL_COLUMNS;
+
+        if (hasExtendedFlags)
+            flags |= EXTENSION_FLAG;
+
+        out.writeByte((byte)flags);
+        if (hasExtendedFlags)
+            out.writeByte((byte)extendedFlags);
+
+        if (!isStatic)
+            Clustering.serializer.serialize(row.clustering(), out, version, header.clusteringTypes());
+
+        if (header.isForSSTable())
+        {
+            try (DataOutputBuffer dob = DataOutputBuffer.scratchBuffer.get())
+            {
+                serializeRowBody(row, flags, header, dob);
+
+                out.writeUnsignedVInt(dob.position() + TypeSizes.sizeofUnsignedVInt(previousUnfilteredSize));
+                // We write the size of the previous unfiltered to make reverse queries more efficient (and simpler).
+                // This is currently not used however and using it is tbd.
+                out.writeUnsignedVInt(previousUnfilteredSize);
+                out.write(dob.getData(), 0, dob.getLength());
+            }
+        }
+        else
+        {
             // TODO: Change the row format here.
+            logger.debug("The value comes into here Else Statement");
+            if (key != null) {
+                // Fetch the TreasInformation we want
+                // TODO : Need to get the key here
+                TreasTagMap treasTagMap = TreasMap.getInternalMap().get(key);
+                if (treasTagMap == null) {
+                    logger.debug("Have not seen this data yet");
+                } else {
+                    TreasValueID treasValueID = treasTagMap.readTag();
+                    int index = 0;
+                    TreasTag[] tagList = treasValueID.tagList;
+                    int id = treasValueID.id;
+                    String value = treasValueID.value;
+                    for (Cell cell : row.cells()) {
+                        if (cell.column().toString().startsWith(TreasConfig.TAG_PREFIX)) {
+                            if (index < tagList.length) {
+                                cell.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tagList[index])));
+                            }
+                        } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX + id)) {
+                            logger.debug("Value sent is " + value);
+                            cell.setValue(ByteBufferUtil.bytes(value));
+                        }
+                    }
+                }
+            }
             serializeRowBody(row, flags, header, out);
         }
     }
