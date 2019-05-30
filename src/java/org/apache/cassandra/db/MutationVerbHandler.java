@@ -117,6 +117,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                 return null;
             });
         } else {
+            logger.debug("Do not commit this Mutation");
             reply(id, replyTo);
         }
 

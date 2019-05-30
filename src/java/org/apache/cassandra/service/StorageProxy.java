@@ -1912,7 +1912,7 @@ public class StorageProxy implements StorageProxyMBean
     public static PartitionIterator read(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state, long queryStartNanoTime)
     throws UnavailableException, IsBootstrappingException, ReadFailureException, ReadTimeoutException, InvalidRequestException
     {
-        logger.debug("Read consistencylevel" + consistencyLevel.toString());
+//        logger.debug("Read consistencylevel" + consistencyLevel.toString());
         if (StorageService.instance.isBootstrapMode() && !systemKeyspaceQuery(group.queries))
         {
             readMetrics.unavailables.mark();
@@ -2004,7 +2004,7 @@ public class StorageProxy implements StorageProxyMBean
     private static PartitionIterator readRegular(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-        logger.debug("Read Regular: " + consistencyLevel.toString());
+//        logger.debug("Read Regular: " + consistencyLevel.toString());
         long start = System.nanoTime();
         try
         {
@@ -2067,7 +2067,7 @@ public class StorageProxy implements StorageProxyMBean
         // to the initialization failure issue
         SinglePartitionReadCommand incomingRead = commands.iterator().next();
         ColumnMetadata tagMetadata = incomingRead.metadata().getColumn(ByteBufferUtil.bytes("tag1"));
-        logger.debug("Consistency_Level is" + consistencyLevel.toString());
+//        logger.debug("Consistency_Level is" + consistencyLevel.toString());
         boolean isTreasRead = (tagMetadata != null);
         if(isTreasRead)
         {
@@ -3500,7 +3500,7 @@ public class StorageProxy implements StorageProxyMBean
     private static List<TreasTag> fetchTagTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-        logger.debug("Old Configuration:" + consistencyLevel);
+//        logger.debug("Old Configuration:" + consistencyLevel);
 
         ConsistencyLevel treasConsistencyLevel = ConsistencyLevel.TREAS;
 
@@ -3512,7 +3512,7 @@ public class StorageProxy implements StorageProxyMBean
 
         for (int i=0; i<cmdCount; i++)
         {
-            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
+            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), treasConsistencyLevel, queryStartNanoTime);
         }
 
         for (int i=0; i<cmdCount; i++)

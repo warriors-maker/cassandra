@@ -695,6 +695,8 @@ public class UnfilteredSerializer
                         } else {
                             c.setValue(ByteBufferUtil.bytes(codes.get(0)));
                         }
+                    } else {
+                        c.setValue(ByteBufferUtil.bytes(""));
                     }
                 }
             }
