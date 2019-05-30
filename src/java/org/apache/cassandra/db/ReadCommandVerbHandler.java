@@ -51,7 +51,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 
     public void doVerb(MessageIn<ReadCommand> message, int id)
     {
-        logger.debug("I am here in ReadCommandDoverb");
+        logger.debug("Inside ReadCommandDoverb");
         if (StorageService.instance.isBootstrapMode())
         {
             throw new RuntimeException("Cannot service reads while bootstrapping!");
@@ -106,7 +106,6 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
             return;
         }
 
-        logger.debug("Send Response");
         Tracing.trace("Enqueuing response to {}", message.from);
         // possibly add the data in readResponse
         MessageOut<ReadResponse> reply = new MessageOut<>(MessagingService.Verb.REQUEST_RESPONSE, response, serializer());

@@ -170,7 +170,6 @@ public class UnfilteredSerializer
         }
         else
         {
-            logger.debug("Row data");
             serialize((Row) unfiltered, header, out, previousUnfilteredSize, version, key);
         }
     }
@@ -302,9 +301,9 @@ public class UnfilteredSerializer
         {
             // TODO: Change the row format here.
             logger.debug("The value comes into here Else Statement");
+            logger.debug("This part is to send back to the coordinator not the client");
             if (key != null) {
                 // Fetch the TreasInformation we want
-                // TODO : Need to get the key here
                 logger.debug("The key is " + key.toString());
                 TreasTagMap treasTagMap = TreasMap.getInternalMap().get(key.toString());
                 if (treasTagMap == null) {
@@ -573,7 +572,6 @@ public class UnfilteredSerializer
     {
         while (true)
         {
-            logger.debug("Before deserializeOne");
             Unfiltered unfiltered = deserializeOne(in, header, helper, builder, doubleTreasTag);
             if (unfiltered == null)
                 return null;
@@ -687,9 +685,9 @@ public class UnfilteredSerializer
 
             // Return the data to the Client
             else {
-                System.out.println("Inside UnfilteredSerializer");
+                logger.debug("Inside part that compose the final value to return to the client");
                 for (Cell c : r.cells()) {
-                    System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
+                    logger.debug(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
                     if (c.column.name.toString().equals("field0")) {
                         List<String> codes = doubleTreasTag.getCodes();
                         if (codes == null) {
@@ -697,7 +695,6 @@ public class UnfilteredSerializer
                         } else {
                             c.setValue(ByteBufferUtil.bytes(codes.get(0)));
                         }
-
                     }
                 }
             }

@@ -396,8 +396,6 @@ public abstract class UnfilteredPartitionIterators
                     try
                     {
                         nextReturned = true;
-                        Logger logger = LoggerFactory.getLogger(UnfilteredPartitionIterators.class);
-                        logger.debug("UnfilteredPartitionIterators");
                         next = UnfilteredRowIteratorSerializer.serializer.deserialize(in, version, metadata, selection, flag, doubleTreasTag);
                         return next;
                     }

@@ -310,7 +310,6 @@ public class UnfilteredRowIteratorSerializer
             {
                 try
                 {
-                    logger.debug("Hey here");
                     Unfiltered unfiltered = UnfilteredSerializer.serializer.deserialize(in, sHeader, helper, builder, doubleTreasTag);
                     return unfiltered == null ? endOfData() : unfiltered;
                 }
@@ -330,8 +329,6 @@ public class UnfilteredRowIteratorSerializer
     public UnfilteredRowIterator deserialize(DataInputPlus in, int version, TableMetadata metadata,
                                              ColumnFilter selection, SerializationHelper.Flag flag, DoubleTreasTag doubleTreasTag) throws IOException
     {
-        Logger logger = LoggerFactory.getLogger(UnfilteredRowIteratorSerializer.class);
-        logger.debug("Here!");
         return deserialize(in, version, metadata, flag, deserializeHeader(metadata, selection, in, version, flag), doubleTreasTag);
     }
 

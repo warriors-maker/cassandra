@@ -57,7 +57,6 @@ public abstract class ReadResponse
 
     public static ReadResponse createDataResponse(UnfilteredPartitionIterator data, ReadCommand command, DecoratedKey key)
     {
-        logger.debug("It is data response");
         return new LocalDataResponse(data, command, key);
     }
 
@@ -263,7 +262,6 @@ public abstract class ReadResponse
                 // Note that the command parameter shadows the 'command' field and this is intended because
                 // the later can be null (for RemoteDataResponse as those are created in the serializers and
                 // those don't have easy access to the command). This is also why we need the command as parameter here.
-                logger.debug("makeIterator");
                 return UnfilteredPartitionIterators.serializerForIntraNode().deserialize(in,
                                                                                          dataSerializationVersion,
                                                                                          command.metadata(),

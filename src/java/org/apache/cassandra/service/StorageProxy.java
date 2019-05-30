@@ -1580,9 +1580,11 @@ public class StorageProxy implements StorageProxyMBean
             treasTagMap.printTagMap();
 
             if (commitMutation == null) {
+                logger.debug("Does not Write into the disk");
                 performLocally(responseHandler);
             }
             else {
+                logger.debug("Write into the disk");
                 performLocally(stage, Optional.of(mutation), commitMutation::apply, responseHandler);
             }
         }
@@ -3346,7 +3348,6 @@ public class StorageProxy implements StorageProxyMBean
         {
             // Read the currentKey time from the treasMap;
             if (mutation.getKeyspaceName().equals("ycsb")) {
-                logger.debug("Is ycsb");
 
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
 
@@ -3361,7 +3362,6 @@ public class StorageProxy implements StorageProxyMBean
                 tagValueReadList.add(tagValueRead);
             } else {
                 notDataMutations.add(mutation);
-                logger.debug("This is not YCSB");
             }
 
         }
@@ -3372,6 +3372,10 @@ public class StorageProxy implements StorageProxyMBean
         List<TreasTag> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
 
         logger.debug("MutateTreas's size" + readList.size());
+        for (int i = 0; i < readList.size(); i++) {
+            logger.debug("Maximun tags are " + readList.get(i).toString());
+        }
+
 
         int index = 0;
 
@@ -3389,8 +3393,6 @@ public class StorageProxy implements StorageProxyMBean
 
             // Increment the tag value
             maxCurrentTag.nextTag();
-
-            logger.debug("Max Tag is" + maxCurrentTag);
 
             mutationBuilder.update(tableMetadata)
                            .timestamp(timeStamp)
@@ -3622,9 +3624,6 @@ public class StorageProxy implements StorageProxyMBean
         List<DoubleTreasTag> doubleTreasTagList = new ArrayList<>();
         fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
 
-
-        // Add the logic here to prevent
-
         // Do the writeBack
         writebackTreas(doubleTreasTagList, consistencyLevel, System.nanoTime());
 
@@ -3655,6 +3654,7 @@ public class StorageProxy implements StorageProxyMBean
         // Fetch valid information
         List<IMutation> mutations = new ArrayList<>();
         for (DoubleTreasTag doubleTreasTag : doubleTreasTags) {
+            logger.debug("Write back to other replicas");
             TreasTag quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
             TreasTag decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
             List<String> codes = doubleTreasTag.getCodes();
