@@ -104,6 +104,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
         // Put the data into the Memory
         logger.debug("MutationTag is " + mutationTag.toString());
+        logger.debug("The Mutation been put is " + mutationKey);
         Mutation commitMutation = localTag.putTreasTag(mutationTag, mutationValue, mutation);
         // Debug purpose
         localTag.printTagMap();

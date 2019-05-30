@@ -154,9 +154,8 @@ public class TreasTagMap
 
     public synchronized void printTagMap() {
         for (Map.Entry entry : localData.entrySet()) {
-            System.out.print("TreasInfo: ");
-            System.out.print(entry.getKey() + " : " + entry.getValue() + " || ");
+            logger.debug("TreasInfo: ");
+            logger.debug(entry.getKey() + " : " + entry.getValue() + " || ");
         }
-        System.out.println();
     }
 }

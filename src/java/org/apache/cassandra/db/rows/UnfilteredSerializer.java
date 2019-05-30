@@ -247,7 +247,6 @@ public class UnfilteredSerializer
     private void serialize(Row row, SerializationHeader header, DataOutputPlus out, long previousUnfilteredSize, int version, DecoratedKey key)
     throws IOException
     {
-        logger.debug("The value comes into here IF Statement");
         int flags = 0;
         int extendedFlags = 0;
         boolean isStatic = row.isStatic();
@@ -306,6 +305,7 @@ public class UnfilteredSerializer
             if (key != null) {
                 // Fetch the TreasInformation we want
                 // TODO : Need to get the key here
+                logger.debug("The key is " + key.toString());
                 TreasTagMap treasTagMap = TreasMap.getInternalMap().get(key);
                 if (treasTagMap == null) {
                     logger.debug("Have not seen this data yet");

@@ -71,7 +71,6 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 
         DecoratedKey decoratedKey = null;
         if (command instanceof SinglePartitionReadCommand) {
-            logger.debug("Is SinglePartitionReadComand");
             SinglePartitionReadCommand singlePartitionReadCommand = (SinglePartitionReadCommand) command;
             decoratedKey = singlePartitionReadCommand.partitionKey();
         }
