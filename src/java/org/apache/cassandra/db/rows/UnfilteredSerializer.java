@@ -306,7 +306,7 @@ public class UnfilteredSerializer
                 // Fetch the TreasInformation we want
                 // TODO : Need to get the key here
                 logger.debug("The key is " + key.toString());
-                TreasTagMap treasTagMap = TreasMap.getInternalMap().get(key);
+                TreasTagMap treasTagMap = TreasMap.getInternalMap().get(key.toString());
                 if (treasTagMap == null) {
                     logger.debug("Have not seen this data yet");
                 } else {
