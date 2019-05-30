@@ -322,6 +322,8 @@ public class UnfilteredSerializer
                         } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX + id)) {
                             logger.debug("Value sent is " + value);
                             cell.setValue(ByteBufferUtil.bytes(value));
+                        } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX)) {
+                            logger.debug("Other values are " + ByteBufferUtil.string(cell.value()));
                         }
                     }
                 }
