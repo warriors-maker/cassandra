@@ -38,7 +38,7 @@ public class TreasConfig
     public static final String VAL_PREFIX =  "field";
     public static final String TAG_PREFIX =  "tag";
 
-    public static final int QUORUM = (TreasConfig.num_server + TreasConfig.num_intersect + 1) /2;
+    public static final int QUORUM = (int) Math.ceil ( (TreasConfig.num_server + TreasConfig.num_recover) / 2);
 
     public static  ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(TAG_ONE, true);
     public static  ColumnIdentifier tagTwoIdentifier = new ColumnIdentifier(TAG_TWO, true);
