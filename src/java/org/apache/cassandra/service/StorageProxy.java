@@ -3435,6 +3435,14 @@ public class StorageProxy implements StorageProxyMBean
     public static void mutate(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
+        logger.debug("Print out all the library path");
+        String property = System.getProperty("java.library.path");
+        StringTokenizer parser = new StringTokenizer(property, ";");
+        while (parser.hasMoreTokens()) {
+            logger.debug(parser.nextToken());
+        }
+
+
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
         logger.debug("Inside mutate");
