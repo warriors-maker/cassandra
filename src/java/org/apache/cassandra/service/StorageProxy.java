@@ -1549,6 +1549,9 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         // TODO: In the future value will need to be broken down into codes but now is the whole data
+
+//        byte [][]encoder = ErasureEcode;
+
         List<String> codeList = new ArrayList<>();
         for (int i = 0; i < TreasConfig.num_server; i++) {
             codeList.add(value);
@@ -1659,14 +1662,15 @@ public class StorageProxy implements StorageProxyMBean
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
                 long timeStamp = FBUtilities.timestampMicros();
 
-                System.out.println("Insert into" + minTagColName);
-
+                String codedValue = codeList.get(0);
+                // Fetch the index from a Map
+                // byte[] myData = erasureCode[index];
                 if (hit == 1) {
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
                                    .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add(minFieldColName,codeList.get(0))
+                                   .add(minFieldColName,codedValue)
                                    .add("field0","");
                 }
                 else if (mutationTreasTag.isLarger(maxTreasTag)) {
@@ -1674,7 +1678,7 @@ public class StorageProxy implements StorageProxyMBean
                                    .timestamp(timeStamp)
                                    .row()
                                    .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add(minFieldColName,codeList.get(0))
+                                   .add(minFieldColName,codedValue)
                                    .add("field0","")
                                    .add(oldMaxFieldName, null);
                 } else {
@@ -1700,6 +1704,11 @@ public class StorageProxy implements StorageProxyMBean
             for (InetAddressAndPort destination : localDc)
             {
                 // Build unique Mutation for all replicas
+
+                logger.debug("Send to Current destination is" + destination.toString());
+                // Based on their IP address fetch the according byte array
+                // Fetch the index from a Map
+                // byte[] myData = erasureCode[index];
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
                 long timeStamp = FBUtilities.timestampMicros();

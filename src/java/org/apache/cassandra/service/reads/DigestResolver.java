@@ -154,9 +154,14 @@ public class DigestResolver extends ResponseResolver
     public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
         logger.debug("Inside awaitResponsesTreasTagValue");
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
+        // TODO: The value may needs to be changed to Map<Integer, String>;
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
         TreasTag quorumTagMax = new TreasTag();
         TreasTag decodeTagMax = new TreasTag();
+
+        // This needs to be a Map<Integer, String>:
+        // Integer represents the ID of server
+        // String is just the value
         List<String> decodeValMax = null;
 
 
@@ -169,6 +174,7 @@ public class DigestResolver extends ResponseResolver
         // Each readResponse represents a response from a Replica
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
+            logger.debug("The message is from" + message.from.toString());
             ReadResponse response = message.payload;
             if (message.from.equals(FBUtilities.getLocalAddressAndPort()))
             {
@@ -293,6 +299,7 @@ public class DigestResolver extends ResponseResolver
                 }
             }
         }
+
         logger.debug("Finish reading Quorum and Decodable");
         System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
         logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
