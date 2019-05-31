@@ -107,6 +107,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         logger.debug("The Mutation been put is " + mutationKey);
         Mutation commitMutation = localTag.putTreasTag(mutationTag, mutationValue, mutation);
         // Debug purpose
+        logger.debug("After putting the mutation sending from the coordinator: ");
         localTag.printTagMap();
 
         if (commitMutation != null) {
