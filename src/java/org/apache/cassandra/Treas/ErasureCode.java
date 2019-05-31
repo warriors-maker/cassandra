@@ -35,7 +35,7 @@ public class ErasureCode
     {
         try
         {
-            System.loadLibrary( "erasure" );
+            System.loadLibrary( "/root/JavaISal/javaexample/liberasure.so" );
         }
         catch ( Exception e )
         {
