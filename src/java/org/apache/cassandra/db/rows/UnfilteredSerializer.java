@@ -315,7 +315,7 @@ public class UnfilteredSerializer
                     TreasTag[] tagList = treasValueID.tagList;
                     int id = treasValueID.id;
                     String value = treasValueID.value;
-                    
+
                     for (Cell cell : row.cells()) {
                         if (cell.column().toString().startsWith(TreasConfig.TAG_PREFIX)) {
                             if (index < tagList.length) {
@@ -325,7 +325,7 @@ public class UnfilteredSerializer
                         } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX + id)) {
                             logger.debug("Value sent is " + value);
                             cell.setValue(ByteBufferUtil.bytes(value));
-                        } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX)) {
+                        } else if (cell.column.toString().startsWith(TreasConfig.VAL_PREFIX)) {
                             logger.debug("Other values are " + ByteBufferUtil.string(cell.value()));
                         }
                     }
