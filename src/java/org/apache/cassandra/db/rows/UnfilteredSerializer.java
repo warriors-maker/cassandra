@@ -685,6 +685,8 @@ public class UnfilteredSerializer
                     else if (colName.equals(TreasConfig.VAL_PREFIX + id)) {
                         logger.debug("Value sent is " + value);
                         c.setValue(ByteBufferUtil.bytes(value));
+                    } else {
+                        logger.debug("Other Values is " + value);
                     }
                 }
             }
