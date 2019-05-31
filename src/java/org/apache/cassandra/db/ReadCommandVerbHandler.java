@@ -75,28 +75,26 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
             decoratedKey = singlePartitionReadCommand.partitionKey();
         }
 
-
         try (ReadExecutionController executionController = command.executionController();
              UnfilteredPartitionIterator iterator = command.executeLocally(executionController))
         {
             // TODO: Can Change the underlying iterator following this
             // Optimization: Only one read of disk;
 
-            if (command instanceof SinglePartitionReadCommand) {
-//                DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
-//
-//                // Indicate that this Iterator is going to sent to the Coordinator
-//                doubleTreasTag.setTagIndicator();
-//                doubleTreasTag.setKey(decoratedKey);
-//
-//                UnfilteredPartitionIterator sendIterator = response.makeIterator(command, doubleTreasTag);
-//                logger.debug("Finish Create our Iterator, and now make a new response");
-//                response = command.createResponse(sendIterator);
-                response = command.createResponse(iterator, decoratedKey);
-            } else {
-                response = command.createResponse(iterator);
-            }
+            response = command.createResponse(iterator);
 
+            if (command instanceof SinglePartitionReadCommand) {
+                DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
+
+                // Indicate that this Iterator is going to sent to the Coordinator
+                doubleTreasTag.setTagIndicator();
+                doubleTreasTag.setKey(decoratedKey);
+
+                UnfilteredPartitionIterator sendIterator = response.makeIterator(command, doubleTreasTag);
+                logger.debug("Finish Create our Iterator, and now make a new response");
+                response = command.createResponse(sendIterator);
+//                response = command.createResponse(iterator, decoratedKey);
+            }
         }
 
         if (!command.complete())

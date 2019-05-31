@@ -327,7 +327,7 @@ public class UnfilteredSerializer
                             cell.setValue(ByteBufferUtil.bytes(value));
                         } else if (cell.column.toString().startsWith(TreasConfig.VAL_PREFIX)) {
                             logger.debug("Other values are " + ByteBufferUtil.string(cell.value()));
-                            cell.setValue(ByteBufferUtil.bytes(""));
+                            //cell.setValue(ByteBufferUtil.bytes(""));
                         }
                     }
                 }
