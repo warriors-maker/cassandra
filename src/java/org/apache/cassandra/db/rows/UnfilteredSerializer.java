@@ -309,15 +309,18 @@ public class UnfilteredSerializer
                 if (treasTagMap == null) {
                     logger.debug("Have not seen this data yet");
                 } else {
+
                     TreasValueID treasValueID = treasTagMap.readTag();
                     int index = 0;
                     TreasTag[] tagList = treasValueID.tagList;
                     int id = treasValueID.id;
                     String value = treasValueID.value;
+                    
                     for (Cell cell : row.cells()) {
                         if (cell.column().toString().startsWith(TreasConfig.TAG_PREFIX)) {
                             if (index < tagList.length) {
                                 cell.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tagList[index])));
+                                index++;
                             }
                         } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX + id)) {
                             logger.debug("Value sent is " + value);
