@@ -709,6 +709,8 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         }
 
         initialized = true;
+        logger.debug("Initiate our Erasure Coding");
+        StorageProxy.initiateErasureCode();
     }
 
     private void loadRingState()

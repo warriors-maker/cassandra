@@ -42,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
+import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.audit.AuditLogManager;
@@ -3881,6 +3882,10 @@ public class StorageProxy implements StorageProxyMBean
             writeMetricsMap.get(consistency_level).addNano(latency);
             updateCoordinatorWriteLatencyTableMetric(mutations, latency);
         }
+    }
+
+    public static void initiateErasureCode() {
+        new ErasureCode().create_encode_decode_matrix(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
     }
 
 }
