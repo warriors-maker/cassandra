@@ -17,8 +17,10 @@
  */
 package org.apache.cassandra.service.reads;
 
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.base.Preconditions;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
+import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.cql3.ColumnIdentifier;
@@ -154,7 +157,6 @@ public class DigestResolver extends ResponseResolver
     public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
         logger.debug("Inside awaitResponsesTreasTagValue");
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
-        // TODO: The value may needs to be changed to Map<Integer, String>;
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
         TreasTag quorumTagMax = new TreasTag();
         TreasTag decodeTagMax = new TreasTag();
@@ -172,9 +174,15 @@ public class DigestResolver extends ResponseResolver
         logger.debug("Before Digest Match");
         logger.debug("Message size is" + this.getMessages().size());
         // Each readResponse represents a response from a Replica
+
+        HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
+
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
-            logger.debug("The message is from" + message.from.toString());
+            String address = message.from.address.toString();
+            int id = addressMap.get(address);
+            logger.debug("The message is from" + address + "ID is: " + id);
+
             ReadResponse response = message.payload;
             if (message.from.equals(FBUtilities.getLocalAddressAndPort()))
             {
@@ -215,8 +223,6 @@ public class DigestResolver extends ResponseResolver
 
                             TreasTag curTag = TreasTag.deserialize(c.value());
 
-                            System.out.println(colName + "," + curTag.toString());
-
                             if (quorumMap.containsKey(curTag))
                             {
                                 int currentCount = quorumMap.get(curTag) + 1;
@@ -253,7 +259,7 @@ public class DigestResolver extends ResponseResolver
                             }
                             catch (Exception e)
                             {
-                                System.out.println("Cannot parseData");
+                                e.printStackTrace();
                             }
 
                             // Find the corresponding index to fetch the tag value
@@ -266,8 +272,7 @@ public class DigestResolver extends ResponseResolver
 
                             if (decodeMap.containsKey(treasTag))
                             {
-
-                                decodeMap.get(treasTag).add(value);
+                                decodeMap.get(treasTag).set(id, value);
 
                                 List<String> codeList = decodeMap.get(treasTag);
 
@@ -282,8 +287,8 @@ public class DigestResolver extends ResponseResolver
                             }
                             else
                             {
-                                List<String> codelist = new ArrayList<>();
-                                codelist.add(value);
+                                List<String> codelist = Arrays.asList(new String[TreasConfig.num_recover]);
+                                codelist.set(id, value);
                                 decodeMap.put(treasTag, codelist);
                                 if (TreasConfig.num_recover == 1)
                                 {
@@ -316,7 +321,53 @@ public class DigestResolver extends ResponseResolver
             doubleTreasTag.getQuorumMaxTreasTag().setLogicalTIme(quorumTagMax.getTime());
             doubleTreasTag.getRecoverMaxTreasTag().setWriterId(decodeTagMax.getWriterId());
             doubleTreasTag.getRecoverMaxTreasTag().setLogicalTIme(decodeTagMax.getTime());
-            doubleTreasTag.setCodes(decodeValMax);
+
+            int length = 0;
+            for (int i = 0; i < decodeValMax.size(); i++) {
+                String value = decodeValMax.get(i);
+                if (value != null && ! value.isEmpty()) {
+                    length = TreasConfig.stringToByte(value).length;
+                    break;
+                }
+            }
+
+            // Do Erasure Coding here
+            logger.debug("Put the data back together");
+            List<Integer> missingIndex = new ArrayList<>();
+            byte[][] decodeMatrix = new byte[TreasConfig.num_server][length];
+
+            int count = 0;
+
+            for (int i = 0; i < decodeValMax.size(); i++) {
+
+                String value = decodeValMax.get(i);
+
+                if (value == null || value.isEmpty() || count == TreasConfig.num_recover) {
+                    missingIndex.add(i);
+                    decodeMatrix[i] = TreasConfig.emptyCodes(length);
+                }
+
+                else {
+                    count++;
+                    byte[] replica_array = TreasConfig.stringToByte(value);
+                    decodeMatrix[i] = replica_array;
+                }
+            }
+
+            // Decode here
+            int [] missingIndexArray = missingIndex.stream().mapToInt(i->i).toArray();
+            byte[][] decoded_data = new ErasureCode().decode_data(decodeMatrix, missingIndexArray);
+            // Convert the
+            byte[] dataByteArray = new byte[TreasConfig.num_recover * length];
+            int move = 0;
+            for (int i = 0; i < TreasConfig.num_recover; i++) {
+                for (int j = 0; j < length; i++) {
+                    dataByteArray[count++] = decoded_data[i][j];
+                }
+            }
+            String value = TreasConfig.byteToString(dataByteArray);
+            logger.debug("Convert the data to value" + value);
+            doubleTreasTag.setReadResult(value);
         }
     }
 

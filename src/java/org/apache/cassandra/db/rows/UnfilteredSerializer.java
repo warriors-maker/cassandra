@@ -528,11 +528,11 @@ public class UnfilteredSerializer
             for (Cell c : r.cells()) {
                 System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
                 if (c.column.name.toString().equals("field0")) {
-                    List<String> codes = doubleTreasTag.getCodes();
-                    if (codes == null) {
+                    String value = doubleTreasTag.getReadResult();
+                    if (value == null) {
                         c.setValue(ByteBufferUtil.bytes("failure"));
                     } else {
-                        c.setValue(ByteBufferUtil.bytes(codes.get(0)));
+                        c.setValue(ByteBufferUtil.bytes(value));
                     }
 
                 }

@@ -31,10 +31,19 @@ public class DoubleTreasTag
     private TreasTag recoverMaxTreasTag = new TreasTag();
     private List<String> codes = null;
     private ReadResponse readResponse;
+    private String readResult;
 
     private DecoratedKey key;
     private TableMetadata tableMetadata;
     private String keySpace;
+
+    public String getReadResult () {
+        return this.readResult;
+    }
+
+    public void setReadResult(String readResult) {
+        this.readResult = readResult;
+    }
 
     public TreasTag getQuorumMaxTreasTag()
     {

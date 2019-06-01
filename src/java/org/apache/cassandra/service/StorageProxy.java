@@ -18,6 +18,7 @@
 package org.apache.cassandra.service;
 
 import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.file.Paths;
@@ -1534,7 +1535,7 @@ public class StorageProxy implements StorageProxyMBean
 
         // Fetch the corresponding maxTag || value (string) from the incoming mutation
         TreasTag mutationTreasTag = new TreasTag();
-        String value = "";
+        String mutateValue = "";
 
         Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         for (Cell cell : data.cells()) {
@@ -1542,7 +1543,7 @@ public class StorageProxy implements StorageProxyMBean
                 mutationTreasTag = TreasTag.deserialize(cell.value());
             } else if (cell.column().name.toString().equals("field0")) {
                 try {
-                    value = ByteBufferUtil.string(cell.value());
+                    mutateValue = ByteBufferUtil.string(cell.value());
                 } catch (CharacterCodingException e) {
                     e.printStackTrace();
                 }
@@ -1550,13 +1551,20 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         // TODO: In the future value will need to be broken down into codes but now is the whole data
+        byte []valueBytes = mutateValue.getBytes();
+        byte [][]encodeMatrix = new ErasureCode().encode_data(valueBytes);
 
-//        byte [][]encoder = ErasureEcode;
+        String coordinatorAdress = FBUtilities.getJustLocalAddress().toString();
+        HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
 
-        List<String> codeList = new ArrayList<>();
-        for (int i = 0; i < TreasConfig.num_server; i++) {
-            codeList.add(value);
-        }
+        int coordinator_index = addressMap.get(coordinatorAdress);
+        String value = TreasConfig.byteToString(encodeMatrix[coordinator_index]);
+        logger.debug ("Coordinator adress is " + coordinatorAdress + " My Id is :" + coordinator_index + " value: " + value);
+
+//        List<String> codeList = new ArrayList<>();
+//        for (int i = 0; i < TreasConfig.num_server; i++) {
+//            codeList.add(value);
+//        }
 
         if (backPressureHosts != null)
             MessagingService.instance().applyBackPressure(backPressureHosts, responseHandler.currentTimeout());
@@ -1663,7 +1671,6 @@ public class StorageProxy implements StorageProxyMBean
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
                 long timeStamp = FBUtilities.timestampMicros();
 
-                String codedValue = codeList.get(0);
                 // Fetch the index from a Map
                 // byte[] myData = erasureCode[index];
                 if (hit == 1) {
@@ -1671,7 +1678,7 @@ public class StorageProxy implements StorageProxyMBean
                                    .timestamp(timeStamp)
                                    .row()
                                    .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add(minFieldColName,codedValue)
+                                   .add(minFieldColName,value)
                                    .add("field0","");
                 }
                 else if (mutationTreasTag.isLarger(maxTreasTag)) {
@@ -1679,7 +1686,7 @@ public class StorageProxy implements StorageProxyMBean
                                    .timestamp(timeStamp)
                                    .row()
                                    .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add(minFieldColName,codedValue)
+                                   .add(minFieldColName,value)
                                    .add("field0","")
                                    .add(oldMaxFieldName, null);
                 } else {
@@ -1692,21 +1699,23 @@ public class StorageProxy implements StorageProxyMBean
 
 
                 Mutation coordinatorMutation = mutationBuilder.build();
-
                 performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
             }
-
         }
 
         // Send to Replica
         if (localDc != null)
         {
-            int index = 1;
             for (InetAddressAndPort destination : localDc)
             {
                 // Build unique Mutation for all replicas
 
-                logger.debug("Send to Current destination is" + destination.toString());
+                String address = destination.getHostAddress(false);
+                int replica_index = addressMap.get(address);
+                value = TreasConfig.byteToString(encodeMatrix[replica_index]);
+                logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);
+
+
                 // Based on their IP address fetch the according byte array
                 // Fetch the index from a Map
                 // byte[] myData = erasureCode[index];
@@ -1717,14 +1726,13 @@ public class StorageProxy implements StorageProxyMBean
                                .timestamp(timeStamp)
                                .row()
                                .add(TreasConfig.TAG_ONE, TreasTag.serialize(mutationTreasTag))
-                               .add(TreasConfig.VAL_ONE,codeList.get(index))
+                               .add(TreasConfig.VAL_ONE,value)
                                .add("field0","");
 
                 Mutation uniqueMutation = mutationBuilder.build();
                 MessageOut uniqueReplicaMessage = uniqueMutation.createMessage();
 
                 MessagingService.instance().sendRR(uniqueReplicaMessage, destination, responseHandler, true);
-                index ++;
             }
         }
         if (dcGroups != null)
@@ -3436,13 +3444,6 @@ public class StorageProxy implements StorageProxyMBean
     public static void mutate(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
-        logger.debug("Print out all the library path");
-        String property = System.getProperty("java.library.path");
-        StringTokenizer parser = new StringTokenizer(property, ";");
-        while (parser.hasMoreTokens()) {
-            logger.debug(parser.nextToken());
-        }
-
 
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
@@ -3622,7 +3623,7 @@ public class StorageProxy implements StorageProxyMBean
 
         for (int i=0; i<cmdCount; i++)
         {
-            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
+            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), treasConsistencyLevel, queryStartNanoTime);
         }
 
         for (int i=0; i<cmdCount; i++)
@@ -3794,7 +3795,6 @@ public class StorageProxy implements StorageProxyMBean
             TreasTag quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
             TreasTag decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
             List<String> codes = doubleTreasTag.getCodes();
-            // TODO: Add Encoding here
             DecoratedKey key = doubleTreasTag.getKey();
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
             String keySpace = doubleTreasTag.getKeySpace();
@@ -3806,7 +3806,7 @@ public class StorageProxy implements StorageProxyMBean
                                .timestamp(timeStamp)
                                .row()
                                .add(TreasConfig.TAG_ONE, TreasTag.serialize(decodeMaxTag))
-                               .add("field0", codes.get(0)); // TODO: Later change get 0 to be the encoded value;
+                               .add("field0", doubleTreasTag.getReadResult());
                 Mutation mutation = mutationBuilder.build();
                 mutations.add(mutation);
             }

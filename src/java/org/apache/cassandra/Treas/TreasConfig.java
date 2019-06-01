@@ -18,6 +18,8 @@
 
 package org.apache.cassandra.Treas;
 
+import java.util.HashMap;
+
 import org.apache.cassandra.cql3.ColumnIdentifier;
 
 public class TreasConfig
@@ -38,12 +40,40 @@ public class TreasConfig
     public static final String VAL_PREFIX =  "field";
     public static final String TAG_PREFIX =  "tag";
 
+    public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.1","10.0.0.1","10.0.0.1","10.0.0.1"};
+
+    private static HashMap<String, Integer> map = new HashMap<>();
+
     public static final int QUORUM = (int) Math.ceil ( (TreasConfig.num_server + TreasConfig.num_recover) / 2);
 
-    public static  ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(TAG_ONE, true);
-    public static  ColumnIdentifier tagTwoIdentifier = new ColumnIdentifier(TAG_TWO, true);
-    public static  ColumnIdentifier tagThreeIdentifier = new ColumnIdentifier(TAG_THREE, true);
-    public static  ColumnIdentifier valOneIdentifier = new ColumnIdentifier(VAL_ONE, true);
-    public static  ColumnIdentifier valTwoIdentifier = new ColumnIdentifier(VAL_TWO, true);
-    public static  ColumnIdentifier valThreeIdentifier = new ColumnIdentifier(VAL_THREE, true);
+
+    // Convert the byte array to String to send back to client
+    public static String byteToString(byte[] arr) {
+        return new String(arr);
+    }
+
+    // Convert incoming String value
+    public static byte[] stringToByte(String value) {
+        return value.getBytes();
+    }
+
+    // Create the Empty Codes based on what I set
+    public static byte[] emptyCodes(int length) {
+        byte[] arr = new byte[length];
+        for (int i = 0; i < length; i++) {
+            arr[i] = '0';
+        }
+        return arr;
+    }
+
+    public static void initiateAddressMap() {
+        for (int i = 0; i < ADDRESSES.length; i++) {
+            map.put(ADDRESSES[i], i);
+        }
+    }
+
+    public static HashMap<String, Integer> getAddressMap() {
+        return map;
+    }
+
 }

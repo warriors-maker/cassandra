@@ -18,11 +18,6 @@
 
 package org.apache.cassandra.Treas;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.apache.cassandra.service.StorageProxy;
-
 public class ErasureCode
 {
     public native void create_encode_decode_matrix(int k, int p);

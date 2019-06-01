@@ -525,7 +525,6 @@ public abstract class AbstractReadExecutor
 
             ReadResponse response = message.payload;
 
-
             // check if the response is indeed a data response
             // we shouldn't get a digest response here
             assert response.isDigestResponse() == false;
@@ -565,15 +564,6 @@ public abstract class AbstractReadExecutor
         logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
         setResult(readResponse);
 
-//        if (digestResolver.responsesMatch())
-//        {
-//
-//        }
-//        else
-//        {
-//            Tracing.trace("Digest mismatch: Mismatch for key {}", getKey());
-////            readRepair.startRepair(digestResolver, handler.endpoints, getContactedReplicas(), this::setResult);
-//        }
     }
 
 
