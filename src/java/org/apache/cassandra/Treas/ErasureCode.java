@@ -30,7 +30,6 @@ public class ErasureCode
     {
         try
         {
-            System.loadLibrary("isal");
             System.loadLibrary("erasure");
         }
         catch ( Exception e )
