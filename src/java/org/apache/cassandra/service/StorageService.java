@@ -711,6 +711,16 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
 
         initialized = true;
         logger.debug("Initiate our Erasure Coding");
+        String javaLibPath = System.getProperty("java.library.path");
+        Map<String, String> envVars = System.getenv();
+        logger.debug(envVars.get("Path"));
+        logger.debug(javaLibPath);
+        for (String var : envVars.keySet()) {
+            logger.debug("examining " + var);
+            if (envVars.get(var).equals(javaLibPath)) {
+                logger.debug(var);
+            }
+        }
         StorageProxy.initiateErasureCode();
         TreasConfig.initiateAddressMap();
     }
