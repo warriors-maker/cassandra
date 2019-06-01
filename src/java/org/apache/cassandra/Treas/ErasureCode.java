@@ -18,24 +18,106 @@
 
 package org.apache.cassandra.Treas;
 
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+
+import org.apache.cassandra.JavaReedSolomon.src.main.java.com.backblaze.erasure.ReedSolomon;
+import org.mortbay.util.IO;
+
 public class ErasureCode
 {
-    public native void create_encode_decode_matrix(int k, int p);
-    public native void destroy_encode_decode_matrix();
-    public native void cmain(byte[] data);
-    public native byte[][] encode_data(byte[] data);
-    public native byte[][] decode_data(byte[][] encoded_data, int []erased_indices);
+    static ReedSolomon reedSolomon;
 
-    static
-    {
-        try
-        {
-            System.loadLibrary("erasure");
+    public static final int DATA_SHARDS = TreasConfig.num_recover;
+    public static final int PARITY_SHARDS = TreasConfig.num_server - TreasConfig.num_recover;
+    public static final int TOTAL_SHARDS = TreasConfig.num_server;
+
+    public static final int BYTES_IN_INT = 4;
+
+    public static ReedSolomon getReedSolomon () {
+        if (reedSolomon == null) {
+            reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         }
-        catch ( Exception e )
-        {
-            e.printStackTrace( );
-        }
+        return reedSolomon;
     }
 
+    public static byte[][] encodeData(String value) {
+        final int valueSize =  value.length();
+
+
+        // Figure out how big each shard will be.  The total size stored
+        // will be the file size (8 bytes) plus the file.
+        final int storedSize = valueSize + BYTES_IN_INT;
+        final int shardSize = (storedSize + DATA_SHARDS - 1) / DATA_SHARDS;
+
+        // Create a buffer holding the file size, followed by
+        // the contents of the file.
+        final int bufferSize = shardSize * DATA_SHARDS;
+        final byte [] allBytes = new byte[bufferSize];
+
+
+        ByteBuffer.wrap(allBytes).putInt(valueSize);
+        InputStream in = new ByteArrayInputStream(value.getBytes(Charset.forName("UTF-8")));
+
+
+        try {
+            in.read(allBytes, BYTES_IN_INT, valueSize);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally
+        {
+            try
+            {
+                in.close();
+            }
+            catch (IOException e)
+            {
+                e.printStackTrace();
+            }
+        }
+
+        // Make the buffers to hold the shards.
+        byte [] [] shards = new byte [TOTAL_SHARDS] [shardSize];
+
+        // Fill in the data shards
+        for (int i = 0; i < DATA_SHARDS; i++) {
+            System.arraycopy(allBytes, i * shardSize, shards[i], 0, shardSize);
+        }
+
+        // Use Reed-Solomon to calculate the parity.
+        ReedSolomon reedSolomon = ReedSolomon.create(DATA_SHARDS, PARITY_SHARDS);
+        reedSolomon.encodeParity(shards, 0, shardSize);
+
+        return shards;
+    }
+
+    public static String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize) {
+        reedSolomon.decodeMissing(shards, shardPresent, 0, shardSize);
+        byte [] decodeBytes = new byte[shardSize * DATA_SHARDS];
+
+        int valueSize = ByteBuffer.wrap(decodeBytes).getInt();
+
+        for (int i = 0; i < DATA_SHARDS; i++) {
+            System.arraycopy(shards[i], 0, decodeBytes, shardSize * i, shardSize);
+        }
+
+        OutputStream out = new ByteArrayOutputStream();
+
+        try
+        {
+            out.write(decodeBytes, BYTES_IN_INT, valueSize);
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+
+        return out.toString();
+    }
 }

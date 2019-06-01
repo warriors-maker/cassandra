@@ -51,6 +51,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.audit.AuditLogManager;
 import org.apache.cassandra.audit.AuditLogOptions;
@@ -712,7 +713,7 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         initialized = true;
         logger.debug("Initiate our Erasure Coding");
         logger.debug(System.getProperty("java.library.path"));
-        StorageProxy.initiateErasureCode();
+        ErasureCode.getReedSolomon();
         TreasConfig.initiateAddressMap();
     }
 

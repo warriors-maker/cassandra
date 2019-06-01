@@ -333,7 +333,9 @@ public class DigestResolver extends ResponseResolver
 
             // Do Erasure Coding here
             logger.debug("Put the data back together");
-            List<Integer> missingIndex = new ArrayList<>();
+//            List<Integer> missingIndex = new ArrayList<>();
+
+            boolean []shardPresent = new boolean[TreasConfig.num_server];
             byte[][] decodeMatrix = new byte[TreasConfig.num_server][length];
 
             int count = 0;
@@ -343,7 +345,7 @@ public class DigestResolver extends ResponseResolver
                 String value = decodeValMax.get(i);
 
                 if (value == null || value.isEmpty() || count == TreasConfig.num_recover) {
-                    missingIndex.add(i);
+//                    missingIndex.add(i);
                     decodeMatrix[i] = TreasConfig.emptyCodes(length);
                 }
 
@@ -351,21 +353,13 @@ public class DigestResolver extends ResponseResolver
                     count++;
                     byte[] replica_array = TreasConfig.stringToByte(value);
                     decodeMatrix[i] = replica_array;
+                    shardPresent[i] = true;
                 }
             }
 
             // Decode here
-            int [] missingIndexArray = missingIndex.stream().mapToInt(i->i).toArray();
-            byte[][] decoded_data = new ErasureCode().decode_data(decodeMatrix, missingIndexArray);
-            // Convert the
-            byte[] dataByteArray = new byte[TreasConfig.num_recover * length];
-            int move = 0;
-            for (int i = 0; i < TreasConfig.num_recover; i++) {
-                for (int j = 0; j < length; i++) {
-                    dataByteArray[count++] = decoded_data[i][j];
-                }
-            }
-            String value = TreasConfig.byteToString(dataByteArray);
+//            int [] missingIndexArray = missingIndex.stream().mapToInt(i->i).toArray();
+            String value = ErasureCode.decodeeData(decodeMatrix, shardPresent, length);
             logger.debug("Convert the data to value" + value);
             doubleTreasTag.setReadResult(value);
         }

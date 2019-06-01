@@ -1551,8 +1551,7 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         // TODO: In the future value will need to be broken down into codes but now is the whole data
-        byte []valueBytes = mutateValue.getBytes();
-        byte [][]encodeMatrix = new ErasureCode().encode_data(valueBytes);
+        byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
 
         String coordinatorAdress = FBUtilities.getJustLocalAddress().toString();
         HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
@@ -3883,9 +3882,4 @@ public class StorageProxy implements StorageProxyMBean
             updateCoordinatorWriteLatencyTableMetric(mutations, latency);
         }
     }
-
-    public static void initiateErasureCode() {
-        new ErasureCode().create_encode_decode_matrix(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
-    }
-
 }
