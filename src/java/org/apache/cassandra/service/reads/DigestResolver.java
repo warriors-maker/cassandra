@@ -180,7 +180,7 @@ public class DigestResolver extends ResponseResolver
 
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
-            String address = message.from.address.toString();
+            String address = message.from.address.toString().substring(1);
             logger.debug("Address are" + address);
             int id = addressMap.get(address);
             logger.debug("The message is from" + address + "ID is: " + id);
