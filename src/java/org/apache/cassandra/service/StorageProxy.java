@@ -1847,6 +1847,7 @@ public class StorageProxy implements StorageProxyMBean
                     // Build unique Mutation for all replicas
 
                     String address = destination.getHostAddress(false);
+                    logger.debug("Replica address is" + address);
                     int replica_index = addressMap.get(address);
                     value = TreasConfig.byteToString(encodeMatrix[replica_index]);
                     logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);
