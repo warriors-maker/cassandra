@@ -158,7 +158,10 @@ public class DigestResolver extends ResponseResolver
         logger.debug("Inside awaitResponsesTreasTagValue");
         System.out.println("Inside awaitResponsesTreasTagValue");
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
+
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
+        HashMap<TreasTag, Integer> decodeCountMap = new HashMap<>();
+
         TreasTag quorumTagMax = new TreasTag();
         TreasTag decodeTagMax = new TreasTag();
 
@@ -274,11 +277,16 @@ public class DigestResolver extends ResponseResolver
 
                             if (decodeMap.containsKey(treasTag))
                             {
-                                decodeMap.get(treasTag).set(id, value);
-
                                 List<String> codeList = decodeMap.get(treasTag);
+                                logger.debug("CodeList size is" + codeList.size());
+                                codeList.set(id, value);
 
-                                if (codeList.size() == TreasConfig.num_recover)
+                                int count = decodeCountMap.get(treasTag) + 1;
+                                decodeCountMap.put(treasTag,count);
+
+//                                decodeMap.get(treasTag).set(id, value);
+
+                                if (count == TreasConfig.num_recover)
                                 {
                                     if (treasTag.isLarger(decodeTagMax))
                                     {
@@ -290,8 +298,10 @@ public class DigestResolver extends ResponseResolver
                             else
                             {
                                 List<String> codelist = Arrays.asList(new String[TreasConfig.num_recover]);
+                                logger.debug("Initialize the codelist and size is " + codelist.size());
                                 codelist.set(id, value);
                                 decodeMap.put(treasTag, codelist);
+                                decodeCountMap.put(treasTag,1);
                                 if (TreasConfig.num_recover == 1)
                                 {
                                     if (treasTag.isLarger(decodeTagMax))
