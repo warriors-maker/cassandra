@@ -36,7 +36,6 @@ import org.mortbay.util.IO;
 
 public class ErasureCode
 {
-    static ReedSolomon reedSolomon;
 
     public static final int DATA_SHARDS = TreasConfig.num_recover;
     public static final int PARITY_SHARDS = TreasConfig.num_server - TreasConfig.num_recover;
@@ -45,14 +44,15 @@ public class ErasureCode
 
     public static final int BYTES_IN_INT = 4;
 
-    public static ReedSolomon getReedSolomon () {
-        if (reedSolomon == null) {
-            reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
-        }
-        return reedSolomon;
-    }
+//    public static ReedSolomon getReedSolomon () {
+//        if (reedSolomon == null) {
+//            reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
+//        }
+//        return reedSolomon;
+//    }
 
     public static byte[][] encodeData(String value) {
+        ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         final int valueSize =  value.length();
         logger.debug("Inside encodeData");
 
@@ -104,6 +104,7 @@ public class ErasureCode
     }
 
     public static String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize) {
+        ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         reedSolomon.decodeMissing(shards, shardPresent, 0, shardSize);
 //        System.out.println(new String(shards[0]));
 //        System.out.println("shardSize is" + shardSize);

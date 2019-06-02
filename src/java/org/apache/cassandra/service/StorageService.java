@@ -713,7 +713,7 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         initialized = true;
         logger.debug("Initiate our Erasure Coding");
         logger.debug(System.getProperty("java.library.path"));
-        ErasureCode.getReedSolomon();
+        //ErasureCode.getReedSolomon();
         TreasConfig.initiateAddressMap();
     }
 
