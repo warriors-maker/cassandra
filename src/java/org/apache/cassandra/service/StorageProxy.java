@@ -1555,7 +1555,7 @@ public class StorageProxy implements StorageProxyMBean
 
         String coordinatorAdress = FBUtilities.getJustLocalAddress().toString();
         HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
-        System.out.println("Coordinator address is" + coordinatorAdress);
+        logger.debug("Coordinator address is" + coordinatorAdress);
         int coordinator_index = addressMap.get(coordinatorAdress);
         String value = TreasConfig.byteToString(encodeMatrix[coordinator_index]);
         logger.debug ("Coordinator adress is " + coordinatorAdress + " My Id is :" + coordinator_index + " value: " + value);
