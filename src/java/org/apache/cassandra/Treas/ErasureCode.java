@@ -49,12 +49,14 @@ public class ErasureCode
 
     public static byte[][] encodeData(String value) {
         final int valueSize =  value.length();
-
+        System.out.println("Value size : " + valueSize);
 
         // Figure out how big each shard will be.  The total size stored
         // will be the file size (8 bytes) plus the file.
         final int storedSize = valueSize + BYTES_IN_INT;
         final int shardSize = (storedSize + DATA_SHARDS - 1) / DATA_SHARDS;
+
+        System.out.println("Shard size : " + shardSize);
 
         // Create a buffer holding the file size, followed by
         // the contents of the file.
@@ -99,13 +101,16 @@ public class ErasureCode
 
     public static String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize) {
         reedSolomon.decodeMissing(shards, shardPresent, 0, shardSize);
+//        System.out.println(new String(shards[0]));
+//        System.out.println("shardSize is" + shardSize);
         byte [] decodeBytes = new byte[shardSize * DATA_SHARDS];
 
-        int valueSize = ByteBuffer.wrap(decodeBytes).getInt();
-
+        System.out.println("valueSize is" + shardSize);
         for (int i = 0; i < DATA_SHARDS; i++) {
             System.arraycopy(shards[i], 0, decodeBytes, shardSize * i, shardSize);
         }
+
+        int valueSize = ByteBuffer.wrap(decodeBytes).getInt();
 
         OutputStream out = new ByteArrayOutputStream();
 
@@ -118,6 +123,7 @@ public class ErasureCode
             e.printStackTrace();
         }
 
+//        System.out.println("DEcode value is" + out.toString());
         return out.toString();
     }
 }

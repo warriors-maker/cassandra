@@ -156,6 +156,7 @@ public class DigestResolver extends ResponseResolver
 
     public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
         logger.debug("Inside awaitResponsesTreasTagValue");
+        System.out.println("Inside awaitResponsesTreasTagValue");
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
         TreasTag quorumTagMax = new TreasTag();
@@ -346,7 +347,7 @@ public class DigestResolver extends ResponseResolver
 
                 if (value == null || value.isEmpty() || count == TreasConfig.num_recover) {
 //                    missingIndex.add(i);
-                    decodeMatrix[i] = TreasConfig.emptyCodes(length);
+                    decodeMatrix[i] = new byte[length];
                 }
 
                 else {
