@@ -1690,7 +1690,7 @@ public class StorageProxy implements StorageProxyMBean
             byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
             logger.debug("Finish EncodeData");
 
-            String coordinatorAdress = FBUtilities.getJustLocalAddress().toString();
+            String coordinatorAdress = FBUtilities.getJustLocalAddress().toString().substring(1);
             HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
             logger.debug("Coordinator address is" + coordinatorAdress);
             int coordinator_index = addressMap.get(coordinatorAdress);
