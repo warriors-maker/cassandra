@@ -297,7 +297,7 @@ public class DigestResolver extends ResponseResolver
                             }
                             else
                             {
-                                List<String> codelist = Arrays.asList(new String[TreasConfig.num_recover]);
+                                List<String> codelist = Arrays.asList(new String[TreasConfig.QUORUM]);
                                 logger.debug("Initialize the codelist and size is " + codelist.size());
                                 codelist.set(id, value);
                                 decodeMap.put(treasTag, codelist);
