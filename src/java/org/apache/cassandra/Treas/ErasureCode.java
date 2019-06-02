@@ -27,7 +27,11 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.JavaReedSolomon.src.main.java.com.backblaze.erasure.ReedSolomon;
+import org.apache.cassandra.service.StorageProxy;
 import org.mortbay.util.IO;
 
 public class ErasureCode
@@ -37,6 +41,7 @@ public class ErasureCode
     public static final int DATA_SHARDS = TreasConfig.num_recover;
     public static final int PARITY_SHARDS = TreasConfig.num_server - TreasConfig.num_recover;
     public static final int TOTAL_SHARDS = TreasConfig.num_server;
+    private static final Logger logger = LoggerFactory.getLogger(ErasureCode.class);
 
     public static final int BYTES_IN_INT = 4;
 
@@ -49,14 +54,13 @@ public class ErasureCode
 
     public static byte[][] encodeData(String value) {
         final int valueSize =  value.length();
-        System.out.println("Value size : " + valueSize);
+        logger.debug("Inside encodeData");
 
         // Figure out how big each shard will be.  The total size stored
         // will be the file size (8 bytes) plus the file.
         final int storedSize = valueSize + BYTES_IN_INT;
         final int shardSize = (storedSize + DATA_SHARDS - 1) / DATA_SHARDS;
 
-        System.out.println("Shard size : " + shardSize);
 
         // Create a buffer holding the file size, followed by
         // the contents of the file.
@@ -93,9 +97,9 @@ public class ErasureCode
         }
 
         // Use Reed-Solomon to calculate the parity.
-        ReedSolomon reedSolomon = ReedSolomon.create(DATA_SHARDS, PARITY_SHARDS);
+        logger.debug("Before Encode Parity");
         reedSolomon.encodeParity(shards, 0, shardSize);
-
+        logger.debug("Finish Encode");
         return shards;
     }
 

@@ -1593,6 +1593,7 @@ public class StorageProxy implements StorageProxyMBean
             sendToHintedEndpointsOrigin(mutation,targets,responseHandler,localDataCenter,stage);
         }
         else {
+            logger.debug("Inside sendTohintedEndPoint");
             int targetsSize = Iterables.size(targets);
 
             // this dc replicas:
@@ -1687,6 +1688,7 @@ public class StorageProxy implements StorageProxyMBean
 
             // TODO: In the future value will need to be broken down into codes but now is the whole data
             byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
+            logger.debug("Finish EncodeData");
 
             String coordinatorAdress = FBUtilities.getJustLocalAddress().toString();
             HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();

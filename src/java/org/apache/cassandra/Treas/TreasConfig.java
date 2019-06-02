@@ -46,7 +46,7 @@ public class TreasConfig
 
     private static HashMap<String, Integer> map = new HashMap<>();
 
-    public static final int QUORUM = (int) Math.ceil ( (TreasConfig.num_server + TreasConfig.num_recover) / 2);
+    public static final int QUORUM = (int) Math.ceil ( (TreasConfig.num_server + TreasConfig.num_intersect) / 2);
 
 
     // Convert the byte array to String to send back to client
