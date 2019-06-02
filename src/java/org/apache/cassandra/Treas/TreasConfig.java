@@ -18,6 +18,7 @@
 
 package org.apache.cassandra.Treas;
 
+import java.util.Base64;
 import java.util.HashMap;
 
 import org.apache.cassandra.cql3.ColumnIdentifier;
@@ -50,13 +51,13 @@ public class TreasConfig
 
 
     // Convert the byte array to String to send back to client
-    public static String byteToString(byte[] arr) {
-        return new String(arr);
+    public static String byteToString(byte[] bytes) {
+        return Base64.getEncoder().encodeToString(bytes);
     }
 
     // Convert incoming String value
     public static byte[] stringToByte(String value) {
-        return value.getBytes();
+        return Base64.getDecoder().decode(value);
     }
 
     // Create the Empty Codes based on what I set
