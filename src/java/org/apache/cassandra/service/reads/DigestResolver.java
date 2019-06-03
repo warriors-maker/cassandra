@@ -19,6 +19,7 @@ package org.apache.cassandra.service.reads;
 
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.sql.Blob;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -155,8 +156,8 @@ public class DigestResolver extends ResponseResolver
     }
 
     public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
-        logger.debug("Inside awaitResponsesTreasTagValue");
-        System.out.println("Inside awaitResponsesTreasTagValue");
+        //logger.debug("Inside awaitResponsesTreasTagValue");
+        //System.out.println("Inside awaitResponsesTreasTagValue");
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
 
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
@@ -175,8 +176,8 @@ public class DigestResolver extends ResponseResolver
         DecoratedKey key = null;
         TableMetadata tableMetadata = null;
 
-        logger.debug("Before Digest Match");
-        logger.debug("Message size is" + this.getMessages().size());
+        //logger.debug("Before Digest Match");
+        //logger.debug("Message size is" + this.getMessages().size());
         // Each readResponse represents a response from a Replica
 
         HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
@@ -184,15 +185,11 @@ public class DigestResolver extends ResponseResolver
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
             String address = message.from.address.toString().substring(1);
-            logger.debug("Address are" + address);
+            //logger.debug("Address are" + address);
             int id = addressMap.get(address);
-            logger.debug("The message is from" + address + "ID is: " + id);
+            //logger.debug("The message is from" + address + "ID is: " + id);
 
             ReadResponse response = message.payload;
-            if (message.from.equals(FBUtilities.getLocalAddressAndPort()))
-            {
-                logger.debug("This message is from me");
-            }
 
             assert response.isDigestResponse() == false;
 
@@ -278,7 +275,7 @@ public class DigestResolver extends ResponseResolver
                             if (decodeMap.containsKey(treasTag))
                             {
                                 List<String> codeList = decodeMap.get(treasTag);
-                                logger.debug("CodeList size is" + codeList.size());
+                                //logger.debug("CodeList size is" + codeList.size());
                                 codeList.set(id, value);
 
                                 int count = decodeCountMap.get(treasTag) + 1;
@@ -298,7 +295,7 @@ public class DigestResolver extends ResponseResolver
                             else
                             {
                                 List<String> codelist = Arrays.asList(new String[TreasConfig.QUORUM]);
-                                logger.debug("Initialize the codelist and size is " + codelist.size());
+                                //logger.debug("Initialize the codelist and size is " + codelist.size());
                                 codelist.set(id, value);
                                 decodeMap.put(treasTag, codelist);
                                 decodeCountMap.put(treasTag,1);
@@ -317,18 +314,18 @@ public class DigestResolver extends ResponseResolver
             }
         }
 
-        logger.debug("Finish reading Quorum and Decodable");
-        System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
-        logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+        //logger.debug("Finish reading Quorum and Decodable");
+        //System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+        //logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
 
         // Either one of them is not satisfied stop the procedure;
         if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1)
         {
-            logger.debug("Fail to get enough result");
+            //logger.debug("Fail to get enough result");
         }
         else
         {
-            logger.debug("Successfully get the result");
+            //logger.debug("Successfully get the result");
             doubleTreasTag.getQuorumMaxTreasTag().setWriterId(quorumTagMax.getWriterId());
             doubleTreasTag.getQuorumMaxTreasTag().setLogicalTIme(quorumTagMax.getTime());
             doubleTreasTag.getRecoverMaxTreasTag().setWriterId(decodeTagMax.getWriterId());
@@ -344,7 +341,7 @@ public class DigestResolver extends ResponseResolver
             }
 
             // Do Erasure Coding here
-            logger.debug("Put the data back together");
+            //logger.debug("Put the data back together");
 //            List<Integer> missingIndex = new ArrayList<>();
 
             boolean []shardPresent = new boolean[TreasConfig.num_server];
@@ -372,7 +369,7 @@ public class DigestResolver extends ResponseResolver
             // Decode here
 //            int [] missingIndexArray = missingIndex.stream().mapToInt(i->i).toArray();
             String value = ErasureCode.decodeeData(decodeMatrix, shardPresent, length);
-            logger.debug("Convert the data to value" + value);
+            //logger.debug("Convert the data to value" + value);
             doubleTreasTag.setReadResult(value);
         }
     }
