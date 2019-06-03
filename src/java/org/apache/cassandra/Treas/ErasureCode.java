@@ -54,7 +54,7 @@ public class ErasureCode
     public static byte[][] encodeData(String value) {
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         final int valueSize =  value.length();
-        logger.debug("Inside encodeData");
+        //logger.debug("Inside encodeData");
 
         // Figure out how big each shard will be.  The total size stored
         // will be the file size (8 bytes) plus the file.
@@ -97,9 +97,9 @@ public class ErasureCode
         }
 
         // Use Reed-Solomon to calculate the parity.
-        logger.debug("Before Encode Parity");
+        //logger.debug("Before Encode Parity");
         reedSolomon.encodeParity(shards, 0, shardSize);
-        logger.debug("Finish Encode");
+        //logger.debug("Finish Encode");
         return shards;
     }
 
@@ -110,7 +110,7 @@ public class ErasureCode
 //        System.out.println("shardSize is" + shardSize);
         byte [] decodeBytes = new byte[shardSize * DATA_SHARDS];
 
-        System.out.println("valueSize is" + shardSize);
+        //System.out.println("valueSize is" + shardSize);
         for (int i = 0; i < DATA_SHARDS; i++) {
             System.arraycopy(shards[i], 0, decodeBytes, shardSize * i, shardSize);
         }

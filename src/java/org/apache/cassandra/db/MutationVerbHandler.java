@@ -59,7 +59,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
     }
 
     public void doVerb(MessageIn<Mutation> message, int id)  throws IOException {
-        logger.debug("Inside Doverb");
+        //logger.debug("Inside Doverb");
         // Check if there were any forwarding headers in this message
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
         InetAddressAndPort replyTo;
