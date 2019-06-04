@@ -81,10 +81,10 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         {
             // TODO: Can Change the underlying iterator following this
             if (command instanceof SinglePartitionReadCommand) {
-                response = command.createResponse(iterator);
-            } else {
                 logger.debug("Create response");
                 response = command.createResponse(iterator, decoratedKey);
+            } else {
+                response = command.createResponse(iterator);
             }
 //            // Optimization: Only one read of disk;
 //
