@@ -3463,7 +3463,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-        //logger.debug("Inside mutate");
+        logger.debug("Inside mutate");
 
         long startTime = System.nanoTime();
 
@@ -3631,7 +3631,7 @@ public class StorageProxy implements StorageProxyMBean
     private static List<TreasTag> fetchTagTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-//        logger.debug("Old Configuration:" + consistencyLevel);
+        logger.debug("Old Configuration:" + consistencyLevel);
 
         if (commands.size() == 0) {
             logger.debug("Size is zero");
