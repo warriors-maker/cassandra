@@ -70,8 +70,10 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         ReadResponse response;
 
         DecoratedKey decoratedKey = null;
+
+        SinglePartitionReadCommand singlePartitionReadCommand = null;
         if (command instanceof SinglePartitionReadCommand) {
-            SinglePartitionReadCommand singlePartitionReadCommand = (SinglePartitionReadCommand) command;
+            singlePartitionReadCommand = (SinglePartitionReadCommand) command;
             decoratedKey = singlePartitionReadCommand.partitionKey();
         }
 
@@ -81,7 +83,13 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
             // TODO: Can Change the underlying iterator following this
             // Optimization: Only one read of disk;
 
-            response = command.createResponse(iterator);
+            // TODO: Can Change the underlying iterator following this
+            if (singlePartitionReadCommand != null && singlePartitionReadCommand.metadata().keyspace.equals("ycsb")) {
+                response = command.createResponse(iterator, decoratedKey);
+            } else {
+                response = command.createResponse(iterator);
+            }
+
 
 //            if (command instanceof SinglePartitionReadCommand) {
 //                DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
