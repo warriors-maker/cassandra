@@ -246,6 +246,7 @@ public class UnfilteredSerializer
     private void serialize(Row row, SerializationHeader header, DataOutputPlus out, long previousUnfilteredSize, int version, DecoratedKey key)
     throws IOException
     {
+        logger.debug("Inside debug");
         int flags = 0;
         int extendedFlags = 0;
         boolean isStatic = row.isStatic();

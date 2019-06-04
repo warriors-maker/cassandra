@@ -71,6 +71,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 
         DecoratedKey decoratedKey = null;
         if (command instanceof SinglePartitionReadCommand) {
+            logger.debug("get the decorated key");
             SinglePartitionReadCommand singlePartitionReadCommand = (SinglePartitionReadCommand) command;
             decoratedKey = singlePartitionReadCommand.partitionKey();
         }
@@ -82,6 +83,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
             if (command instanceof SinglePartitionReadCommand) {
                 response = command.createResponse(iterator);
             } else {
+                logger.debug("Create response");
                 response = command.createResponse(iterator, decoratedKey);
             }
 //            // Optimization: Only one read of disk;
