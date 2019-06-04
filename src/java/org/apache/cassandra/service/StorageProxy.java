@@ -1688,7 +1688,7 @@ public class StorageProxy implements StorageProxyMBean
             //logger.debug("Finish EncodeData");
 
             String coordinatorAdress = FBUtilities.getJustLocalAddress().toString().substring(1);
-            logger.debug("CoordinatorAddress is:" + coordinatorAdress);
+            //logger.debug("CoordinatorAddress is:" + coordinatorAdress);
             HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
             //logger.debug("Coordinator address is" + coordinatorAdress);
             int coordinator_index = addressMap.get(coordinatorAdress);
@@ -1715,14 +1715,14 @@ public class StorageProxy implements StorageProxyMBean
                 }
 
                 Mutation commitMutation = treasTagMap.putTreasTag(mutationTreasTag, value, mutation);
-                treasTagMap.printTagMap();
+                //treasTagMap.printTagMap();
 
                 if (commitMutation == null) {
-                    logger.debug("Does not Write into the disk");
+                    //logger.debug("Does not Write into the disk");
                     performLocally(responseHandler);
                 }
                 else {
-                    logger.debug("Write into the disk");
+                    //logger.debug("Write into the disk");
                     performLocally(stage, Optional.of(mutation), commitMutation::apply, responseHandler);
                 }
             }
@@ -3516,10 +3516,10 @@ public class StorageProxy implements StorageProxyMBean
         // This will fetch the maximum tag corresponding to the current mutation
         List<TreasTag> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
 
-        logger.debug("MutateTreas's size" + readList.size());
-        for (int i = 0; i < readList.size(); i++) {
-            logger.debug("Maximun tags are " + readList.get(i).toString());
-        }
+        //logger.debug("MutateTreas's size" + readList.size());
+//        for (int i = 0; i < readList.size(); i++) {
+//            logger.debug("Maximun tags are " + readList.get(i).toString());
+//        }
 
 
         int index = 0;
@@ -3568,7 +3568,7 @@ public class StorageProxy implements StorageProxyMBean
                 else
                 {
                     WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
-                    responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
+                    responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
             }
             }
 
@@ -3657,7 +3657,7 @@ public class StorageProxy implements StorageProxyMBean
 
         for (int i=0; i<cmdCount; i++)
         {
-            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), treasConsistencyLevel, queryStartNanoTime);
+            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), treasConsistencyLevel, System.nanoTime());
         }
 
         for (int i=0; i<cmdCount; i++)
@@ -3713,14 +3713,14 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
             consistencyLevel = ConsistencyLevel.TREAS;
-            logger.debug("Inside fetchTagValueTreas");
+            //logger.debug("Inside fetchTagValueTreas");
             int cmdCount = commands.size();
 
             AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
 
             for (int i = 0; i < cmdCount; i++)
             {
-                reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
+                reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, System.nanoTime());
             }
 
             for (int i = 0; i < cmdCount; i++)
@@ -3749,7 +3749,7 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException {
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and tag_value column
-        logger.debug("Inside fetchRowTreas");
+        //logger.debug("Inside fetchRowTreas");
         consistencyLevel = ConsistencyLevel.TREAS;
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
         for (SinglePartitionReadCommand readCommand : commands)
@@ -3800,11 +3800,11 @@ public class StorageProxy implements StorageProxyMBean
         // Fetch valid information
         List<IMutation> mutations = new ArrayList<>();
         for (DoubleTreasTag doubleTreasTag : doubleTreasTags) {
-            logger.debug("Write back to other replicas");
+            //logger.debug("Write back to other replicas");
             TreasTag quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
             TreasTag decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
             String value = doubleTreasTag.getReadValue();
-            logger.debug("Write back to others value:" + value);
+            //logger.debug("Write back to others value:" + value);
 
             DecoratedKey key = doubleTreasTag.getKey();
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
@@ -3835,7 +3835,7 @@ public class StorageProxy implements StorageProxyMBean
                 else
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
-                    responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
+                    responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
                 }
             }
 

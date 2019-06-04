@@ -509,7 +509,7 @@ public abstract class AbstractReadExecutor
         // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
 
         // Set the localMaxTreasTag as myself;
-        System.out.println("Current key is " + getKey().toString());
+        //System.out.println("Current key is " + getKey().toString());
         TreasTagMap treasTagMap = TreasMap.getInternalMap().get(getKey().toString());
 
         TreasTag localMaxTreasTag = new TreasTag();
@@ -547,16 +547,16 @@ public abstract class AbstractReadExecutor
                         {
                             try {
                                 if (ByteBufferUtil.string(c.value()).isEmpty()) {
-                                    System.out.println("Is Empty");
+                                    //System.out.println("Is Empty");
                                     continue;
                                 }
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
 
-                            System.out.println("Is not Empty" + curTag.toString());
+                            //System.out.println("Is not Empty" + curTag.toString());
                             curTag = TreasTag.deserialize(c.value());
-                            logger.debug(curTag.toString());
+                            //logger.debug(curTag.toString());
                             if (curTag.isLarger(localMaxTreasTag))
                             {
                                 localMaxTreasTag = curTag;
@@ -571,7 +571,7 @@ public abstract class AbstractReadExecutor
 
         maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
         maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
-        logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
+        //logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
         setResult(readResponse);
     }
 

@@ -157,9 +157,9 @@ public class DigestResolver extends ResponseResolver
     }
 
     public void fetchTargetTagValue(DoubleTreasTag doubleTreasTag) {
-        logger.debug("Inside awaitResponsesTreasTagValue");
+        //logger.debug("Inside awaitResponsesTreasTagValue");
 
-        System.out.println("Inside awaitResponsesTreasTagValue");
+        //System.out.println("Inside awaitResponsesTreasTagValue");
 
         //logger.debug("Inside awaitResponsesTreasTagValue");
         //System.out.println("Inside awaitResponsesTreasTagValue");
@@ -229,7 +229,7 @@ public class DigestResolver extends ResponseResolver
                     decodeMap.put(localTag,codeList);
                     decodeCountMap.put(localTag,1);
 
-                    logger.debug(localTag.toString());
+                    //logger.debug(localTag.toString());
 
                     if (TreasConfig.num_intersect == 1) {
                         quorumTagMax = localTag;
@@ -345,8 +345,8 @@ public class DigestResolver extends ResponseResolver
         }
 
         //logger.debug("Finish reading Quorum and Decodable");
-        System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
-        logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+        //System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+        //logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
 
         // Either one of them is not satisfied stop the procedure;
         if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1)

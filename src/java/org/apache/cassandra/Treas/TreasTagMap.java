@@ -54,13 +54,13 @@ public class TreasTagMap
             id ++;
         }
 
-        logger.debug("Value is" + value);
+        //logger.debug("Value is" + value);
         return new TreasValueID(id, value, tagList, maxTag);
     }
 
     public synchronized Mutation putTreasTag(TreasTag mutationTag, String value, Mutation mutation) {
         // Haven't seen this data
-        logger.debug("Inside putTreasTag");
+        //logger.debug("Inside putTreasTag");
         if (localData == null) {
             logger.debug("First time see this data");
             localData = new HashMap<>();
