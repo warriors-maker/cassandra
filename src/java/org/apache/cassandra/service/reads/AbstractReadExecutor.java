@@ -554,9 +554,9 @@ public abstract class AbstractReadExecutor
                                 e.printStackTrace();
                             }
 
-                            System.out.println("Is not Empty" + curTag.toString());
+                            //System.out.println("Is not Empty" + curTag.toString());
                             curTag = TreasTag.deserialize(c.value());
-                            logger.debug(curTag.toString());
+                            //logger.debug(curTag.toString());
                             if (curTag.isLarger(localMaxTreasTag))
                             {
                                 localMaxTreasTag = curTag;
@@ -571,7 +571,7 @@ public abstract class AbstractReadExecutor
 
         maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
         maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
-        logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
+        //logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
         setResult(readResponse);
     }
 

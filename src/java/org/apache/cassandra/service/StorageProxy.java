@@ -1577,14 +1577,14 @@ public class StorageProxy implements StorageProxyMBean
             }
 
             Mutation commitMutation = treasTagMap.putTreasTag(mutationTreasTag, value, mutation);
-            treasTagMap.printTagMap();
+            //treasTagMap.printTagMap();
 
             if (commitMutation == null) {
-                logger.debug("Does not Write into the disk");
+                //logger.debug("Does not Write into the disk");
                 performLocally(responseHandler);
             }
             else {
-                logger.debug("Write into the disk");
+                //logger.debug("Write into the disk");
                 performLocally(stage, Optional.of(mutation), commitMutation::apply, responseHandler);
             }
         }
@@ -2071,7 +2071,7 @@ public class StorageProxy implements StorageProxyMBean
         boolean isTreasRead = (tagMetadata != null);
         if(isTreasRead)
         {
-            logger.debug("Inside TreasRead");
+            //logger.debug("Inside TreasRead");
             return fetchRowsTreas(commands, consistencyLevel, queryStartNanoTime);
         }
 
@@ -2755,7 +2755,7 @@ public class StorageProxy implements StorageProxyMBean
 
         // we're done: the results map is ready to return to the client.  the rest is just debug logging:
         if (results.get(UNREACHABLE) != null)
-            logger.debug("Hosts not in agreement. Didn't get a response from everybody: {}", StringUtils.join(results.get(UNREACHABLE), ","));
+            //logger.debug("Hosts not in agreement. Didn't get a response from everybody: {}", StringUtils.join(results.get(UNREACHABLE), ","));
         for (Map.Entry<String, List<String>> entry : results.entrySet())
         {
             // check for version disagreement. log the hosts that don't agree.
@@ -3329,7 +3329,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-        logger.debug("Inside mutate");
+        //logger.debug("Inside mutate");
 
         long startTime = System.nanoTime();
 
@@ -3371,9 +3371,9 @@ public class StorageProxy implements StorageProxyMBean
         // This will fetch the maximum tag corresponding to the current mutation
         List<TreasTag> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
 
-        logger.debug("MutateTreas's size" + readList.size());
+        //logger.debug("MutateTreas's size" + readList.size());
         for (int i = 0; i < readList.size(); i++) {
-            logger.debug("Maximun tags are " + readList.get(i).toString());
+            //logger.debug("Maximun tags are " + readList.get(i).toString());
         }
 
 
@@ -3568,7 +3568,7 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
             consistencyLevel = ConsistencyLevel.TREAS;
-            logger.debug("Inside fetchTagValueTreas");
+            //logger.debug("Inside fetchTagValueTreas");
             int cmdCount = commands.size();
 
             AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
@@ -3604,7 +3604,7 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException {
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and tag_value column
-        logger.debug("Inside fetchRowTreas");
+        //logger.debug("Inside fetchRowTreas");
         consistencyLevel = ConsistencyLevel.TREAS;
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
         for (SinglePartitionReadCommand readCommand : commands)
@@ -3654,7 +3654,7 @@ public class StorageProxy implements StorageProxyMBean
         // Fetch valid information
         List<IMutation> mutations = new ArrayList<>();
         for (DoubleTreasTag doubleTreasTag : doubleTreasTags) {
-            logger.debug("Write back to other replicas");
+            //logger.debug("Write back to other replicas");
             TreasTag quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
             TreasTag decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
             List<String> codes = doubleTreasTag.getCodes();

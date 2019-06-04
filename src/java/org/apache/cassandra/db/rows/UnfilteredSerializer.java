@@ -300,14 +300,14 @@ public class UnfilteredSerializer
         else
         {
             // TODO: Change the row format here.
-            logger.debug("The value comes into here Else Statement");
-            logger.debug("This part is to send back to the coordinator not the client");
+            //logger.debug("The value comes into here Else Statement");
+            //logger.debug("This part is to send back to the coordinator not the client");
             if (key != null) {
                 // Fetch the TreasInformation we want
-                logger.debug("The key is " + key.toString());
+                //logger.debug("The key is " + key.toString());
                 TreasTagMap treasTagMap = TreasMap.getInternalMap().get(key.toString());
                 if (treasTagMap == null) {
-                    logger.debug("Have not seen this data yet");
+                    //logger.debug("Have not seen this data yet");
                 } else {
 
                     TreasValueID treasValueID = treasTagMap.readTag();
@@ -323,10 +323,10 @@ public class UnfilteredSerializer
                                 index++;
                             }
                         } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX + id)) {
-                            logger.debug("Value sent is " + value);
+                            //logger.debug("Value sent is " + value);
                             cell.setValue(ByteBufferUtil.bytes(value));
                         } else if (cell.column.toString().startsWith(TreasConfig.VAL_PREFIX)) {
-                            logger.debug("Other values are " + ByteBufferUtil.string(cell.value()));
+                            //logger.debug("Other values are " + ByteBufferUtil.string(cell.value()));
                             //cell.setValue(ByteBufferUtil.bytes(""));
                         }
                     }
@@ -629,7 +629,7 @@ public class UnfilteredSerializer
     private Unfiltered deserializeOne(DataInputPlus in, SerializationHeader header, SerializationHelper helper, Row.Builder builder, DoubleTreasTag doubleTreasTag)
     throws IOException
     {
-        logger.debug("Inside DeserializeOne");
+        //logger.debug("Inside DeserializeOne");
         // It wouldn't be wrong per-se to use an unsorted builder, but it would be inefficient so make sure we don't do it by mistake
         assert builder.isSorted();
 
@@ -655,7 +655,7 @@ public class UnfilteredSerializer
 
             // Return the Iterator to the coordinator
             if (doubleTreasTag.isTagIndicator()) {
-                logger.debug("Needs to send to Coordinator");
+                //logger.debug("Needs to send to Coordinator");
                 String key = doubleTreasTag.getKey().toString();
 
                 // Prevent Concurrency Issues
@@ -672,30 +672,30 @@ public class UnfilteredSerializer
                 int index = 0;
 
                 for (Cell c : r.cells()) {
-                    System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
+                    //System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
                     String colName = c.column.name.toString();
                     if (colName.startsWith(TreasConfig.TAG_PREFIX)) {
                         if (index < tagList.length) {
                             TreasTag tag =  tagList[index];
-                            logger.debug("Tag sent is" + tag.toString());
+                            //logger.debug("Tag sent is" + tag.toString());
                             c.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tag)));
                         }
                         index ++;
                     }
                     else if (colName.equals(TreasConfig.VAL_PREFIX + id)) {
-                        logger.debug("Value sent is " + value);
+                        //logger.debug("Value sent is " + value);
                         c.setValue(ByteBufferUtil.bytes(value));
                     } else {
-                        logger.debug("Other Values is " + value);
+                        //logger.debug("Other Values is " + value);
                     }
                 }
             }
 
             // Return the data to the Client
             else {
-                logger.debug("Inside part that compose the final value to return to the client");
+                //logger.debug("Inside part that compose the final value to return to the client");
                 for (Cell c : r.cells()) {
-                    logger.debug(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
+                    //logger.debug(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
                     if (c.column.name.toString().equals("field0")) {
                         List<String> codes = doubleTreasTag.getCodes();
                         if (codes == null) {

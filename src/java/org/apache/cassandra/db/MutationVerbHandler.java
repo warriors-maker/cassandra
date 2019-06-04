@@ -62,7 +62,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
 
     public void doVerb(MessageIn<Mutation> message, int id)  throws IOException {
 
-        logger.debug("Inside Doverb");
+        //logger.debug("Inside Doverb");
         // Check if there were any forwarding headers in this message
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
         InetAddressAndPort replyTo;
@@ -98,27 +98,27 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         TreasTagMap localTag = treasMap.putIfAbsent(mutationKey, new TreasTagMap());
 
         if (localTag == null) {
-            logger.debug("First time seen this data");
+            //logger.debug("First time seen this data");
             localTag = TreasMap.getInternalMap().get(mutationKey);
         }
 
         // Put the data into the Memory
-        logger.debug("MutationTag is " + mutationTag.toString());
-        logger.debug("The Mutation been put is " + mutationKey);
+        //logger.debug("MutationTag is " + mutationTag.toString());
+        //logger.debug("The Mutation been put is " + mutationKey);
         Mutation commitMutation = localTag.putTreasTag(mutationTag, mutationValue, mutation);
         // Debug purpose
-        logger.debug("After putting the mutation sending from the coordinator: ");
-        localTag.printTagMap();
+        //logger.debug("After putting the mutation sending from the coordinator: ");
+        //localTag.printTagMap();
 
         if (commitMutation != null) {
             // Commit this mutation
-            logger.debug("Commit this Mutation");
+            //logger.debug("Commit this Mutation");
             commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
                 failed();
                 return null;
             });
         } else {
-            logger.debug("Do not commit this Mutation");
+            //logger.debug("Do not commit this Mutation");
             reply(id, replyTo);
         }
 

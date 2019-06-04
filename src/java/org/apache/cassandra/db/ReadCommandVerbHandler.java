@@ -51,7 +51,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 
     public void doVerb(MessageIn<ReadCommand> message, int id)
     {
-        logger.debug("Inside ReadCommandDoverb");
+        //logger.debug("Inside ReadCommandDoverb");
         if (StorageService.instance.isBootstrapMode())
         {
             throw new RuntimeException("Cannot service reads while bootstrapping!");
