@@ -526,7 +526,7 @@ public class UnfilteredSerializer
             Row r =  deserializeRowBody(in, header, helper, flags, extendedFlags, builder);
 
             for (Cell c : r.cells()) {
-                System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
+                //System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
                 if (c.column.name.toString().equals("field0")) {
                     List<String> codes = doubleTreasTag.getCodes();
                     if (codes == null) {

@@ -1645,7 +1645,7 @@ public class StorageProxy implements StorageProxyMBean
             // or if the tag is smaller than what we have seen before.
             if (exist || (minTreasTag != null && minTreasTag.isLarger(mutationTreasTag))) {
                 performLocally(stage, Optional.of(mutation),mutation::apply, responseHandler, true);
-                logger.debug("Tag Already exists, no need to write into the disk");
+                //logger.debug("Tag Already exists, no need to write into the disk");
             }
             // If No data in the table
             else if (hit <= TreasConfig.num_concurrecy) {
@@ -1705,7 +1705,7 @@ public class StorageProxy implements StorageProxyMBean
             {
                 // Build unique Mutation for all replicas
 
-                logger.debug("Send to Current destination is" + destination.toString());
+                //logger.debug("Send to Current destination is" + destination.toString());
                 // Based on their IP address fetch the according byte array
                 // Fetch the index from a Map
                 // byte[] myData = erasureCode[index];
@@ -2020,7 +2020,7 @@ public class StorageProxy implements StorageProxyMBean
     public static PartitionIterator read(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, ClientState state, long queryStartNanoTime)
     throws UnavailableException, IsBootstrappingException, ReadFailureException, ReadTimeoutException, InvalidRequestException
     {
-        logger.debug("Read consistencylevel" + consistencyLevel.toString());
+        //logger.debug("Read consistencylevel" + consistencyLevel.toString());
         if (StorageService.instance.isBootstrapMode() && !systemKeyspaceQuery(group.queries))
         {
             readMetrics.unavailables.mark();
@@ -2112,7 +2112,7 @@ public class StorageProxy implements StorageProxyMBean
     private static PartitionIterator readRegular(SinglePartitionReadCommand.Group group, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-        logger.debug("Read Regular: " + consistencyLevel.toString());
+        //logger.debug("Read Regular: " + consistencyLevel.toString());
         long start = System.nanoTime();
         try
         {
@@ -2175,11 +2175,11 @@ public class StorageProxy implements StorageProxyMBean
         // to the initialization failure issue
         SinglePartitionReadCommand incomingRead = commands.iterator().next();
         ColumnMetadata tagMetadata = incomingRead.metadata().getColumn(ByteBufferUtil.bytes("tag1"));
-        logger.debug("Consistency_Level is" + consistencyLevel.toString());
+        //logger.debug("Consistency_Level is" + consistencyLevel.toString());
         boolean isTreasRead = (tagMetadata != null);
         if(isTreasRead)
         {
-            logger.debug("Inside TreasRead");
+            //logger.debug("Inside TreasRead");
             return fetchRowsTreas(commands, consistencyLevel, queryStartNanoTime);
         }
 
@@ -2863,7 +2863,7 @@ public class StorageProxy implements StorageProxyMBean
 
         // we're done: the results map is ready to return to the client.  the rest is just debug logging:
         if (results.get(UNREACHABLE) != null)
-            logger.debug("Hosts not in agreement. Didn't get a response from everybody: {}", StringUtils.join(results.get(UNREACHABLE), ","));
+            //logger.debug("Hosts not in agreement. Didn't get a response from everybody: {}", StringUtils.join(results.get(UNREACHABLE), ","));
         for (Map.Entry<String, List<String>> entry : results.entrySet())
         {
             // check for version disagreement. log the hosts that don't agree.
@@ -3435,17 +3435,17 @@ public class StorageProxy implements StorageProxyMBean
     public static void mutate(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
-        logger.debug("Print out all the library path");
-        String property = System.getProperty("java.library.path");
-        StringTokenizer parser = new StringTokenizer(property, ";");
-        while (parser.hasMoreTokens()) {
-            logger.debug(parser.nextToken());
-        }
+        //logger.debug("Print out all the library path");
+//        String property = System.getProperty("java.library.path");
+//        StringTokenizer parser = new StringTokenizer(property, ";");
+//        while (parser.hasMoreTokens()) {
+//            logger.debug(parser.nextToken());
+//        }
 
 
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-        logger.debug("Inside mutate");
+        //logger.debug("Inside mutate");
 
         long startTime = System.nanoTime();
 
@@ -3461,7 +3461,7 @@ public class StorageProxy implements StorageProxyMBean
         for (IMutation mutation : mutations)
         {
             if (mutation.getKeyspaceName().equals("ycsb")) {
-                logger.debug("Is ycsb");
+                //logger.debug("Is ycsb");
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
 
                 int nowInSec = FBUtilities.nowInSeconds();
@@ -3475,7 +3475,7 @@ public class StorageProxy implements StorageProxyMBean
                 tagValueReadList.add(tagValueRead);
             } else {
                 notDataMutations.add(mutation);
-                logger.debug("This is not YCSB");
+                //logger.debug("This is not YCSB");
             }
 
         }
@@ -3484,7 +3484,7 @@ public class StorageProxy implements StorageProxyMBean
         // Also notice that Mutation List and this readList are in the correct corresponding order
         // This will fetch the maximum tag corresponding to the current mutation
         List<TreasTag> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
-        logger.debug("MutateTreas's size" + readList.size());
+        //logger.debug("MutateTreas's size" + readList.size());
         int index = 0;
 
 
@@ -3501,7 +3501,7 @@ public class StorageProxy implements StorageProxyMBean
             TreasTag maxCurrentTag = readList.get(index);
             // Increment the tag value
             maxCurrentTag.nextTag();
-            logger.debug("Max Tag is" + maxCurrentTag);
+            //logger.debug("Max Tag is" + maxCurrentTag);
 
             mutationBuilder.update(tableMetadata)
                            .timestamp(timeStamp)
@@ -3609,9 +3609,9 @@ public class StorageProxy implements StorageProxyMBean
     private static List<TreasTag> fetchTagTreas(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-        logger.debug("Old Configuration:" + consistencyLevel);
+        //logger.debug("Old Configuration:" + consistencyLevel);
 
-        ConsistencyLevel treasConsistencyLevel = ConsistencyLevel.TREAS;
+        consistencyLevel = ConsistencyLevel.TREAS;
 
         int cmdCount = commands.size();
 
@@ -3677,7 +3677,7 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
             consistencyLevel = ConsistencyLevel.TREAS;
-            logger.debug("Inside fetchTagValueTreas");
+            //logger.debug("Inside fetchTagValueTreas");
             int cmdCount = commands.size();
 
             AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
@@ -3737,7 +3737,7 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException {
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and tag_value column
-        logger.debug("Inside fetchRowTreas");
+        //logger.debug("Inside fetchRowTreas");
         consistencyLevel = ConsistencyLevel.TREAS;
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
         for (SinglePartitionReadCommand readCommand : commands)

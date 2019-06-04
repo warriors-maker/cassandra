@@ -152,7 +152,7 @@ public class DigestResolver extends ResponseResolver
     }
 
     public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
-        logger.debug("Inside awaitResponsesTreasTagValue");
+        //logger.debug("Inside awaitResponsesTreasTagValue");
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
         // TODO: The value may needs to be changed to Map<Integer, String>;
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
@@ -169,16 +169,16 @@ public class DigestResolver extends ResponseResolver
         DecoratedKey key = null;
         TableMetadata tableMetadata = null;
 
-        logger.debug("Before Digest Match");
-        logger.debug("Message size is" + this.getMessages().size());
+        //logger.debug("Before Digest Match");
+        //logger.debug("Message size is" + this.getMessages().size());
         // Each readResponse represents a response from a Replica
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
-            logger.debug("The message is from" + message.from.toString());
+            //logger.debug("The message is from" + message.from.toString());
             ReadResponse response = message.payload;
             if (message.from.equals(FBUtilities.getLocalAddressAndPort()))
             {
-                logger.debug("This message is from me");
+                //logger.debug("This message is from me");
             }
 
             assert response.isDigestResponse() == false;
@@ -215,7 +215,7 @@ public class DigestResolver extends ResponseResolver
 
                             TreasTag curTag = TreasTag.deserialize(c.value());
 
-                            System.out.println(colName + "," + curTag.toString());
+                            //System.out.println(colName + "," + curTag.toString());
 
                             if (quorumMap.containsKey(curTag))
                             {
@@ -300,18 +300,18 @@ public class DigestResolver extends ResponseResolver
             }
         }
 
-        logger.debug("Finish reading Quorum and Decodable");
-        System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
-        logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+        //logger.debug("Finish reading Quorum and Decodable");
+        //System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+        //logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
 
         // Either one of them is not satisfied stop the procedure;
         if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1)
         {
-            logger.debug("Fail to get enough result");
+            //logger.debug("Fail to get enough result");
         }
         else
         {
-            logger.debug("Successfully get the result");
+            //logger.debug("Successfully get the result");
             doubleTreasTag.getQuorumMaxTreasTag().setWriterId(quorumTagMax.getWriterId());
             doubleTreasTag.getQuorumMaxTreasTag().setLogicalTIme(quorumTagMax.getTime());
             doubleTreasTag.getRecoverMaxTreasTag().setWriterId(decodeTagMax.getWriterId());

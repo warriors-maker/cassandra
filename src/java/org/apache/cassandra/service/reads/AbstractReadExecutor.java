@@ -547,7 +547,7 @@ public abstract class AbstractReadExecutor
                         if (c.column().name.toString().startsWith("tag"))
                         {
                             curTag = TreasTag.deserialize(c.value());
-                            logger.debug(curTag.toString());
+                            //logger.debug(curTag.toString());
                             if (curTag.isLarger(localMaxTreasTag))
                             {
                                 localMaxTreasTag = curTag;
@@ -562,7 +562,7 @@ public abstract class AbstractReadExecutor
         maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
         maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
         // TODO: May need to check here because I consume the Iterator
-        logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
+        //logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
         setResult(readResponse);
 
 //        if (digestResolver.responsesMatch())
