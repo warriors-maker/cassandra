@@ -227,7 +227,8 @@ public class DigestResolver extends ResponseResolver
                     int myIndex = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
                     codeList.set(myIndex, value);
                     decodeMap.put(localTag,codeList);
-
+                    decodeCountMap.put(localTag,1);
+                    
                     logger.debug(localTag.toString());
 
                     if (TreasConfig.num_intersect == 1) {
