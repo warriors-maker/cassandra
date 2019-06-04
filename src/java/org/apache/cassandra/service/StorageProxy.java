@@ -3674,7 +3674,7 @@ public class StorageProxy implements StorageProxyMBean
                 else
                 {
                     WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
-                    responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
+                    responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
             }
             }
 
