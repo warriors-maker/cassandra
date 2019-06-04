@@ -18,6 +18,9 @@
 
 package org.apache.cassandra.Treas;
 
+import java.util.Base64;
+import java.util.HashMap;
+
 import org.apache.cassandra.cql3.ColumnIdentifier;
 
 public class TreasConfig
@@ -38,12 +41,41 @@ public class TreasConfig
     public static final String VAL_PREFIX =  "field";
     public static final String TAG_PREFIX =  "tag";
 
-    public static final int QUORUM = (TreasConfig.num_server + TreasConfig.num_intersect + 1) /2;
+//    public static final String[] ADDRESSES = {"localhost/127.0.0.1"};
 
-    public static  ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(TAG_ONE, true);
-    public static  ColumnIdentifier tagTwoIdentifier = new ColumnIdentifier(TAG_TWO, true);
-    public static  ColumnIdentifier tagThreeIdentifier = new ColumnIdentifier(TAG_THREE, true);
-    public static  ColumnIdentifier valOneIdentifier = new ColumnIdentifier(VAL_ONE, true);
-    public static  ColumnIdentifier valTwoIdentifier = new ColumnIdentifier(VAL_TWO, true);
-    public static  ColumnIdentifier valThreeIdentifier = new ColumnIdentifier(VAL_THREE, true);
+    public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.2","10.0.0.3","10.0.0.4","10.0.0.5"};
+
+    private static HashMap<String, Integer> map = new HashMap<>();
+
+    public static final int QUORUM = (int) Math.ceil ( (TreasConfig.num_server + TreasConfig.num_intersect) / 2);
+
+
+    // Convert the byte array to String to send back to client
+    public static String byteToString(byte[] bytes) {
+        return Base64.getEncoder().encodeToString(bytes);
+    }
+
+    // Convert incoming String value
+    public static byte[] stringToByte(String value) {
+        return Base64.getDecoder().decode(value);
+    }
+
+    // Create the Empty Codes based on what I set
+    public static byte[] emptyCodes(int length) {
+        byte[] arr = new byte[length];
+        for (int i = 0; i < length; i++) {
+            arr[i] = '0';
+        }
+        return arr;
+    }
+
+    public static void initiateAddressMap() {
+        for (int i = 0; i < ADDRESSES.length; i++) {
+            map.put(ADDRESSES[i], i);
+        }
+    }
+
+    public static HashMap<String, Integer> getAddressMap() {
+        return map;
+    }
 }

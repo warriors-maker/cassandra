@@ -82,6 +82,10 @@ public class TreasTag implements Serializable{
             return new TreasTag();
         }
 
+        if (tagString.isEmpty()) {
+            return new TreasTag();
+        }
+
         return new TreasTag(tagString);
     }
 

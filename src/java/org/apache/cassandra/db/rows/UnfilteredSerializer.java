@@ -300,7 +300,6 @@ public class UnfilteredSerializer
         else
         {
             // TODO: Change the row format here.
-            logger.debug("The value comes into here Else Statement");
             logger.debug("This part is to send back to the coordinator not the client");
             if (key != null) {
                 // Fetch the TreasInformation we want
@@ -313,6 +312,8 @@ public class UnfilteredSerializer
                     TreasValueID treasValueID = treasTagMap.readTag();
                     int index = 0;
                     TreasTag[] tagList = treasValueID.tagList;
+
+                    // Id is where thee value stored corresponding to the position of the tagList
                     int id = treasValueID.id;
                     String value = treasValueID.value;
 
@@ -327,7 +328,7 @@ public class UnfilteredSerializer
                             cell.setValue(ByteBufferUtil.bytes(value));
                         } else if (cell.column.toString().startsWith(TreasConfig.VAL_PREFIX)) {
                             logger.debug("Other values are " + ByteBufferUtil.string(cell.value()));
-                            //cell.setValue(ByteBufferUtil.bytes(""));
+                            cell.setValue(ByteBufferUtil.bytes(""));
                         }
                     }
                 }
@@ -697,11 +698,11 @@ public class UnfilteredSerializer
                 for (Cell c : r.cells()) {
                     logger.debug(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
                     if (c.column.name.toString().equals("field0")) {
-                        List<String> codes = doubleTreasTag.getCodes();
-                        if (codes == null) {
+                        String returnValue = doubleTreasTag.getReadValue();
+                        if (returnValue == null) {
                             c.setValue(ByteBufferUtil.bytes("failure"));
                         } else {
-                            c.setValue(ByteBufferUtil.bytes(codes.get(0)));
+                            c.setValue(ByteBufferUtil.bytes(returnValue));
                         }
                     } else {
                         c.setValue(ByteBufferUtil.bytes(""));

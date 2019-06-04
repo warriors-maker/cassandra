@@ -19,6 +19,7 @@ package org.apache.cassandra.service.reads;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.base.Preconditions;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
+import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasMap;
 import org.apache.cassandra.Treas.TreasTag;
@@ -159,30 +161,39 @@ public class DigestResolver extends ResponseResolver
 
         System.out.println("Inside awaitResponsesTreasTagValue");
 
+        //logger.debug("Inside awaitResponsesTreasTagValue");
+        //System.out.println("Inside awaitResponsesTreasTagValue");
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
+
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
+        HashMap<TreasTag, Integer> decodeCountMap = new HashMap<>();
+
         TreasTag quorumTagMax = new TreasTag();
         TreasTag decodeTagMax = new TreasTag();
-        List<String> decodeValMax = null;
 
+        // This needs to be a Map<Integer, String>:
+        // Integer represents the ID of server
+        // String is just the value
+        List<String> decodeValMax = null;
 
         String keySpaceName = "";
         DecoratedKey key = null;
         TableMetadata tableMetadata = null;
 
-
-
-        logger.debug("Before Digest Match");
-        logger.debug("Message size is" + this.getMessages().size());
-        System.out.println("Message size is" + this.getMessages().size());
+        //logger.debug("Before Digest Match");
+        //logger.debug("Message size is" + this.getMessages().size());
         // Each readResponse represents a response from a Replica
+
+        HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
+
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
+            String address = message.from.address.toString().substring(1);
+            //logger.debug("Address are" + address);
+            int id = addressMap.get(address);
+            //logger.debug("The message is from" + address + "ID is: " + id);
+
             ReadResponse response = message.payload;
-            if (message.from.equals(FBUtilities.getLocalAddressAndPort()))
-            {
-                logger.debug("This message is from me");
-            }
 
             assert response.isDigestResponse() == false;
 
@@ -195,7 +206,7 @@ public class DigestResolver extends ResponseResolver
                 // pi.next() returns a RowIterator
                 RowIterator ri = pi.next();
 
-                if (keySpaceName.isEmpty())
+                if (keySpaceName.equals(""))
                 {
                     key = ri.partitionKey();
                     tableMetadata = ri.metadata();
@@ -210,8 +221,11 @@ public class DigestResolver extends ResponseResolver
                     TreasTag localTag = obj.maxTag;
                     String value = obj.value;
                     quorumMap.put(localTag,1);
-                    List<String> codeList = new ArrayList<>();
-                    codeList.add(value);
+
+                    List<String> codeList = Arrays.asList(new String[TreasConfig.num_server]);
+
+                    int myIndex = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString());
+                    codeList.set(myIndex, value);
                     decodeMap.put(localTag,codeList);
 
                     logger.debug(localTag.toString());
@@ -224,6 +238,7 @@ public class DigestResolver extends ResponseResolver
                         decodeTagMax = localTag;
                         decodeValMax = codeList;
                     }
+
                 }
 
                 while (ri.hasNext())
@@ -234,19 +249,10 @@ public class DigestResolver extends ResponseResolver
                         String colName = c.column().name.toString();
 
                         // if it is a timeStamp field, we need to check it
-                        if (colName.startsWith(TreasConfig.TAG_PREFIX))
+                        if (colName.startsWith("tag"))
                         {
-                            try {
-                                if (ByteBufferUtil.string(c.value()).isEmpty()) {
-                                    continue;
-                                }
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
 
                             TreasTag curTag = TreasTag.deserialize(c.value());
-
-                            logger.debug(curTag.toString());
 
                             if (quorumMap.containsKey(curTag))
                             {
@@ -274,7 +280,7 @@ public class DigestResolver extends ResponseResolver
                             }
                         }
                         // Notice that only one column has the data
-                        else if (colName.startsWith(TreasConfig.VAL_PREFIX) && !colName.equals("field0"))
+                        else if (colName.startsWith("field") && !colName.equals("field0"))
                         {
                             // Fetch the code out
                             String value = "";
@@ -284,14 +290,8 @@ public class DigestResolver extends ResponseResolver
                             }
                             catch (Exception e)
                             {
-                                System.out.println("Cannot parseData");
+                                e.printStackTrace();
                             }
-
-                            if (value.isEmpty()) {
-                                continue;
-                            }
-
-                            logger.debug("The value I get from replica is" + value);
 
                             // Find the corresponding index to fetch the tag value
                             int index = Integer.parseInt(colName.substring(TreasConfig.VAL_PREFIX.length()));
@@ -299,17 +299,20 @@ public class DigestResolver extends ResponseResolver
                             ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(treasTagColumn, true);
                             ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
                             Cell tagCell = row.getCell(columnMetadata);
-
                             TreasTag treasTag = TreasTag.deserialize(tagCell.value());
 
                             if (decodeMap.containsKey(treasTag))
                             {
-
-                                decodeMap.get(treasTag).add(value);
-
                                 List<String> codeList = decodeMap.get(treasTag);
+                                //logger.debug("CodeList size is" + codeList.size());
+                                codeList.set(id, value);
 
-                                if (codeList.size() == TreasConfig.num_recover)
+                                int count = decodeCountMap.get(treasTag) + 1;
+                                decodeCountMap.put(treasTag,count);
+
+//                                decodeMap.get(treasTag).set(id, value);
+
+                                if (count == TreasConfig.num_recover)
                                 {
                                     if (treasTag.isLarger(decodeTagMax))
                                     {
@@ -320,9 +323,11 @@ public class DigestResolver extends ResponseResolver
                             }
                             else
                             {
-                                List<String> codelist = new ArrayList<>();
-                                codelist.add(value);
+                                List<String> codelist = Arrays.asList(new String[TreasConfig.num_server]);
+                                //logger.debug("Initialize the codelist and size is " + codelist.size());
+                                codelist.set(id, value);
                                 decodeMap.put(treasTag, codelist);
+                                decodeCountMap.put(treasTag,1);
                                 if (TreasConfig.num_recover == 1)
                                 {
                                     if (treasTag.isLarger(decodeTagMax))
@@ -338,26 +343,61 @@ public class DigestResolver extends ResponseResolver
             }
         }
 
-        logger.debug("Finish reading Quorum and Decodable");
-
+        //logger.debug("Finish reading Quorum and Decodable");
         System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
-
         logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
 
         // Either one of them is not satisfied stop the procedure;
         if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1)
         {
-            logger.debug("Fail to get enough result");
+            //logger.debug("Fail to get enough result");
         }
         else
         {
-            logger.debug("Successfully get the result");
-            System.out.println("Succesfully get the result");
+            //logger.debug("Successfully get the result");
             doubleTreasTag.getQuorumMaxTreasTag().setWriterId(quorumTagMax.getWriterId());
             doubleTreasTag.getQuorumMaxTreasTag().setLogicalTIme(quorumTagMax.getTime());
             doubleTreasTag.getRecoverMaxTreasTag().setWriterId(decodeTagMax.getWriterId());
             doubleTreasTag.getRecoverMaxTreasTag().setLogicalTIme(decodeTagMax.getTime());
-            doubleTreasTag.setCodes(decodeValMax);
+
+            int length = 0;
+            for (int i = 0; i < decodeValMax.size(); i++) {
+                String value = decodeValMax.get(i);
+                if (value != null && ! value.isEmpty()) {
+                    length = TreasConfig.stringToByte(value).length;
+                    break;
+                }
+            }
+
+            // Do Erasure Coding here
+            //logger.debug("Put the data back together");
+//            List<Integer> missingIndex = new ArrayList<>();
+
+            boolean []shardPresent = new boolean[TreasConfig.num_server];
+            byte[][] decodeMatrix = new byte[TreasConfig.num_server][length];
+
+            int count = 0;
+
+            for (int i = 0; i < decodeValMax.size(); i++) {
+
+                String value = decodeValMax.get(i);
+
+                if (value == null || value.isEmpty() || count == TreasConfig.num_recover) {
+                    decodeMatrix[i] = new byte[length];
+                }
+                else {
+                    count++;
+                    byte[] replica_array = TreasConfig.stringToByte(value);
+                    decodeMatrix[i] = replica_array;
+                    shardPresent[i] = true;
+                }
+            }
+
+            // Decode here
+//            int [] missingIndexArray = missingIndex.stream().mapToInt(i->i).toArray();
+            String value = ErasureCode.decodeeData(decodeMatrix, shardPresent, length);
+            //logger.debug("Convert the data to value" + value);
+            doubleTreasTag.setReadValue(value);
         }
     }
 

@@ -51,6 +51,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasMap;
 import org.apache.cassandra.audit.AuditLogManager;
 import org.apache.cassandra.audit.AuditLogOptions;
@@ -710,6 +711,7 @@ public class StorageService extends NotificationBroadcasterSupport implements IE
         }
 
         initialized = true;
+        TreasConfig.initiateAddressMap();
     }
 
     private void loadRingState()

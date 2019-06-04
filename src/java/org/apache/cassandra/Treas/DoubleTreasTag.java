@@ -31,6 +31,7 @@ public class DoubleTreasTag
     private TreasTag recoverMaxTreasTag = new TreasTag();
     private List<String> codes = null;
     private ReadResponse readResponse;
+    private String readValue;
 
     private DecoratedKey key;
     private TableMetadata tableMetadata;
@@ -114,5 +115,20 @@ public class DoubleTreasTag
 
     public boolean isTagIndicator() {
         return this.isTagIndicator;
+    }
+
+    public String getReadValue()
+    {
+        return readValue;
+    }
+
+    public void setReadValue(String readValue)
+    {
+        this.readValue = readValue;
+    }
+
+    public void setTagIndicator(boolean tagIndicator)
+    {
+        isTagIndicator = tagIndicator;
     }
 }
