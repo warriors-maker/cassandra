@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.Treas.TreasValueID;
 import org.apache.cassandra.config.*;
 import org.apache.cassandra.db.filter.*;
 import org.apache.cassandra.db.monitoring.ApproximateTime;
@@ -219,11 +220,11 @@ public abstract class ReadCommand extends AbstractReadQuery
              : ReadResponse.createDataResponse(iterator, this);
     }
 
-    public ReadResponse createResponse(UnfilteredPartitionIterator iterator, DecoratedKey key)
+    public ReadResponse createResponse(UnfilteredPartitionIterator iterator, TreasValueID treasValueInfo)
     {
         return isDigestQuery()
                ? ReadResponse.createDigestResponse(iterator, this)
-               : ReadResponse.createDataResponse(iterator, this, key);
+               : ReadResponse.createDataResponse(iterator, this, treasValueInfo);
     }
 
     long indexSerializedSize(int version)

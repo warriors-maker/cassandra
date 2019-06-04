@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
+import org.apache.cassandra.Treas.TreasValueID;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.db.rows.*;
@@ -320,7 +321,7 @@ public abstract class UnfilteredPartitionIterators
             out.writeBoolean(false);
         }
 
-        public void serialize(UnfilteredPartitionIterator iter, ColumnFilter selection, DataOutputPlus out, int version, DecoratedKey key) throws IOException
+        public void serialize(UnfilteredPartitionIterator iter, ColumnFilter selection, DataOutputPlus out, int version, TreasValueID key) throws IOException
         {
             // Previously, a boolean indicating if this was for a thrift query.
             // Unused since 4.0 but kept on wire for compatibility.

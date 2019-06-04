@@ -26,12 +26,17 @@ public class TreasValueID
     public String value;
     public TreasTag maxTag;
     public TreasTag[] tagList;
+    public String key;
 
     public TreasValueID(int id, String value, TreasTag[] tagList, TreasTag maxTag) {
         this.id = id;
         this.value = value;
         this.tagList = tagList;
         this.maxTag = maxTag;
+    }
+
+    public void setKey(String key) {
+        this.key = key;
     }
 
 }

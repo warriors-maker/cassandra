@@ -141,7 +141,7 @@ public class UnfilteredSerializer
         serialize(unfiltered, header, out, 0, version);
     }
 
-    public void serialize(Unfiltered unfiltered, SerializationHeader header, DataOutputPlus out, int version, DecoratedKey key)
+    public void serialize(Unfiltered unfiltered, SerializationHeader header, DataOutputPlus out, int version, TreasValueID key)
     throws IOException
     {
         assert !header.isForSSTable();
@@ -161,7 +161,7 @@ public class UnfilteredSerializer
         }
     }
 
-    public void serialize(Unfiltered unfiltered, SerializationHeader header, DataOutputPlus out, long previousUnfilteredSize, int version, DecoratedKey key)
+    public void serialize(Unfiltered unfiltered, SerializationHeader header, DataOutputPlus out, long previousUnfilteredSize, int version, TreasValueID key)
     throws IOException
     {
         if (unfiltered.kind() == Unfiltered.Kind.RANGE_TOMBSTONE_MARKER)
@@ -243,7 +243,7 @@ public class UnfilteredSerializer
         }
     }
 
-    private void serialize(Row row, SerializationHeader header, DataOutputPlus out, long previousUnfilteredSize, int version, DecoratedKey key)
+    private void serialize(Row row, SerializationHeader header, DataOutputPlus out, long previousUnfilteredSize, int version, TreasValueID treasValueID)
     throws IOException
     {
         int flags = 0;
@@ -300,40 +300,24 @@ public class UnfilteredSerializer
         else
         {
             // TODO: Change the row format here.
-            if (key != null) {
-                // Fetch the TreasInformation we want
-                //logger.debug("The key is " + key.toString());
-                TreasTagMap treasTagMap = TreasMap.getInternalMap().get(key.toString());
-                if (treasTagMap == null) {
-                    //logger.debug("Have not seen this data yet");
-                } else {
-//                    TreasValueID treasValueID = treasTagMap.readTag();
-//                    int index = 0;
-//                    TreasTag[] tagList = treasValueID.tagList;
-//                    int id = treasValueID.id;
-//                    String value = treasValueID.value;
+            if (treasValueID != null) {
+                int index = 0;
+                TreasTag[] tagList = treasValueID.tagList;
+                int id = treasValueID.id;
+                String value = treasValueID.value;
 
-                    int index = 0;
-                    TreasTag[] tagList = new TreasTag[3];
-                    for (int i = 0; i < tagList.length; i++) {
-                        tagList[i] = new TreasTag();
-                    }
-                    int id = 0;
-                    String value = "a";
-
-                    for (Cell cell : row.cells()) {
-                        if (cell.column().toString().startsWith(TreasConfig.TAG_PREFIX)) {
-                            if (index < tagList.length) {
-                                cell.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tagList[index])));
-                                index++;
-                            }
-                        } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX + id)) {
-                            //logger.debug("Value sent is " + value);
-                            cell.setValue(ByteBufferUtil.bytes(value));
-                        } else if (cell.column.toString().startsWith(TreasConfig.VAL_PREFIX)) {
-                            //logger.debug("Other values are " + ByteBufferUtil.string(cell.value()));
-                            //cell.setValue(ByteBufferUtil.bytes(""));
+                for (Cell cell : row.cells()) {
+                    if (cell.column().toString().startsWith(TreasConfig.TAG_PREFIX)) {
+                        if (index < tagList.length) {
+                            cell.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tagList[index])));
+                            index++;
                         }
+                    } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX + id)) {
+                        //logger.debug("Value sent is " + value);
+                        cell.setValue(ByteBufferUtil.bytes(value));
+                    } else if (cell.column.toString().startsWith(TreasConfig.VAL_PREFIX)) {
+                        //logger.debug("Other values are " + ByteBufferUtil.string(cell.value()));
+                        //cell.setValue(ByteBufferUtil.bytes(""));
                     }
                 }
             }

@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
+import org.apache.cassandra.Treas.TreasValueID;
 import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.db.partitions.*;
 import org.apache.cassandra.db.rows.*;
@@ -55,7 +56,7 @@ public abstract class ReadResponse
         return new LocalDataResponse(data, command);
     }
 
-    public static ReadResponse createDataResponse(UnfilteredPartitionIterator data, ReadCommand command, DecoratedKey key)
+    public static ReadResponse createDataResponse(UnfilteredPartitionIterator data, ReadCommand command, TreasValueID key)
     {
         return new LocalDataResponse(data, command, key);
     }
@@ -173,13 +174,13 @@ public abstract class ReadResponse
             super(build(iter, command.columnFilter()), MessagingService.current_version, SerializationHelper.Flag.LOCAL);
         }
 
-        private LocalDataResponse(UnfilteredPartitionIterator iter, ReadCommand command, DecoratedKey key)
+        private LocalDataResponse(UnfilteredPartitionIterator iter, ReadCommand command, TreasValueID key)
         {
             super(build(iter, command.columnFilter(), key), MessagingService.current_version, SerializationHelper.Flag.LOCAL);
         }
 
 
-        private static ByteBuffer build(UnfilteredPartitionIterator iter, ColumnFilter selection, DecoratedKey key)
+        private static ByteBuffer build(UnfilteredPartitionIterator iter, ColumnFilter selection, TreasValueID key)
         {
             try (DataOutputBuffer buffer = new DataOutputBuffer())
             {

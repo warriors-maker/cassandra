@@ -24,6 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
+import org.apache.cassandra.Treas.TreasValueID;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.ColumnFilter;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
@@ -82,7 +83,7 @@ public class UnfilteredRowIteratorSerializer
     }
 
     // Should only be used for the on-wire format.
-    public void serialize(UnfilteredRowIterator iterator, ColumnFilter selection, DataOutputPlus out, int version, DecoratedKey key) throws IOException
+    public void serialize(UnfilteredRowIterator iterator, ColumnFilter selection, DataOutputPlus out, int version, TreasValueID key) throws IOException
     {
         serialize(iterator, selection, out, version, -1, key);
     }
@@ -99,7 +100,7 @@ public class UnfilteredRowIteratorSerializer
         serialize(iterator, header, selection, out, version, rowEstimate);
     }
 
-    public void serialize(UnfilteredRowIterator iterator, ColumnFilter selection, DataOutputPlus out, int version, int rowEstimate, DecoratedKey key) throws IOException
+    public void serialize(UnfilteredRowIterator iterator, ColumnFilter selection, DataOutputPlus out, int version, int rowEstimate, TreasValueID key) throws IOException
     {
 
         SerializationHeader header = new SerializationHeader(false,
@@ -158,7 +159,7 @@ public class UnfilteredRowIteratorSerializer
     }
 
 
-    public void serialize(UnfilteredRowIterator iterator, SerializationHeader header, ColumnFilter selection, DataOutputPlus out, int version, int rowEstimate, DecoratedKey key) throws IOException
+    public void serialize(UnfilteredRowIterator iterator, SerializationHeader header, ColumnFilter selection, DataOutputPlus out, int version, int rowEstimate, TreasValueID key) throws IOException
     {
         assert !header.isForSSTable();
 
