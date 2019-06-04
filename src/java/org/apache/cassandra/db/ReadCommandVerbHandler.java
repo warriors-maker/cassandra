@@ -51,7 +51,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 
     public void doVerb(MessageIn<ReadCommand> message, int id)
     {
-        logger.debug("Inside ReadCommandDoverb");
+        //logger.debug("Inside ReadCommandDoverb");
         if (StorageService.instance.isBootstrapMode())
         {
             throw new RuntimeException("Cannot service reads while bootstrapping!");
@@ -74,7 +74,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         SinglePartitionReadCommand singlePartitionReadCommand = null;
 
         if (command instanceof SinglePartitionReadCommand) {
-            logger.debug("get the decorated key");
+            //logger.debug("get the decorated key");
             singlePartitionReadCommand = (SinglePartitionReadCommand) command;
             decoratedKey = singlePartitionReadCommand.partitionKey();
         }
@@ -94,7 +94,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
             response = command.createResponse(iterator);
 
             if (singlePartitionReadCommand != null && singlePartitionReadCommand.metadata().keyspace.equals("ycsb")) {
-                logger.debug("Is ycsb");
+                //logger.debug("Is ycsb");
                 DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
 
                 // Indicate that this Iterator is going to sent to the Coordinator
@@ -102,7 +102,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
                 doubleTreasTag.setKey(decoratedKey);
 
                 UnfilteredPartitionIterator sendIterator = response.makeIterator(command, doubleTreasTag);
-                logger.debug("Finish Create our Iterator, and now make a new response");
+                //logger.debug("Finish Create our Iterator, and now make a new response");
                 response = command.createResponse(sendIterator);
             }
         }

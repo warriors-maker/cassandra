@@ -62,7 +62,7 @@ public class TreasTagMap
         // Haven't seen this data
         //logger.debug("Inside putTreasTag");
         if (localData == null) {
-            logger.debug("First time see this data");
+            //logger.debug("First time see this data");
             localData = new HashMap<>();
             localData.put(mutationTag, value);
 

@@ -2216,7 +2216,7 @@ public class StorageProxy implements StorageProxyMBean
         boolean isTreasRead = (tagMetadata != null);
         if(isTreasRead)
         {
-            logger.debug("Inside TreasRead");
+            //logger.debug("Inside TreasRead");
             return fetchRowsTreas(commands, consistencyLevel, queryStartNanoTime);
         }
 
@@ -3474,7 +3474,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-        logger.debug("Inside mutate");
+        //logger.debug("Inside mutate");
 
         long startTime = System.nanoTime();
 
