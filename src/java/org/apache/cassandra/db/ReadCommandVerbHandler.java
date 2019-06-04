@@ -70,9 +70,12 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         ReadResponse response;
 
         DecoratedKey decoratedKey = null;
+
+        SinglePartitionReadCommand singlePartitionReadCommand = null;
+
         if (command instanceof SinglePartitionReadCommand) {
             logger.debug("get the decorated key");
-            SinglePartitionReadCommand singlePartitionReadCommand = (SinglePartitionReadCommand) command;
+            singlePartitionReadCommand = (SinglePartitionReadCommand) command;
             decoratedKey = singlePartitionReadCommand.partitionKey();
         }
 
@@ -80,27 +83,28 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
              UnfilteredPartitionIterator iterator = command.executeLocally(executionController))
         {
             // TODO: Can Change the underlying iterator following this
-            if (command instanceof SinglePartitionReadCommand) {
-                logger.debug("Create response");
-                response = command.createResponse(iterator, decoratedKey);
-            } else {
-                response = command.createResponse(iterator);
-            }
+//            if (command instanceof SinglePartitionReadCommand) {
+//                logger.debug("Create response");
+//                response = command.createResponse(iterator, decoratedKey);
+//            } else {
+//                response = command.createResponse(iterator);
+//            }
 //            // Optimization: Only one read of disk;
 //
-//            response = command.createResponse(iterator);
-//
-//            if (command instanceof SinglePartitionReadCommand) {
-//                DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
-//
-//                // Indicate that this Iterator is going to sent to the Coordinator
-//                doubleTreasTag.setTagIndicator();
-//                doubleTreasTag.setKey(decoratedKey);
-//
-//                UnfilteredPartitionIterator sendIterator = response.makeIterator(command, doubleTreasTag);
-//                logger.debug("Finish Create our Iterator, and now make a new response");
-//                response = command.createResponse(sendIterator);
-//            }
+            response = command.createResponse(iterator);
+
+            if (singlePartitionReadCommand != null && singlePartitionReadCommand.metadata().keyspace.equals("ycsb")) {
+                logger.debug("Is ycsb");
+                DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
+
+                // Indicate that this Iterator is going to sent to the Coordinator
+                doubleTreasTag.setTagIndicator();
+                doubleTreasTag.setKey(decoratedKey);
+
+                UnfilteredPartitionIterator sendIterator = response.makeIterator(command, doubleTreasTag);
+                logger.debug("Finish Create our Iterator, and now make a new response");
+                response = command.createResponse(sendIterator);
+            }
         }
 
         if (!command.complete())
