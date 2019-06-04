@@ -82,6 +82,14 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         TreasTag mutationTag = null;
         String mutationValue = "";
 
+        if (!mutation.getKeyspaceName().equals("ycsb")) {
+            mutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
+                failed();
+                return null;
+            });
+            return;
+        }
+
         // Read from the Mutation
         Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         for (Cell c : data.cells())

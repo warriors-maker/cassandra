@@ -89,10 +89,14 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
             if (singlePartitionReadCommand != null && singlePartitionReadCommand.metadata().keyspace.equals("ycsb")) {
                 String key = decoratedKey.toString();
                 TreasTagMap treasTagMap = TreasMap.getInternalMap().get(key);
-                TreasValueID treasValueInfo = treasTagMap.readTag();
-                treasValueInfo.setKey(key);
+                if (treasTagMap ==null) {
+                    response = command.createResponse(iterator);
+                } else {
+                    TreasValueID treasValueInfo = treasTagMap.readTag();
+                    treasValueInfo.setKey(key);
+                    response = command.createResponse(iterator, treasValueInfo);
+                }
 
-                response = command.createResponse(iterator, treasValueInfo);
             } else {
                 response = command.createResponse(iterator);
             }
