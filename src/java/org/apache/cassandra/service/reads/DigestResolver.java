@@ -224,7 +224,7 @@ public class DigestResolver extends ResponseResolver
 
                     List<String> codeList = Arrays.asList(new String[TreasConfig.num_server]);
 
-                    int myIndex = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString());
+                    int myIndex = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
                     codeList.set(myIndex, value);
                     decodeMap.put(localTag,codeList);
 
