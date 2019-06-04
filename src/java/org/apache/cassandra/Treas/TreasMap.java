@@ -28,7 +28,7 @@ public class TreasMap
     private Map<String, TreasTagMap> map;
 
     private TreasMap() {
-        this.map = new ConcurrentHashMap<>(10000);
+        this.map = new ConcurrentHashMap<>(100000,0.9f,3);
     }
 
 
