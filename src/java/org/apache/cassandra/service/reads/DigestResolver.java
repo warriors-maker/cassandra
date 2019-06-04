@@ -300,7 +300,6 @@ public class DigestResolver extends ResponseResolver
 
                             if (decodeMap.containsKey(treasTag))
                             {
-
                                 decodeMap.get(treasTag).add(value);
 
                                 List<String> codeList = decodeMap.get(treasTag);
