@@ -3505,11 +3505,7 @@ public class StorageProxy implements StorageProxyMBean
         // This will fetch the maximum tag corresponding to the current mutation
         List<TreasTag> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
 
-        //logger.debug("MutateTreas's size" + readList.size());
-        for (int i = 0; i < readList.size(); i++) {
-            //logger.debug("Maximun tags are " + readList.get(i).toString());
-        }
-
+        logger.debug("MutateTreas's size" + readList.size());
 
         int index = 0;
 
@@ -3568,6 +3564,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 else
                 {
+                    logger.debug("Perfor Write here");
                     WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
                 }
@@ -3635,6 +3632,11 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
 //        logger.debug("Old Configuration:" + consistencyLevel);
+
+        if (commands.size() == 0) {
+            logger.debug("Size is zero");
+            return new ArrayList<>();
+        }
 
         ConsistencyLevel treasConsistencyLevel = ConsistencyLevel.TREAS;
 
