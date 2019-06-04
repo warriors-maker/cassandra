@@ -300,38 +300,35 @@ public class UnfilteredSerializer
         else
         {
             // TODO: Change the row format here.
-            //logger.debug("The value comes into here Else Statement");
-            //logger.debug("This part is to send back to the coordinator not the client");
-            if (key != null) {
-                // Fetch the TreasInformation we want
-                //logger.debug("The key is " + key.toString());
-                TreasTagMap treasTagMap = TreasMap.getInternalMap().get(key.toString());
-                if (treasTagMap == null) {
-                    //logger.debug("Have not seen this data yet");
-                } else {
-
-                    TreasValueID treasValueID = treasTagMap.readTag();
-                    int index = 0;
-                    TreasTag[] tagList = treasValueID.tagList;
-                    int id = treasValueID.id;
-                    String value = treasValueID.value;
-
-                    for (Cell cell : row.cells()) {
-                        if (cell.column().toString().startsWith(TreasConfig.TAG_PREFIX)) {
-                            if (index < tagList.length) {
-                                cell.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tagList[index])));
-                                index++;
-                            }
-                        } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX + id)) {
-                            //logger.debug("Value sent is " + value);
-                            cell.setValue(ByteBufferUtil.bytes(value));
-                        } else if (cell.column.toString().startsWith(TreasConfig.VAL_PREFIX)) {
-                            //logger.debug("Other values are " + ByteBufferUtil.string(cell.value()));
-                            //cell.setValue(ByteBufferUtil.bytes(""));
-                        }
-                    }
-                }
-            }
+//            if (key != null) {
+//                // Fetch the TreasInformation we want
+//                //logger.debug("The key is " + key.toString());
+//                TreasTagMap treasTagMap = TreasMap.getInternalMap().get(key.toString());
+//                if (treasTagMap == null) {
+//                    //logger.debug("Have not seen this data yet");
+//                } else {
+//                    TreasValueID treasValueID = treasTagMap.readTag();
+//                    int index = 0;
+//                    TreasTag[] tagList = treasValueID.tagList;
+//                    int id = treasValueID.id;
+//                    String value = treasValueID.value;
+//
+//                    for (Cell cell : row.cells()) {
+//                        if (cell.column().toString().startsWith(TreasConfig.TAG_PREFIX)) {
+//                            if (index < tagList.length) {
+//                                cell.setValue(ByteBufferUtil.bytes(TreasTag.serialize(tagList[index])));
+//                                index++;
+//                            }
+//                        } else if (cell.column.toString().equals(TreasConfig.VAL_PREFIX + id)) {
+//                            //logger.debug("Value sent is " + value);
+//                            cell.setValue(ByteBufferUtil.bytes(value));
+//                        } else if (cell.column.toString().startsWith(TreasConfig.VAL_PREFIX)) {
+//                            //logger.debug("Other values are " + ByteBufferUtil.string(cell.value()));
+//                            //cell.setValue(ByteBufferUtil.bytes(""));
+//                        }
+//                    }
+//                }
+//            }
             serializeRowBody(row, flags, header, out);
         }
     }
