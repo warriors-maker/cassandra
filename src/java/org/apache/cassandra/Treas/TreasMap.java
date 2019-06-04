@@ -18,6 +18,7 @@
 
 package org.apache.cassandra.Treas;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -25,14 +26,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public class TreasMap
 {
     private static TreasMap treasMap = new TreasMap();
-    private Map<String, TreasTagMap> map;
+    private HashMap<String, TreasTagMap> map;
 
     private TreasMap() {
-        this.map = new ConcurrentHashMap<>(100000,0.9f,3);
+        this.map = new HashMap<>(100000, 0.9f);
     }
 
 
-    public static Map<String, TreasTagMap> getInternalMap()
+    public static HashMap<String, TreasTagMap> getInternalMap()
     {
         return treasMap.map;
     }
