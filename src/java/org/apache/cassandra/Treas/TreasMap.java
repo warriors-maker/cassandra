@@ -24,17 +24,16 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TreasMap
 {
-    private static TreasMap treasMap = new TreasMap();
-    private Map<String, TreasTagMap> map;
+    private static Map<String, TreasTagMap> map = new ConcurrentHashMap<>(100000,0.9f,3);;
 
-    private TreasMap() {
-        this.map = new ConcurrentHashMap<>(100000,0.9f,3);
+    public static void cleanUp() {
+        map = new ConcurrentHashMap<>(100000,0.9f,3);
     }
 
 
     public static Map<String, TreasTagMap> getInternalMap()
     {
-        return treasMap.map;
+        return map;
     }
 
 }

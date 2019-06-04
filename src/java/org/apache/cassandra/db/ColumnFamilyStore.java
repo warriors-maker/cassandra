@@ -43,6 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.clearspring.analytics.stream.Counter;
+import org.apache.cassandra.Treas.TreasMap;
 import org.apache.cassandra.cache.*;
 import org.apache.cassandra.concurrent.*;
 import org.apache.cassandra.config.*;
@@ -2310,6 +2311,12 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         // normal reasons post-truncate.  To prevent this, we store truncation
         // position in the System keyspace.
         logger.info("Truncating {}.{}", keyspace.getName(), name);
+
+        // Cleanup the map
+        TreasMap.cleanUp();
+//        if (TreasMap.getInternalMap().isEmpty()) {
+////            System.out.println("The map is empty now");
+//        }
 
         final long truncatedAt;
         final CommitLogPosition replayAfter;
