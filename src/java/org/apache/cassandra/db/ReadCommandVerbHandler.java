@@ -83,18 +83,18 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 
             response = command.createResponse(iterator);
 
-            if (command instanceof SinglePartitionReadCommand) {
-                DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
-
-                // Indicate that this Iterator is going to sent to the Coordinator
-                doubleTreasTag.setTagIndicator();
-                doubleTreasTag.setKey(decoratedKey);
-
-                UnfilteredPartitionIterator sendIterator = response.makeIterator(command, doubleTreasTag);
-                logger.debug("Finish Create our Iterator, and now make a new response");
-                response = command.createResponse(sendIterator);
-//                response = command.createResponse(iterator, decoratedKey);
-            }
+//            if (command instanceof SinglePartitionReadCommand) {
+//                DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
+//
+//                // Indicate that this Iterator is going to sent to the Coordinator
+//                doubleTreasTag.setTagIndicator();
+//                doubleTreasTag.setKey(decoratedKey);
+//
+//                UnfilteredPartitionIterator sendIterator = response.makeIterator(command, doubleTreasTag);
+//                logger.debug("Finish Create our Iterator, and now make a new response");
+//                response = command.createResponse(sendIterator);
+////                response = command.createResponse(iterator, decoratedKey);
+//            }
         }
 
         if (!command.complete())
