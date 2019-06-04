@@ -1,0 +1,3 @@
+[submodule "src/java/org/apache/cassandra/src/java/org/apache/cassandra/JavaReedSolomon"]
+	path = src/java/org/apache/cassandra/src/java/org/apache/cassandra/JavaReedSolomon
+	url = https://github.com/Backblaze/JavaReedSolomon.git
