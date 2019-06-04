@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.TreasMap;
+import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.Treas.TreasTagMap;
 import org.apache.cassandra.Treas.TreasValueID;
 import org.apache.cassandra.db.partitions.PartitionIterator;
@@ -93,8 +94,9 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
                     logger.debug("It is null");
                     response = command.createResponse(iterator);
                 } else {
-                    TreasValueID treasValueInfo = treasTagMap.readTag();
-                    treasValueInfo.setKey(key);
+//                    TreasValueID treasValueInfo = treasTagMap.readTag();
+//                    treasValueInfo.setKey(key);
+                    TreasValueID treasValueInfo = null;
                     response = command.createResponse(iterator, treasValueInfo);
                 }
 
