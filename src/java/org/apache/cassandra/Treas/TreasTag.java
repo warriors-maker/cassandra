@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.io.Serializable;
 import java.nio.charset.CharacterCodingException;
 
+import net.openhft.chronicle.core.util.Time;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
 
@@ -33,6 +34,7 @@ public class TreasTag implements Serializable{
     private int logicalTIme;
     private String writerId ;
     private static final Logger logger = LoggerFactory.getLogger(TreasTag.class);
+    private long time = Time.currentTimeMillis();
 
     public TreasTag(){
         this.logicalTIme = -1;
