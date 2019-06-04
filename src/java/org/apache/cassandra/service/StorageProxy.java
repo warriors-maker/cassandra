@@ -3934,19 +3934,19 @@ public class StorageProxy implements StorageProxyMBean
         for (DoubleTreasTag doubleTreasTag : doubleTreasTags) {
             TreasTag quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
             TreasTag decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
-            List<String> codes = doubleTreasTag.getCodes();
             DecoratedKey key = doubleTreasTag.getKey();
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
             String keySpace = doubleTreasTag.getKeySpace();
-
-            if (key != null && codes != null && codes.size() != 0 && !quorumMaxTag.isLarger(decodeMaxTag)) {
+            String value = doubleTreasTag.getReadResult();
+            if (key != null && value != null && !quorumMaxTag.isLarger(decodeMaxTag)) {
+                logger.debug("Write Back");
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(keySpace, key);
                 long timeStamp = FBUtilities.timestampMicros();
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
                                .add(TreasConfig.TAG_ONE, TreasTag.serialize(decodeMaxTag))
-                               .add("field0", doubleTreasTag.getReadResult());
+                               .add("field0", value);
                 Mutation mutation = mutationBuilder.build();
                 mutations.add(mutation);
             }

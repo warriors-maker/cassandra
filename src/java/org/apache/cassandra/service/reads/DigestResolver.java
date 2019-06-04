@@ -321,7 +321,7 @@ public class DigestResolver extends ResponseResolver
         // Either one of them is not satisfied stop the procedure;
         if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1)
         {
-            //logger.debug("Fail to get enough result");
+            doubleTreasTag.setReadResult(null);
         }
         else
         {
