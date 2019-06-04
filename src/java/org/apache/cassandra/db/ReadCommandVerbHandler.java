@@ -79,7 +79,11 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
              UnfilteredPartitionIterator iterator = command.executeLocally(executionController))
         {
             // TODO: Can Change the underlying iterator following this
-            response = command.createResponse(iterator, decoratedKey);
+            if (command instanceof SinglePartitionReadCommand) {
+                response = command.createResponse(iterator);
+            } else {
+                response = command.createResponse(iterator, decoratedKey);
+            }
 //            // Optimization: Only one read of disk;
 //
 //            response = command.createResponse(iterator);
