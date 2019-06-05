@@ -322,7 +322,7 @@ public class DigestResolver extends ResponseResolver
                                 }
 
                                 if (count == TreasConfig.QUORUM) {
-                                    logger.debug("I get the count" + count);
+                                    //logger.debug("I get the count" + count);
                                     doubleTreasTag.setNeedWriteBack(false);
                                 }
                             }
