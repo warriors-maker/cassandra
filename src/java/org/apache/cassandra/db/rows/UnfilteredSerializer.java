@@ -334,7 +334,7 @@ public class UnfilteredSerializer
                     }
                 }
             }
-            serializeRowBody(row, flags, header, out, true);
+            serializeRowBody(row, flags, header, out);
         }
     }
 
