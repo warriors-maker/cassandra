@@ -311,7 +311,6 @@ public class DigestResolver extends ResponseResolver
                                 int count = decodeCountMap.get(treasTag) + 1;
                                 decodeCountMap.put(treasTag,count);
 
-//                                decodeMap.get(treasTag).set(id, value);
 
                                 if (count == TreasConfig.num_recover)
                                 {
@@ -320,6 +319,11 @@ public class DigestResolver extends ResponseResolver
                                         decodeTagMax = treasTag;
                                         decodeValMax = codeList;
                                     }
+                                }
+
+                                if (count == TreasConfig.QUORUM) {
+                                    logger.debug("I get the count" + count);
+                                    doubleTreasTag.setNeedWriteBack(false);
                                 }
                             }
                             else
@@ -336,6 +340,10 @@ public class DigestResolver extends ResponseResolver
                                         decodeTagMax = treasTag;
                                         decodeValMax = codelist;
                                     }
+                                }
+
+                                if (TreasConfig.QUORUM == 1) {
+                                    doubleTreasTag.setNeedWriteBack(false);
                                 }
                             }
                         }
