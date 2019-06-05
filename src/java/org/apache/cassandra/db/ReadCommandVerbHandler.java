@@ -101,6 +101,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
                     response.tagList = tagList;
                     response.val = value;
                     response.index = index;
+                    logger.debug(response.val + " " + response.index);
                 } else {
                     logger.debug("TreasTagMap is null");
                 }
