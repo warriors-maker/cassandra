@@ -180,7 +180,40 @@ public class DigestResolver extends ResponseResolver
 
         HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
 
-        boolean initialized = false;
+
+        TreasTagMap localTagMap = TreasMap.getInternalMap().putIfAbsent(doubleTreasTag.getKey().toString(), new TreasTagMap());
+        if (localTagMap == null) {
+
+        } else
+        {
+            TreasValueID obj = localTagMap.readTag();
+            TreasTag localTag = obj.maxTag;
+            String value = obj.value;
+
+
+            List<String> codeList = Arrays.asList(new String[TreasConfig.num_server]);
+
+            int myIndex = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
+
+            codeList.set(myIndex, value);
+            decodeMap.put(localTag, codeList);
+            decodeCountMap.put(localTag, 1);
+            quorumMap.put(localTag, 1);
+
+            if (TreasConfig.num_intersect == 1)
+            {
+                quorumTagMax = localTag;
+            }
+
+            if (TreasConfig.num_recover == 1)
+            {
+                decodeTagMax = localTag;
+                decodeValMax = codeList;
+                doubleTreasTag.setNeedWriteBack(false);
+            }
+        }
+
+
 
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
@@ -198,6 +231,10 @@ public class DigestResolver extends ResponseResolver
             String val = response.val;
 
             logger.debug("Get from ReadResponse" + valueIndex + " " + val);
+
+            if (taglist == null) {
+                continue;
+            }
 
             for (int i = 0; i < taglist.length; i++)
             {

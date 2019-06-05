@@ -59,6 +59,7 @@ import org.apache.cassandra.service.StorageProxy.LocalReadRunnable;
 import org.apache.cassandra.tracing.TraceState;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.cassandra.utils.FBUtilities;
 
 /**
  * Sends a read request to the replicas needed to satisfy a given ConsistencyLevel.
@@ -529,14 +530,19 @@ public abstract class AbstractReadExecutor
             // we shouldn't get a digest response here
             assert response.isDigestResponse() == false;
 
-            // get the partition iterator corresponding to the
-            // current data response
             TreasTag[] tagList = response.tagList;
-            for (TreasTag localTag : tagList) {
-                if (localTag.isLarger(localMaxTreasTag)) {
-                    localMaxTreasTag = localTag;
+            if (tagList == null) {
+                System.out.println("taglist NULL");
+            } else {
+                // get the partition iterator corresponding to the
+                // current data response
+                for (TreasTag localTag : tagList) {
+                    if (localTag.isLarger(localMaxTreasTag)) {
+                        localMaxTreasTag = localTag;
+                    }
                 }
             }
+
         }
 
         maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
