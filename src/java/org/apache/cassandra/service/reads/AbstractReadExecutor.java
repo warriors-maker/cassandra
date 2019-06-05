@@ -531,43 +531,13 @@ public abstract class AbstractReadExecutor
 
             // get the partition iterator corresponding to the
             // current data response
-            PartitionIterator pi = UnfilteredPartitionIterators.filter(response.makeIterator(command), command.nowInSec());
-
-            while (pi.hasNext())
-            {
-                // pi.next() returns a RowIterator
-                RowIterator ri = pi.next();
-                while (ri.hasNext())
-                {
-                    TreasTag curTag = new TreasTag();
-                    for (Cell c : ri.next().cells())
-                    {
-                        // if it is a timeStamp field, we need to check it
-                        if (c.column().name.toString().startsWith(TreasConfig.TAG_PREFIX))
-                        {
-                            try {
-                                if (ByteBufferUtil.string(c.value()).isEmpty()) {
-                                    //System.out.println("Is Empty");
-                                    continue;
-                                }
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-
-                            //System.out.println("Is not Empty" + curTag.toString());
-                            curTag = TreasTag.deserialize(c.value());
-                            //logger.debug(curTag.toString());
-                            if (curTag.isLarger(localMaxTreasTag))
-                            {
-                                localMaxTreasTag = curTag;
-                            }
-                        }
-                    }
+            TreasTag[] tagList = response.tagList;
+            for (TreasTag localTag : tagList) {
+                if (localTag.isLarger(localMaxTreasTag)) {
+                    localMaxTreasTag = localTag;
                 }
             }
         }
-
-
 
         maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
         maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());

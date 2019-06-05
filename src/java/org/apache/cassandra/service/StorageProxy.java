@@ -3736,11 +3736,20 @@ public class StorageProxy implements StorageProxyMBean
 
             for (int i = 0; i < cmdCount; i++)
             {
+                DecoratedKey key = commands.get(i).partitionKey();
+                TableMetadata tableMetadata = commands.get(i).metadata();
+                String keyspace = commands.get(i).metadata().keyspace;
+
                 DoubleTreasTag doubleTreasTag = new DoubleTreasTag();
+
+                doubleTreasTag.setKey(key);
+                doubleTreasTag.setTableMetadata(tableMetadata);
+                doubleTreasTag.setKeySpace(keyspace);
+
+                logger.debug("Key is: " + key + "KeySpace is: " + keyspace);
                 doubleTreasTags.add(doubleTreasTag);
                 reads[i].awaitTreasResponses(doubleTreasTag);
             }
-
     }
 
     // Read for Treas
@@ -3801,7 +3810,6 @@ public class StorageProxy implements StorageProxyMBean
         List<IMutation> mutations = new ArrayList<>();
         for (DoubleTreasTag doubleTreasTag : doubleTreasTags) {
             //logger.debug("Write back to other replicas");
-            TreasTag quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
             TreasTag decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
             String value = doubleTreasTag.getReadValue();
             //logger.debug("Write back to others value:" + value);
@@ -3810,7 +3818,7 @@ public class StorageProxy implements StorageProxyMBean
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
             String keySpace = doubleTreasTag.getKeySpace();
 
-            if (key != null && value != null && !value.isEmpty() && !quorumMaxTag.isLarger(decodeMaxTag) && doubleTreasTag.isNeedWriteBack()) {
+            if (value != null  && doubleTreasTag.isNeedWriteBack()) {
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(keySpace, key);
                 long timeStamp = FBUtilities.timestampMicros();
                 mutationBuilder.update(tableMetadata)
