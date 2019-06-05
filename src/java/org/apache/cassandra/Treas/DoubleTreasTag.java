@@ -32,10 +32,21 @@ public class DoubleTreasTag
     private List<String> codes = null;
     private ReadResponse readResponse;
     private String readValue;
+    private boolean needWriteBack = true;
 
     private DecoratedKey key;
     private TableMetadata tableMetadata;
     private String keySpace;
+
+    public boolean isNeedWriteBack()
+    {
+        return needWriteBack;
+    }
+
+    public void setNeedWriteBack(boolean needWriteBack)
+    {
+        this.needWriteBack = needWriteBack;
+    }
 
     private boolean isTagIndicator = false;
 
