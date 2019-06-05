@@ -90,15 +90,17 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
 
             if (singlePartitionReadCommand != null && singlePartitionReadCommand.metadata().keyspace.equals("ycsb")) {
                 TreasTagMap treasTagMap = TreasMap.getInternalMap().get(decoratedKey.toString());
-                TreasValueID treasValueID = treasTagMap.readTag();
-                TreasTag[] tagList = treasValueID.tagList;
+                if (treasTagMap != null) {
+                    TreasValueID treasValueID = treasTagMap.readTag();
+                    TreasTag[] tagList = treasValueID.tagList;
 
-                // Id is where thee value stored corresponding to the position of the tagList
-                int index = treasValueID.id;
-                String value = treasValueID.value;
-                response.tagList = tagList;
-                response.val = value;
-                response.index = index;
+                    // Id is where thee value stored corresponding to the position of the tagList
+                    int index = treasValueID.id;
+                    String value = treasValueID.value;
+                    response.tagList = tagList;
+                    response.val = value;
+                    response.index = index;
+                }
             }
             // Optimization: Only one read of disk;
 //
