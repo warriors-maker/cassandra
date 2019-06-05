@@ -86,7 +86,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
              UnfilteredPartitionIterator iterator = command.executeLocally(executionController))
         {
             // TODO: Can Change the underlying iterator following this
-            response = command.createResponse(iterator, decoratedKey);
+            response = command.createResponse(iterator);
 
             if (singlePartitionReadCommand != null && singlePartitionReadCommand.metadata().keyspace.equals("ycsb")) {
                 logger.debug("Key is" +decoratedKey.toString());

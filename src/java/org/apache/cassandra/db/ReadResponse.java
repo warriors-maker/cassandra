@@ -305,8 +305,11 @@ public abstract class ReadResponse
             ByteBufferUtil.writeWithVIntLength(digest, out);
             if (!isDigest)
             {
+                logger.debug("Sereilizer:" + response.index + " " + response.val);
                 ByteBuffer data = ((DataResponse)response).data;
                 ByteBufferUtil.writeWithVIntLength(data, out);
+                // ToDo: Add
+                logger.debug("The buffer size of data: " + data.remaining());
             }
         }
 
@@ -317,11 +320,13 @@ public abstract class ReadResponse
                 return new DigestResponse(digest);
 
             ByteBuffer data = ByteBufferUtil.readWithVIntLength(in);
+            logger.debug("Receive from Remote replica");
             return new RemoteDataResponse(data, version);
         }
 
         public long serializedSize(ReadResponse response, int version)
         {
+            logger.debug("Inside serializedSize");
             boolean isDigest = response instanceof DigestResponse;
             ByteBuffer digest = isDigest ? ((DigestResponse)response).digest : ByteBufferUtil.EMPTY_BYTE_BUFFER;
 
@@ -335,6 +340,7 @@ public abstract class ReadResponse
                 ByteBuffer data = ((DataResponse)response).data;
                 size += ByteBufferUtil.serializedSizeWithVIntLength(data);
             }
+            logger.debug("Size is" + size);
             return size;
         }
     }
