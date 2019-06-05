@@ -3938,7 +3938,7 @@ public class StorageProxy implements StorageProxyMBean
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
             String keySpace = doubleTreasTag.getKeySpace();
             String value = doubleTreasTag.getReadResult();
-            if (key != null && value != null && !quorumMaxTag.isLarger(decodeMaxTag)) {
+            if (key != null && value != null  && doubleTreasTag.isNeedWriteBack()) {
                 logger.debug("Write Back");
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(keySpace, key);
                 long timeStamp = FBUtilities.timestampMicros();

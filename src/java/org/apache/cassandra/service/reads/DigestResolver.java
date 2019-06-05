@@ -291,6 +291,10 @@ public class DigestResolver extends ResponseResolver
                                         decodeValMax = codeList;
                                     }
                                 }
+
+                                if (count == TreasConfig.QUORUM) {
+                                    doubleTreasTag.setNeedWriteBack(false);
+                                }
                             }
                             else
                             {
@@ -306,6 +310,9 @@ public class DigestResolver extends ResponseResolver
                                         decodeTagMax = treasTag;
                                         decodeValMax = codelist;
                                     }
+                                }
+                                if (TreasConfig.QUORUM == 1) {
+                                    doubleTreasTag.setNeedWriteBack(false);
                                 }
                             }
                         }
