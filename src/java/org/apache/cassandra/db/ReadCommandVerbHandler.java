@@ -25,6 +25,9 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.TreasMap;
+import org.apache.cassandra.Treas.TreasTag;
+import org.apache.cassandra.Treas.TreasTagMap;
+import org.apache.cassandra.Treas.TreasValueID;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
@@ -83,10 +86,19 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
              UnfilteredPartitionIterator iterator = command.executeLocally(executionController))
         {
             // TODO: Can Change the underlying iterator following this
+            response = command.createResponse(iterator, decoratedKey);
+
             if (singlePartitionReadCommand != null && singlePartitionReadCommand.metadata().keyspace.equals("ycsb")) {
-                response = command.createResponse(iterator, decoratedKey);
-            } else {
-                response = command.createResponse(iterator);
+                TreasTagMap treasTagMap = TreasMap.getInternalMap().get(decoratedKey.toString());
+                TreasValueID treasValueID = treasTagMap.readTag();
+                TreasTag[] tagList = treasValueID.tagList;
+
+                // Id is where thee value stored corresponding to the position of the tagList
+                int index = treasValueID.id;
+                String value = treasValueID.value;
+                response.tagList = tagList;
+                response.val = value;
+                response.index = index;
             }
             // Optimization: Only one read of disk;
 //

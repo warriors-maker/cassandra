@@ -195,6 +195,13 @@ public class DigestResolver extends ResponseResolver
 
             ReadResponse response = message.payload;
 
+            TreasTag[] taglist = response.tagList;
+            // Id is where thee value stored corresponding to the position of the tagList
+            int idx = response.index;
+            String val = response.val;
+
+            logger.debug("Get from ReadResponse" + idx + " " + val);
+
             assert response.isDigestResponse() == false;
 
             // get the partition iterator corresponding to the
