@@ -96,6 +96,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         Map<String, TreasTagMap> treasMap = TreasMap.getInternalMap();
         String mutationKey = message.payload.key().toString();
         TreasTagMap localTag = treasMap.putIfAbsent(mutationKey, new TreasTagMap());
+        logger.debug("Successfully pit in" + mutationKey);
 
         if (localTag == null) {
             //logger.debug("First time seen this data");

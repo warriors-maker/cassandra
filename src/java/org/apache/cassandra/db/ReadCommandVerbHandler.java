@@ -89,6 +89,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
             response = command.createResponse(iterator, decoratedKey);
 
             if (singlePartitionReadCommand != null && singlePartitionReadCommand.metadata().keyspace.equals("ycsb")) {
+                logger.debug("Key is" +decoratedKey.toString());
                 TreasTagMap treasTagMap = TreasMap.getInternalMap().get(decoratedKey.toString());
                 if (treasTagMap != null) {
                     TreasValueID treasValueID = treasTagMap.readTag();
@@ -100,6 +101,8 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
                     response.tagList = tagList;
                     response.val = value;
                     response.index = index;
+                } else {
+                    logger.debug("TreasTagMap is null");
                 }
             }
             // Optimization: Only one read of disk;
