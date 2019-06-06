@@ -1594,7 +1594,7 @@ public class StorageProxy implements StorageProxyMBean
         }
         else {
             //logger.debug("Inside sendTohintedEndPoint");
-            long sendStartTime = System.nanoTime();
+//            long sendStartTime = System.nanoTime();
 
             int targetsSize = Iterables.size(targets);
 
@@ -1696,11 +1696,11 @@ public class StorageProxy implements StorageProxyMBean
             HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
             //logger.debug("Coordinator address is" + coordinatorAdress);
             int coordinator_index = addressMap.get(coordinatorAdress);
-            long encodeStart = System.nanoTime();
+//            long encodeStart = System.nanoTime();
             String value = TreasConfig.byteToString(encodeMatrix[coordinator_index]);
-            long encodeEnd = System.nanoTime();
-            long encodeTotal = encodeStart - encodeEnd;
-            logger.debug("Byte to String time" + encodeTotal);
+//            long encodeEnd = System.nanoTime();
+//            long encodeTotal = encodeStart - encodeEnd;
+//            logger.debug("Byte to String time" + encodeTotal);
 
             //logger.debug ("Coordinator adress is " + coordinatorAdress + " My Id is :" + coordinator_index + " value: " + value);
 
@@ -1846,9 +1846,9 @@ public class StorageProxy implements StorageProxyMBean
                 }
             }
 
-            long sendEndTime = System.nanoTime();
-            long sendTotalTime = sendEndTime - sendStartTime;
-            logger.debug("Mutatie main function" + sendTotalTime);
+//            long sendEndTime = System.nanoTime();
+//            long sendTotalTime = sendEndTime - sendStartTime;
+            //logger.debug("Mutatie main function" + sendTotalTime);
 
             // Send to Replica
             if (localDc != null)
@@ -3763,7 +3763,7 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         //logger.debug("Old Configuration:" + consistencyLevel);
-        long startTime = System.nanoTime();
+        //long startTime = System.nanoTime();
         ConsistencyLevel treasConsistencyLevel = ConsistencyLevel.TREAS;
 
         int cmdCount = commands.size();
@@ -3819,9 +3819,9 @@ public class StorageProxy implements StorageProxyMBean
 //            results.add(reads[i].getResult());
 //        }
 
-        long endTime = System.nanoTime();
-        long total = startTime - endTime;
-        logger.debug("Fetch Tag time takes" + total);
+        //long endTime = System.nanoTime();
+        //long total = startTime - endTime;
+        //logger.debug("Fetch Tag time takes" + total);
         return treasTags;
     }
 
@@ -3832,7 +3832,7 @@ public class StorageProxy implements StorageProxyMBean
                                                            long queryStartNanoTime, List<DoubleTreasTag> doubleTreasTags)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-            long startTime = System.nanoTime();
+//            long startTime = System.nanoTime();
             consistencyLevel = ConsistencyLevel.TREAS;
             //logger.debug("Inside fetchTagValueTreas");
             int cmdCount = commands.size();
@@ -3884,9 +3884,9 @@ public class StorageProxy implements StorageProxyMBean
 //        {
 //            results.add(reads[i].getResult());
 //        }
-        long endTime = System.nanoTime();
-        long total = startTime - endTime;
-        logger.debug("Fetch Tag + value time takes" + total);
+//        long endTime = System.nanoTime();
+//        long total = startTime - endTime;
+//        logger.debug("Fetch Tag + value time takes" + total);
 
     }
 

@@ -158,7 +158,7 @@ public class DigestResolver extends ResponseResolver
     public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
         //logger.debug("Inside awaitResponsesTreasTagValue");
         //System.out.println("Inside awaitResponsesTreasTagValue");
-        long startTime = System.nanoTime();
+//        long startTime = System.nanoTime();
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
 
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
@@ -368,11 +368,11 @@ public class DigestResolver extends ResponseResolver
 
                 else {
                     count++;
-                    long startDecodeTime = System.nanoTime();
+//                    long startDecodeTime = System.nanoTime();
                     byte[] replica_array = TreasConfig.stringToByte(value);
-                    long endDecodeTime = System.nanoTime();
-                    long decodeTime = startDecodeTime - endDecodeTime;
-                    logger.debug("Transform to bytes " + decodeTime);
+//                    long endDecodeTime = System.nanoTime();
+//                    long decodeTime = startDecodeTime - endDecodeTime;
+//                    logger.debug("Transform to bytes " + decodeTime);
                     decodeMatrix[i] = replica_array;
                     shardPresent[i] = true;
                 }
@@ -385,9 +385,9 @@ public class DigestResolver extends ResponseResolver
             doubleTreasTag.setReadResult(value);
         }
 
-        long endTime = System.nanoTime();
-        long total = endTime - startTime;
-        logger.debug("FetchTagValue main function Time is " + total) ;
+//        long endTime = System.nanoTime();
+//        long total = endTime - startTime;
+//        logger.debug("FetchTagValue main function Time is " + total) ;
     }
 
 

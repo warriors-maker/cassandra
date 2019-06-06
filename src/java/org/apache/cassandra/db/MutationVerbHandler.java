@@ -62,7 +62,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         //logger.debug("Inside Doverb");
         // Check if there were any forwarding headers in this message
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
-        long startTime = System.nanoTime();
+//        long startTime = System.nanoTime();
         InetAddressAndPort replyTo;
         if (from == null)
         {
@@ -234,9 +234,9 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         }
 
         Mutation commitMutation = mutationBuilder.build();
-        long endTime = System.nanoTime();
-        long totalTime = startTime - endTime;
-        logger.debug("Replica main time takse:" +totalTime);
+//        long endTime = System.nanoTime();
+//        long totalTime = startTime - endTime;
+        //logger.debug("Replica main time takse:" +totalTime);
         // Commit this mutation
         commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
             failed();
