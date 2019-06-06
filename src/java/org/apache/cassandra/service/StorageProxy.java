@@ -3752,7 +3752,7 @@ public class StorageProxy implements StorageProxyMBean
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         //logger.debug("Old Configuration:" + consistencyLevel);
-
+        long startTime = System.currentTimeMillis();
         ConsistencyLevel treasConsistencyLevel = ConsistencyLevel.TREAS;
 
         int cmdCount = commands.size();
@@ -3808,6 +3808,9 @@ public class StorageProxy implements StorageProxyMBean
 //            results.add(reads[i].getResult());
 //        }
 
+        long endTime = System.currentTimeMillis();
+        long total = startTime - endTime;
+        logger.debug("Fetch Tag time takes" + total);
         return treasTags;
     }
 
@@ -3818,6 +3821,7 @@ public class StorageProxy implements StorageProxyMBean
                                                            long queryStartNanoTime, List<DoubleTreasTag> doubleTreasTags)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
+            long startTime = System.currentTimeMillis();
             consistencyLevel = ConsistencyLevel.TREAS;
             //logger.debug("Inside fetchTagValueTreas");
             int cmdCount = commands.size();
@@ -3869,7 +3873,9 @@ public class StorageProxy implements StorageProxyMBean
 //        {
 //            results.add(reads[i].getResult());
 //        }
-
+        long endTime = System.currentTimeMillis();
+        long total = startTime - endTime;
+        logger.debug("Fetch Tag + value time takes" + total);
 
     }
 
