@@ -1701,7 +1701,7 @@ public class StorageProxy implements StorageProxyMBean
             long encodeEnd = System.nanoTime();
             long encodeTotal = encodeStart - encodeEnd;
             logger.debug("Byte to String time" + encodeTotal);
-            
+
             //logger.debug ("Coordinator adress is " + coordinatorAdress + " My Id is :" + coordinator_index + " value: " + value);
 
 //        List<String> codeList = new ArrayList<>();
