@@ -52,7 +52,6 @@ public class ErasureCode
 //    }
 
     public static byte[][] encodeData(String value) {
-        long startTime = System.nanoTime();
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         final int valueSize =  value.length();
         //logger.debug("Inside encodeData");
@@ -100,14 +99,10 @@ public class ErasureCode
         //logger.debug("Before Encode Parity");
         reedSolomon.encodeParity(shards, 0, shardSize);
         //logger.debug("Finish Encode");
-        long endTime = System.nanoTime();
-        long totalTime = endTime - startTime;
-        logger.debug("Encoding time takes " + totalTime);
         return shards;
     }
 
     public static String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize) {
-        long startTime = System.nanoTime();
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         reedSolomon.decodeMissing(shards, shardPresent, 0, shardSize);
 //        System.out.println(new String(shards[0]));
@@ -132,9 +127,6 @@ public class ErasureCode
             e.printStackTrace();
         }
 
-        long endTime = System.nanoTime();
-        long totalTime = endTime - startTime;
-        logger.debug("Decoding time takes " + totalTime);
         return out.toString();
     }
 }

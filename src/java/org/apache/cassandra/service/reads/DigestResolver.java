@@ -368,7 +368,11 @@ public class DigestResolver extends ResponseResolver
 
                 else {
                     count++;
+                    long startDecodeTime = System.nanoTime();
                     byte[] replica_array = TreasConfig.stringToByte(value);
+                    long endDecodeTime = System.nanoTime();
+                    long decodeTime = startDecodeTime - endDecodeTime;
+                    logger.debug("Transform to bytes " + decodeTime);
                     decodeMatrix[i] = replica_array;
                     shardPresent[i] = true;
                 }
