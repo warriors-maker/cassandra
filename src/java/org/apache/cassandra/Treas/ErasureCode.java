@@ -134,7 +134,7 @@ public class ErasureCode
 
         long endTime = System.currentTimeMillis();
         long totalTime = endTime - startTime;
-        logger.debug("Encoding time takes " + totalTime);
+        logger.debug("Decoding time takes " + totalTime);
         return out.toString();
     }
 }
