@@ -158,6 +158,7 @@ public class DigestResolver extends ResponseResolver
     public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
         //logger.debug("Inside awaitResponsesTreasTagValue");
         //System.out.println("Inside awaitResponsesTreasTagValue");
+        long startTime = System.nanoTime();
         HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
 
         HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
@@ -379,6 +380,10 @@ public class DigestResolver extends ResponseResolver
             //logger.debug("Convert the data to value" + value);
             doubleTreasTag.setReadResult(value);
         }
+
+        long endTime = System.nanoTime();
+        long total = endTime - startTime;
+        logger.debug("FetchTagValue main function Time is " + total) ;
     }
 
 

@@ -515,7 +515,7 @@ public abstract class AbstractReadExecutor
         }
 
         // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
-
+        long startTime = System.nanoTime();
         TreasTag localMaxTreasTag = new TreasTag();
 
         // Each readResponse represents a response from a Replica
@@ -561,7 +561,9 @@ public abstract class AbstractReadExecutor
         maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
         //logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
 //        setResult(readResponse);
-
+        long endTime = System.nanoTime();
+        long total = endTime - startTime;
+        logger.debug("Fetch Tag main function takes" + total);
     }
 
 
