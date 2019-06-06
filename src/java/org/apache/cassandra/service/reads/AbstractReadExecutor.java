@@ -514,7 +514,6 @@ public abstract class AbstractReadExecutor
             }
         }
 
-        ReadResponse readResponse = digestResolver.getReadResponse();
         // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
 
         TreasTag localMaxTreasTag = new TreasTag();
@@ -560,9 +559,8 @@ public abstract class AbstractReadExecutor
         // Set the maximum tag into the reference we pass
         maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
         maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
-        // TODO: May need to check here because I consume the Iterator
         //logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
-        setResult(readResponse);
+//        setResult(readResponse);
 
     }
 

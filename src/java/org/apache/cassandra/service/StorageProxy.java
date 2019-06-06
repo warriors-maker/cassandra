@@ -3939,7 +3939,7 @@ public class StorageProxy implements StorageProxyMBean
             String keySpace = doubleTreasTag.getKeySpace();
             String value = doubleTreasTag.getReadResult();
             if (key != null && value != null  && doubleTreasTag.isNeedWriteBack()) {
-                logger.debug("Write Back");
+                //logger.debug("Write Back");
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(keySpace, key);
                 long timeStamp = FBUtilities.timestampMicros();
                 mutationBuilder.update(tableMetadata)

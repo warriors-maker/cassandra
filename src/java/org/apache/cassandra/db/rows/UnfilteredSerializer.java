@@ -526,7 +526,6 @@ public class UnfilteredSerializer
             Row r =  deserializeRowBody(in, header, helper, flags, extendedFlags, builder);
 
             for (Cell c : r.cells()) {
-                System.out.println(c.column.name.toString() + "," + ByteBufferUtil.string(c.value()));
                 if (c.column.name.toString().equals("field0")) {
                     String value = doubleTreasTag.getReadResult();
                     if (value == null) {
@@ -534,7 +533,7 @@ public class UnfilteredSerializer
                     } else {
                         c.setValue(ByteBufferUtil.bytes(value));
                     }
-
+                    break;
                 }
             }
             return r;
