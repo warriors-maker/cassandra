@@ -254,7 +254,21 @@ public class DigestResolver extends ResponseResolver
                         // Notice that only one column has the data
                         else if (colName.startsWith("field") && !colName.equals("field0"))
                         {
-                            if (decodeCountMap.get(decodeTagMax) != null && decodeCountMap.get(decodeTagMax) == TreasConfig.num_recover) {
+
+                            // Find the corresponding index to fetch the tag value
+                            int index = Integer.parseInt(colName.substring(TreasConfig.VAL_PREFIX.length()));
+                            String treasTagColumn = "tag" + index;
+                            ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(treasTagColumn, true);
+                            ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
+                            Cell tagCell = row.getCell(columnMetadata);
+                            TreasTag treasTag = TreasTag.deserialize(tagCell.value());
+
+                            if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
+                                int count = decodeCountMap.get(decodeTagMax) + 1;
+                                decodeCountMap.put(decodeTagMax, count);
+                                if (count == TreasConfig.QUORUM) {
+                                    doubleTreasTag.setNeedWriteBack(false);
+                                }
                                 continue;
                             }
                             // Fetch the code out
@@ -268,13 +282,6 @@ public class DigestResolver extends ResponseResolver
                                 e.printStackTrace();
                             }
 
-                            // Find the corresponding index to fetch the tag value
-                            int index = Integer.parseInt(colName.substring(TreasConfig.VAL_PREFIX.length()));
-                            String treasTagColumn = "tag" + index;
-                            ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(treasTagColumn, true);
-                            ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
-                            Cell tagCell = row.getCell(columnMetadata);
-                            TreasTag treasTag = TreasTag.deserialize(tagCell.value());
 
                             if (decodeMap.containsKey(treasTag))
                             {
