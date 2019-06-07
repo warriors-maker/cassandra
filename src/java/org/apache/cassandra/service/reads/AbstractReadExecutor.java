@@ -26,6 +26,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
+import org.apache.cassandra.Treas.FetchTagObject;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.cql3.ColumnIdentifier;
@@ -496,7 +497,7 @@ public abstract class AbstractReadExecutor
         }
     }
 
-    public void awaitResponsesTreasTag(TreasTag maxTreasTag) throws ReadTimeoutException
+    public void awaitResponsesTreasTag(FetchTagObject coordinatorInfo) throws ReadTimeoutException
     {
         try
         {
@@ -514,10 +515,7 @@ public abstract class AbstractReadExecutor
             }
         }
 
-        // Fetch the maximun Tag from the readResponse and make it into the maxTreasTag:
-//        long startTime = System.nanoTime();
         TreasTag localMaxTreasTag = new TreasTag();
-
         // Each readResponse represents a response from a Replica
         for (MessageIn<ReadResponse> message : digestResolver.getMessages())
         {
@@ -532,6 +530,21 @@ public abstract class AbstractReadExecutor
             // current data response
             PartitionIterator pi = UnfilteredPartitionIterators.filter(response.makeIterator(command), command.nowInSec());
 
+            String minTagColName = null;
+            String maxFieldColName = null;
+            TreasTag maxCoordinatorTag = null;
+            TreasTag minCoodinatorTag = null;
+            String minFieldColName = null;
+
+            boolean myMessage = false;
+            int hit = 1;
+
+            //minTagColName == null => first time see this data
+
+            if (message.from.equals(FBUtilities.getLocalAddressAndPort())) {
+                logger.debug("My message");
+                myMessage = true;
+            }
             while (pi.hasNext())
             {
                 // pi.next() returns a RowIterator
@@ -541,11 +554,30 @@ public abstract class AbstractReadExecutor
                     TreasTag curTag = new TreasTag();
                     for (Cell c : ri.next().cells())
                     {
+                        //TODO: Inside here we can fetch the corresponding tag the coordinator should insert
                         // if it is a timeStamp field, we need to check it
-                        if (c.column().name.toString().startsWith("tag"))
+                        String colName = c.column().name.toString();
+                        if (colName.startsWith("tag"))
                         {
                             curTag = TreasTag.deserialize(c.value());
-                            //logger.debug(curTag.toString());
+                            if (myMessage) {
+                                hit++;
+                                if (minCoodinatorTag == null) {
+                                    minCoodinatorTag = curTag;
+                                    minTagColName = colName;
+                                    maxCoordinatorTag = curTag;
+                                    maxFieldColName = "field" + colName.substring(3);
+                                }
+                                else if (minCoodinatorTag.isLarger(curTag)) {
+                                    minCoodinatorTag = curTag;
+                                    minTagColName = colName;
+                                    minFieldColName = "field" + colName.substring(3);
+                                }
+                                else if (curTag.isLarger(maxCoordinatorTag)) {
+                                    maxCoordinatorTag = curTag;
+                                    maxFieldColName = "field" + colName.substring(3);
+                                }
+                            }
                             if (curTag.isLarger(localMaxTreasTag))
                             {
                                 localMaxTreasTag = curTag;
@@ -554,16 +586,24 @@ public abstract class AbstractReadExecutor
                     }
                 }
             }
+
+            if (myMessage = true) {
+                if (hit <= TreasConfig.num_concurrecy) {
+                    coordinatorInfo.minTagColName = "tag" + hit;
+                    coordinatorInfo.minFieldColName = "field" + hit;
+                } else {
+                    coordinatorInfo.hit = hit;
+                    coordinatorInfo.maxCoordinatorTag = maxCoordinatorTag;
+                    coordinatorInfo.minCoodinatorTag = minCoodinatorTag;
+                    coordinatorInfo.minTagColName = minTagColName;
+                    coordinatorInfo.maxFieldColName = maxFieldColName;
+                    coordinatorInfo.minFieldColName = minFieldColName;
+                }
+            }
+            myMessage = false;
         }
 
-        // Set the maximum tag into the reference we pass
-        maxTreasTag.setLogicalTIme(localMaxTreasTag.getTime());
-        maxTreasTag.setWriterId(localMaxTreasTag.getWriterId());
-        //logger.debug("MaxTreas from awaitResponse is" + maxTreasTag.toString());
-//        setResult(readResponse);
-//        long endTime = System.nanoTime();
-//        long total = endTime - startTime;
-//        logger.debug("Fetch Tag main function takes" + total);
+        coordinatorInfo.maxTagAll = localMaxTreasTag;
     }
 
 
