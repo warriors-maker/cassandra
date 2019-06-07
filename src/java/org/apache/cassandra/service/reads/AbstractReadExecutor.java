@@ -456,6 +456,7 @@ public abstract class AbstractReadExecutor
 
         digestResolver.fetchTargetTags(treasTag);
         treasTag.setReadResponse(digestResolver.getReadResponse());
+        setResult(digestResolver.getReadResponse());
     }
 
     public void awaitResponsesAbd() throws ReadTimeoutException
@@ -609,6 +610,7 @@ public abstract class AbstractReadExecutor
         }
 
         coordinatorInfo.maxTagAll = new TreasTag(localMaxTreasTag);
+        setResult(digestResolver.getReadResponse());
     }
 
 
