@@ -595,12 +595,12 @@ public abstract class AbstractReadExecutor
                     coordinatorInfo.minTagColName = "tag" + hit;
                     coordinatorInfo.minFieldColName = "field" + hit;
                 } else {
-                    coordinatorInfo.maxCoordinatorTag = maxCoordinatorTag;
                     coordinatorInfo.minCoodinatorTag = minCoodinatorTag;
                     coordinatorInfo.minTagColName = minTagColName;
-                    coordinatorInfo.maxFieldColName = maxFieldColName;
                     coordinatorInfo.minFieldColName = minFieldColName;
                 }
+                coordinatorInfo.maxCoordinatorTag = maxCoordinatorTag;
+                coordinatorInfo.maxFieldColName = maxFieldColName;
                 coordinatorInfo.hit = hit;
             }
 

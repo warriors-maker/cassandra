@@ -1783,7 +1783,7 @@ public class StorageProxy implements StorageProxyMBean
                 //logger.debug("Tag Already exists, no need to write into the disk");
             }
 
-            if (oldMaxFieldName == null) {
+            if (hit == 1) {
                 logger.debug("First time see this data");
             } else {
                 logger.debug("OldMaxFieldName" + oldMaxFieldName);
@@ -1799,7 +1799,6 @@ public class StorageProxy implements StorageProxyMBean
             // Fetch the index from a Map
             // byte[] myData = erasureCode[index];
             if (hit == 1) {
-                logger.debug("Hit is 1");
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
