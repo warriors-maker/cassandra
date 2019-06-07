@@ -594,15 +594,14 @@ public abstract class AbstractReadExecutor
                 if (hit <= TreasConfig.num_concurrecy) {
                     coordinatorInfo.minTagColName = "tag" + hit;
                     coordinatorInfo.minFieldColName = "field" + hit;
-                    logger.debug("Hit is" + hit);
                 } else {
-                    coordinatorInfo.hit = hit;
                     coordinatorInfo.maxCoordinatorTag = maxCoordinatorTag;
                     coordinatorInfo.minCoodinatorTag = minCoodinatorTag;
                     coordinatorInfo.minTagColName = minTagColName;
                     coordinatorInfo.maxFieldColName = maxFieldColName;
                     coordinatorInfo.minFieldColName = minFieldColName;
                 }
+                coordinatorInfo.hit = hit;
             }
 
             myMessage = false;
