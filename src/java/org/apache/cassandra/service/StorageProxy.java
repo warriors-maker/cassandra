@@ -1783,12 +1783,13 @@ public class StorageProxy implements StorageProxyMBean
                 //logger.debug("Tag Already exists, no need to write into the disk");
             }
 
+            logger.debug("MutationTag:" + mutationTreasTag.toString());
             if (hit == 1) {
                 logger.debug("First time see this data");
             } else {
                 logger.debug("OldMaxFieldName" + oldMaxFieldName);
                 logger.debug("MinFieldColnName" + minFieldColName);
-                logger.debug("MaxTreasTRag" + maxTreasTag.toString() + " MutationTag" + mutationTreasTag.toString());
+                logger.debug("MaxTreasTRag" + maxTreasTag.toString());
             }
 
             Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
@@ -3624,9 +3625,10 @@ public class StorageProxy implements StorageProxyMBean
             long timeStamp = FBUtilities.timestampMicros();
 
             TreasTag maxCurrentTag = readList.get(index).maxTagAll;
+            logger.debug("Max Tag from All is" + maxCurrentTag);
             // Increment the tag value
             maxCurrentTag.nextTag();
-            //logger.debug("Max Tag is" + maxCurrentTag);
+            logger.debug("Max Tag increment is" + maxCurrentTag);
 
             mutationBuilder.update(tableMetadata)
                            .timestamp(timeStamp)
@@ -3969,7 +3971,7 @@ public class StorageProxy implements StorageProxyMBean
     throws OverloadedException
     {
         if (!mutation.getKeyspaceName().equals("ycsb")) {
-            sendToHintedEndpoints(mutation,targets,responseHandler,localDataCenter,stage);
+            sendToHintedEndpointsOriginal(mutation,targets,responseHandler,localDataCenter,stage);
         }
         else {
             //logger.debug("Inside sendTohintedEndPoint");

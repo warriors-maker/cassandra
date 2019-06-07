@@ -516,6 +516,7 @@ public abstract class AbstractReadExecutor
         }
 
         TreasTag localMaxTreasTag = new TreasTag();
+
         // Each readResponse represents a response from a Replica
         for (MessageIn<ReadResponse> message : digestResolver.getMessages())
         {
