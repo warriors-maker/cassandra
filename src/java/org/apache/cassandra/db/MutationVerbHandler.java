@@ -32,14 +32,11 @@ import org.apache.cassandra.db.partitions.UnfilteredPartitionIterators;
 import org.apache.cassandra.db.rows.Cell;
 import org.apache.cassandra.db.rows.Row;
 import org.apache.cassandra.db.rows.RowIterator;
-import org.apache.cassandra.db.rows.Unfiltered;
-import org.apache.cassandra.db.rows.UnfilteredRowIterator;
 import org.apache.cassandra.exceptions.WriteTimeoutException;
 import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
-import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -61,6 +58,8 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
     public void doVerb(MessageIn<Mutation> message, int id)  throws IOException {
         //logger.debug("Inside Doverb");
         // Check if there were any forwarding headers in this message
+        long startTime = FBUtilities.timestampMicros();
+
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
 //        long startTime = System.nanoTime();
         InetAddressAndPort replyTo;
@@ -233,11 +232,9 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             }
         }
 
+        logger.debug("Replica finish writing" + (FBUtilities.timestampMicros() - startTime));
+
         Mutation commitMutation = mutationBuilder.build();
-//        long endTime = System.nanoTime();
-//        long totalTime = startTime - endTime;
-        //logger.debug("Replica main time takse:" +totalTime);
-        // Commit this mutation
         commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
             failed();
             return null;
