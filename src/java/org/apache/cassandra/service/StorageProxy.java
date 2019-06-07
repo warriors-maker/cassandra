@@ -4183,7 +4183,7 @@ public class StorageProxy implements StorageProxyMBean
                                    .row()
                                    .add(minTagColName, TreasTag.serialize(mutationTreasTag))
                                    .add(minFieldColName,value)
-                                   .add("field0","");
+                                   .add("field0",null);
                 }
                 else if (mutationTreasTag.isLarger(maxTreasTag)) {
 //                logger.debug("Always larger");
@@ -4192,14 +4192,14 @@ public class StorageProxy implements StorageProxyMBean
                                    .row()
                                    .add(minTagColName, TreasTag.serialize(mutationTreasTag))
                                    .add(minFieldColName,value)
-                                   .add("field0","")
+                                   .add("field0",null)
                                    .add(oldMaxFieldName, null);
                 } else {
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
                                    .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add("field0","");
+                                   .add("field0",null);
                 }
                 Mutation coordinatorMutation = mutationBuilder.build();
                 performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
@@ -4225,7 +4225,7 @@ public class StorageProxy implements StorageProxyMBean
                                .row()
                                .add(TreasConfig.TAG_ONE, TreasTag.serialize(mutationTreasTag))
                                .add(TreasConfig.VAL_ONE,value)
-                               .add("field0","");
+                               .add("field0",null);
 
                 Mutation uniqueMutation = mutationBuilder.build();
                 MessageOut uniqueReplicaMessage = uniqueMutation.createMessage();

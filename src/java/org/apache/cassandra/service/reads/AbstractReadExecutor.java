@@ -587,12 +587,6 @@ public abstract class AbstractReadExecutor
                             {
                                 localMaxTreasTag = curTag;
                             }
-                        } else if (colName.equals("field0")){
-                            try {
-                                logger.debug(ByteBufferUtil.string(c.value()));
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
                         }
                     }
                 }
