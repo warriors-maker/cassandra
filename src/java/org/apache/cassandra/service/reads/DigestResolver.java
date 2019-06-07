@@ -254,6 +254,9 @@ public class DigestResolver extends ResponseResolver
                         // Notice that only one column has the data
                         else if (colName.startsWith("field") && !colName.equals("field0"))
                         {
+                            if (decodeCountMap.get(decodeTagMax) != null && decodeCountMap.get(decodeTagMax) == TreasConfig.num_recover) {
+                                continue;
+                            }
                             // Fetch the code out
                             String value = "";
                             try
@@ -348,9 +351,6 @@ public class DigestResolver extends ResponseResolver
                 }
             }
 
-            // Do Erasure Coding here
-            //logger.debug("Put the data back together");
-//            List<Integer> missingIndex = new ArrayList<>();
 
             boolean []shardPresent = new boolean[TreasConfig.num_server];
             byte[][] decodeMatrix = new byte[TreasConfig.num_server][length];
@@ -362,32 +362,22 @@ public class DigestResolver extends ResponseResolver
                 String value = decodeValMax.get(i);
 
                 if (value == null || value.isEmpty() || count == TreasConfig.num_recover) {
-//                    missingIndex.add(i);
                     decodeMatrix[i] = new byte[length];
                 }
 
                 else {
                     count++;
-//                    long startDecodeTime = System.nanoTime();
                     byte[] replica_array = TreasConfig.stringToByte(value);
-//                    long endDecodeTime = System.nanoTime();
-//                    long decodeTime = startDecodeTime - endDecodeTime;
-//                    logger.debug("Transform to bytes " + decodeTime);
                     decodeMatrix[i] = replica_array;
                     shardPresent[i] = true;
                 }
             }
 
-            // Decode here
-//            int [] missingIndexArray = missingIndex.stream().mapToInt(i->i).toArray();
             String value = ErasureCode.decodeeData(decodeMatrix, shardPresent, length);
             //logger.debug("Convert the data to value" + value);
             doubleTreasTag.setReadResult(value);
         }
 
-//        long endTime = System.nanoTime();
-//        long total = endTime - startTime;
-//        logger.debug("FetchTagValue main function Time is " + total) ;
     }
 
 
