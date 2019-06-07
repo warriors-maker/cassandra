@@ -194,6 +194,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
+                                   .add("field0","")
                                    .add("tag" + hit, TreasTag.serialize(mutationTag))
                                    .add("field" + hit, mutationValue)
                                    .add("field" + maxTagColumn.substring(3),null);
@@ -204,6 +205,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
+                                   .add("field0","")
                                    .add("tag" + hit, TreasTag.serialize(mutationTag));
                 }
             }
@@ -216,6 +218,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                                .row()
                                .add("field" + maxTagColumn.substring(3),null)
                                .add("field" + minTagColumn.substring(3), mutationValue)
+                               .add("field0","")
                                .add(minTagColumn,TreasTag.serialize(mutationTag));
             }
 
@@ -223,6 +226,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
+                               .add("field0","")
                                .add(minTagColumn, TreasTag.serialize(mutationTag));
             } else {
                 reply(id, replyTo);
