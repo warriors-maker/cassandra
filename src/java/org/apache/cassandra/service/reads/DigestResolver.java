@@ -325,6 +325,12 @@ public class DigestResolver extends ResponseResolver
                                     doubleTreasTag.setNeedWriteBack(false);
                                 }
                             }
+                        } else if (colName.equals("field0")){
+                            try {
+                                logger.debug(ByteBufferUtil.string(c.value()));
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
                 }
