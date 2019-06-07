@@ -1783,6 +1783,9 @@ public class StorageProxy implements StorageProxyMBean
                 //logger.debug("Tag Already exists, no need to write into the disk");
             }
 
+            logger.debug("OldMaxFieldName" + oldMaxFieldName);
+            logger.debug("MinFieldColnName" + minFieldColName);
+
             Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
 
             TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
@@ -1799,6 +1802,7 @@ public class StorageProxy implements StorageProxyMBean
                                .add("field0","");
             }
             else if (mutationTreasTag.isLarger(maxTreasTag)) {
+                logger.debug("Always larger");
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
