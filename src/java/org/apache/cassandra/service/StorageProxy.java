@@ -4119,9 +4119,9 @@ public class StorageProxy implements StorageProxyMBean
                 mutationTreasTag = TreasTag.deserialize(cell.value());
             } else if (cell.column().name.toString().equals("field0")) {
                 try {
-                    long startTime = FBUtilities.timestampMicros();
+                    long startTime = System.nanoTime();
                     mutateValue = ByteBufferUtil.string(cell.value());
-                    logger.debug("Mutate deserialize " + (FBUtilities.timestampMicros() - startTime));
+                    logger.debug("Mutate deserialize " + (System.nanoTime() - startTime));
                 } catch (CharacterCodingException e) {
                     e.printStackTrace();
                 }
@@ -4129,9 +4129,9 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         // TODO: In the future value will need to be broken down into codes but now is the whole data
-        long startTime = FBUtilities.timestampMicros();
+        long startTime = System.nanoTime();
         byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
-        logger.debug("Encode takes time" + (FBUtilities.timestampMicros() - startTime));
+        logger.debug("Encode takes time" + (System.nanoTime() - startTime));
 
         String coordinatorAdress = FBUtilities.getJustLocalAddress().toString().substring(1);
 

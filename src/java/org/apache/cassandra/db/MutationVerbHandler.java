@@ -58,7 +58,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
     public void doVerb(MessageIn<Mutation> message, int id)  throws IOException {
         //logger.debug("Inside Doverb");
         // Check if there were any forwarding headers in this message
-        long startTime = FBUtilities.timestampMicros();
+        long startTime = System.nanoTime();
 
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
 //        long startTime = System.nanoTime();
@@ -232,7 +232,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             }
         }
 
-        logger.debug("Replica finish writing" + (FBUtilities.timestampMicros() - startTime));
+        logger.debug("Replica finish writing" + (System.nanoTime() - startTime));
 
         Mutation commitMutation = mutationBuilder.build();
         commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
