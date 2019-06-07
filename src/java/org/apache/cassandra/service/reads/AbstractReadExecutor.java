@@ -543,7 +543,7 @@ public abstract class AbstractReadExecutor
             //minTagColName == null => first time see this data
 
             if (message.from.equals(FBUtilities.getLocalAddressAndPort())) {
-                logger.debug("My message");
+//                logger.debug("My message");
                 myMessage = true;
             }
 
@@ -563,7 +563,7 @@ public abstract class AbstractReadExecutor
                         {
                             curTag = TreasTag.deserialize(c.value());
                             if (myMessage) {
-                                logger.debug(curTag.toString());
+//                                logger.debug(curTag.toString());
                                 hit++;
                                 if (minCoodinatorTag == null) {
                                     minCoodinatorTag = curTag;

@@ -168,7 +168,7 @@ public class StorageProxy implements StorageProxyMBean
                               ConsistencyLevel consistencyLevel,
                               FetchTagObject coordinatorInfo) throws OverloadedException
             {
-                logger.debug("Send to my replicas");
+//                logger.debug("Send to my replicas");
                 sendToHintedEndpointsTreas((Mutation) mutation, targets, responseHandler, localDataCenter, Stage.MUTATION, coordinatorInfo);
             }
         };
@@ -1783,14 +1783,14 @@ public class StorageProxy implements StorageProxyMBean
                 //logger.debug("Tag Already exists, no need to write into the disk");
             }
 
-            logger.debug("MutationTag:" + mutationTreasTag.toString());
-            if (hit == 1) {
-                logger.debug("First time see this data");
-            } else {
-                logger.debug("OldMaxFieldName" + oldMaxFieldName);
-                logger.debug("MinFieldColnName" + minFieldColName);
-                logger.debug("MaxTreasTRag" + maxTreasTag.toString());
-            }
+//            logger.debug("MutationTag:" + mutationTreasTag.toString());
+//            if (hit == 1) {
+//                logger.debug("First time see this data");
+//            } else {
+//                logger.debug("OldMaxFieldName" + oldMaxFieldName);
+//                logger.debug("MinFieldColnName" + minFieldColName);
+//                logger.debug("MaxTreasTRag" + maxTreasTag.toString());
+//            }
 
             Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
 
@@ -1808,7 +1808,7 @@ public class StorageProxy implements StorageProxyMBean
                                .add("field0","");
             }
             else if (mutationTreasTag.isLarger(maxTreasTag)) {
-                logger.debug("Always larger");
+//                logger.debug("Always larger");
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
@@ -3625,10 +3625,10 @@ public class StorageProxy implements StorageProxyMBean
             long timeStamp = FBUtilities.timestampMicros();
 
             TreasTag maxCurrentTag = readList.get(index).maxTagAll;
-            logger.debug("Max Tag from All is" + maxCurrentTag);
+            //logger.debug("Max Tag from All is" + maxCurrentTag);
             // Increment the tag value
             maxCurrentTag.nextTag();
-            logger.debug("Max Tag increment is" + maxCurrentTag);
+            //logger.debug("Max Tag increment is" + maxCurrentTag);
 
             mutationBuilder.update(tableMetadata)
                            .timestamp(timeStamp)
@@ -3661,7 +3661,7 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     if (mutation.getKeyspaceName().equals("ycsb")) {
-                        logger.debug("Is ycsb");
+                        //logger.debug("Is ycsb");
                         responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, System.nanoTime(),readList.get(index)));
                     } else {
                         responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
