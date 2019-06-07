@@ -608,7 +608,7 @@ public abstract class AbstractReadExecutor
             myMessage = false;
         }
 
-        coordinatorInfo.maxTagAll = localMaxTreasTag;
+        coordinatorInfo.maxTagAll = new TreasTag(localMaxTreasTag);
     }
 
 

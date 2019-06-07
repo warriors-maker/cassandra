@@ -21,7 +21,6 @@ package org.apache.cassandra.Treas;
 public class FetchTagObject
 {
     public String minTagColName = null;
-    public String maxTagColName = null;
     public String maxFieldColName = null;
     public TreasTag maxCoordinatorTag = null;
     public TreasTag minCoodinatorTag = null;

@@ -40,6 +40,11 @@ public class TreasTag implements Serializable{
 //        logger.info(this.toString());
     }
 
+    public TreasTag(TreasTag treasTag) {
+        this.writerId = treasTag.getWriterId();
+        this.logicalTIme = treasTag.logicalTIme;
+    }
+
     private TreasTag(String tagString){
         String[] tagArray = tagString.split(";");
         this.logicalTIme = Integer.parseInt(tagArray[0]);
