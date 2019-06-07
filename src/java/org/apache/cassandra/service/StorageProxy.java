@@ -1783,9 +1783,13 @@ public class StorageProxy implements StorageProxyMBean
                 //logger.debug("Tag Already exists, no need to write into the disk");
             }
 
-            logger.debug("OldMaxFieldName" + oldMaxFieldName);
-            logger.debug("MinFieldColnName" + minFieldColName);
-            logger.debug("MaxTreasTRag" + maxTreasTag.toString() + " MutationTag" + mutationTreasTag.toString());
+            if (oldMaxFieldName == null) {
+                logger.debug("First time see this data");
+            } else {
+                logger.debug("OldMaxFieldName" + oldMaxFieldName);
+                logger.debug("MinFieldColnName" + minFieldColName);
+                logger.debug("MaxTreasTRag" + maxTreasTag.toString() + " MutationTag" + mutationTreasTag.toString());
+            }
 
             Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
 
