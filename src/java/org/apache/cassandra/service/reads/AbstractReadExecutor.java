@@ -545,6 +545,7 @@ public abstract class AbstractReadExecutor
                 logger.debug("My message");
                 myMessage = true;
             }
+
             while (pi.hasNext())
             {
                 // pi.next() returns a RowIterator
@@ -561,6 +562,7 @@ public abstract class AbstractReadExecutor
                         {
                             curTag = TreasTag.deserialize(c.value());
                             if (myMessage) {
+                                logger.debug(curTag.toString());
                                 hit++;
                                 if (minCoodinatorTag == null) {
                                     minCoodinatorTag = curTag;
@@ -587,10 +589,11 @@ public abstract class AbstractReadExecutor
                 }
             }
 
-            if (myMessage = true) {
+            if (myMessage) {
                 if (hit <= TreasConfig.num_concurrecy) {
                     coordinatorInfo.minTagColName = "tag" + hit;
                     coordinatorInfo.minFieldColName = "field" + hit;
+                    logger.debug("Hit is" + hit);
                 } else {
                     coordinatorInfo.hit = hit;
                     coordinatorInfo.maxCoordinatorTag = maxCoordinatorTag;
@@ -600,6 +603,7 @@ public abstract class AbstractReadExecutor
                     coordinatorInfo.minFieldColName = minFieldColName;
                 }
             }
+
             myMessage = false;
         }
 
