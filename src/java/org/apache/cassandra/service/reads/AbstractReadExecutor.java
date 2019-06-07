@@ -569,6 +569,7 @@ public abstract class AbstractReadExecutor
                                     minTagColName = colName;
                                     maxCoordinatorTag = curTag;
                                     maxFieldColName = "field" + colName.substring(3);
+                                    minFieldColName = "field" + colName.substring(3);
                                 }
                                 else if (minCoodinatorTag.isLarger(curTag)) {
                                     minCoodinatorTag = curTag;
