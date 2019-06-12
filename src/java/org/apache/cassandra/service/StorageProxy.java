@@ -3339,8 +3339,6 @@ public class StorageProxy implements StorageProxyMBean
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
         //logger.debug("Inside mutate");
 
-        long startTime = System.nanoTime();
-
         // Treas get, need to get the maximum TimeStamp
         // create an read command to fetch the tag value corresponding to the key from all the replicas including myself
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>();
@@ -3373,7 +3371,9 @@ public class StorageProxy implements StorageProxyMBean
         // Individual elements inside here corresponds to one mutate command
         // Also notice that Mutation List and this readList are in the correct corresponding order
         // This will fetch the maximum tag corresponding to the current mutation
+        long startTime = System.nanoTime();
         List<FetchTagObject> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
+        logger.debug("Mutate's fetchTag: " + (System.nanoTime() - startTime));
         //logger.debug("MutateTreas's size" + readList.size());
         int index = 0;
 
@@ -3425,10 +3425,9 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     if (mutation.getKeyspaceName().equals("ycsb")) {
-                        //logger.debug("Is ycsb");
-                        responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, System.nanoTime(),readList.get(index)));
+                        responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime,readList.get(index)));
                     } else {
-                        responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
+                        responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
                     }
             }
             }
@@ -3450,6 +3449,7 @@ public class StorageProxy implements StorageProxyMBean
             {
                 responseHandler.get();
             }
+
         }
         catch (WriteTimeoutException|WriteFailureException ex)
         {
@@ -3599,7 +3599,9 @@ public class StorageProxy implements StorageProxyMBean
         // tag value pair with the largest tag
 
         List<DoubleTreasTag> doubleTreasTagList = new ArrayList<>();
+        long startTime = System.nanoTime();
         fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
+        logger.debug("Read Value: " + (System.nanoTime() - startTime));
 
 
         // Add the logic here to prevent
@@ -3817,6 +3819,7 @@ public class StorageProxy implements StorageProxyMBean
             }
 
             // Fetch the corresponding maxTag || value (string) from the incoming mutation
+            long startTime = System.nanoTime();
             TreasTag mutationTreasTag = new TreasTag();
             String mutateValue = "";
 
@@ -4022,6 +4025,7 @@ public class StorageProxy implements StorageProxyMBean
                 for (Collection<InetAddressAndPort> dcTargets : dcGroups.values())
                     sendMessagesToNonlocalDC(message, dcTargets, responseHandler);
             }
+            logger.debug("Mutation Main Function: " + (System.nanoTime() - startTime));
         }
     }
     public static void sendToHintedEndpointsTreas(final Mutation mutation,
@@ -4110,6 +4114,7 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         // Fetch the corresponding maxTag || value (string) from the incoming mutation
+        long startTime = System.nanoTime();
         TreasTag mutationTreasTag = new TreasTag();
         String mutateValue = "";
 
@@ -4239,6 +4244,7 @@ public class StorageProxy implements StorageProxyMBean
             for (Collection<InetAddressAndPort> dcTargets : dcGroups.values())
                 sendMessagesToNonlocalDC(message, dcTargets, responseHandler);
         }
+        logger.debug("WriteBack: " + (System.nanoTime() - startTime));
     }
 
     private static void checkHintOverload(InetAddressAndPort destination)

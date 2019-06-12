@@ -58,7 +58,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
     public void doVerb(MessageIn<Mutation> message, int id)  throws IOException {
         //logger.debug("Inside Doverb");
         // Check if there were any forwarding headers in this message
-//        long startTime = System.nanoTime();
+        long startTime = System.nanoTime();
 
         InetAddressAndPort from = (InetAddressAndPort)message.parameters.get(ParameterType.FORWARD_FROM);
 //        long startTime = System.nanoTime();
@@ -158,18 +158,9 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         // The Tag Already exists, no need to write into the disk;
         if (exist) {
             reply(id, replyTo);
+            logger.debug("Replica Before Commiting" + (System.nanoTime() - startTime));
             return;
         }
-
-//        if (localMaxTag != null) {
-//            logger.debug("Max Tag: " + localMaxTag.toString());
-//            logger.debug("Max Tag colname: " + maxTagColumn);
-//            logger.debug("Min Tag: " + localMinTag.toString());
-//            logger.debug("Min Tag colName: " + minTagColumn);
-//        } else {
-//            logger.debug("First time see this data");
-//        }
-
 
         Mutation mutation = message.payload;
         Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
@@ -185,6 +176,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                     failed();
                     return null;
                 });
+                logger.debug("Replica Before Commiting" + (System.nanoTime() - startTime));
                 return;
             } else {
                 // If larger, we need to
@@ -229,12 +221,13 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                                .add("field0","")
                                .add(minTagColumn, TreasTag.serialize(mutationTag));
             } else {
+                logger.debug("Replica Before Commiting" + (System.nanoTime() - startTime));
                 reply(id, replyTo);
                 return;
             }
         }
 
-        //logger.debug("Replica finish writing" + (System.nanoTime() - startTime));
+        logger.debug("Replica Before Commiting" + (System.nanoTime() - startTime));
 
         Mutation commitMutation = mutationBuilder.build();
         commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {
