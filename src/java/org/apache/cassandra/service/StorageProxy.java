@@ -3373,7 +3373,7 @@ public class StorageProxy implements StorageProxyMBean
         // This will fetch the maximum tag corresponding to the current mutation
         long startTime = System.nanoTime();
         List<FetchTagObject> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
-        logger.debug("Mutate's fetchTag: " + (System.nanoTime() - startTime));
+        logger.debug("Mutate's fetchTag " + (System.nanoTime() - startTime));
         //logger.debug("MutateTreas's size" + readList.size());
         int index = 0;
 
@@ -3601,7 +3601,7 @@ public class StorageProxy implements StorageProxyMBean
         List<DoubleTreasTag> doubleTreasTagList = new ArrayList<>();
         long startTime = System.nanoTime();
         fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
-        logger.debug("Read Value: " + (System.nanoTime() - startTime));
+        logger.debug("Read Value " + (System.nanoTime() - startTime));
 
 
         // Add the logic here to prevent
@@ -4025,7 +4025,7 @@ public class StorageProxy implements StorageProxyMBean
                 for (Collection<InetAddressAndPort> dcTargets : dcGroups.values())
                     sendMessagesToNonlocalDC(message, dcTargets, responseHandler);
             }
-            logger.debug("Mutation Main Function: " + (System.nanoTime() - startTime));
+            logger.debug("Mutation Main Function " + (System.nanoTime() - startTime));
         }
     }
     public static void sendToHintedEndpointsTreas(final Mutation mutation,
@@ -4244,7 +4244,7 @@ public class StorageProxy implements StorageProxyMBean
             for (Collection<InetAddressAndPort> dcTargets : dcGroups.values())
                 sendMessagesToNonlocalDC(message, dcTargets, responseHandler);
         }
-        logger.debug("WriteBack: " + (System.nanoTime() - startTime));
+        logger.debug("WriteBack " + (System.nanoTime() - startTime));
     }
 
     private static void checkHintOverload(InetAddressAndPort destination)
