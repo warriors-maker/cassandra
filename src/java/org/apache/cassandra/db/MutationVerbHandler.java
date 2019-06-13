@@ -23,6 +23,7 @@ import java.util.Iterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.Treas.StorageProxyWrite;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.cql3.ColumnIdentifier;
@@ -37,6 +38,7 @@ import org.apache.cassandra.locator.InetAddressAndPort;
 import org.apache.cassandra.net.*;
 import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
+import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -158,7 +160,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         // The Tag Already exists, no need to write into the disk;
         if (exist) {
             reply(id, replyTo);
-            logger.debug("Replica Before Commiting " + (System.nanoTime() - startTime));
+            StorageProxyWrite.getLogTime().writeMutationVerb(System.nanoTime() - startTime);
             return;
         }
 
@@ -176,7 +178,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                     failed();
                     return null;
                 });
-                logger.debug("Replica Before Commiting " + (System.nanoTime() - startTime));
+                StorageProxyWrite.getLogTime().writeMutationVerb(System.nanoTime() - startTime);
                 return;
             } else {
                 // If larger, we need to
@@ -221,13 +223,13 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                                .add("field0","")
                                .add(minTagColumn, TreasTag.serialize(mutationTag));
             } else {
-                logger.debug("Replica Before Commiting " + (System.nanoTime() - startTime));
+                StorageProxyWrite.getLogTime().writeMutationVerb(System.nanoTime() - startTime);
                 reply(id, replyTo);
                 return;
             }
         }
 
-        logger.debug("Replica Before Commiting " + (System.nanoTime() - startTime));
+        StorageProxyWrite.getLogTime().writeMutationVerb(System.nanoTime() - startTime);
 
         Mutation commitMutation = mutationBuilder.build();
         commitMutation.applyFuture().thenAccept(o -> reply(id, replyTo)).exceptionally(wto -> {

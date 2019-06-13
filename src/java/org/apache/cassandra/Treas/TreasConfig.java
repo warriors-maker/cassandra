@@ -18,6 +18,9 @@
 
 package org.apache.cassandra.Treas;
 
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Base64;
 import java.util.HashMap;
 
@@ -41,7 +44,11 @@ public class TreasConfig
     public static final String VAL_PREFIX =  "field";
     public static final String TAG_PREFIX =  "tag";
 
-//    public static final String[] ADDRESSES = {"localhost/127.0.0.1"};
+
+
+
+
+//    public static final String[] ADDRESSES = {"ocalhost/127.0.0.1"};
 
 //    public static final String[] ADDRESSES = {"10.142.15.199", "10.142.15.200","10.142.15.201","10.142.15.202","10.142.15.203"};
 
@@ -60,15 +67,6 @@ public class TreasConfig
     // Convert incoming String value
     public static byte[] stringToByte(String value) {
         return Base64.getDecoder().decode(value);
-    }
-
-    // Create the Empty Codes based on what I set
-    public static byte[] emptyCodes(int length) {
-        byte[] arr = new byte[length];
-        for (int i = 0; i < length; i++) {
-            arr[i] = '0';
-        }
-        return arr;
     }
 
     public static void initiateAddressMap() {

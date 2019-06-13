@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.FetchTagObject;
+import org.apache.cassandra.Treas.StorageProxyWrite;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.audit.AuditLogManager;
@@ -3373,7 +3374,7 @@ public class StorageProxy implements StorageProxyMBean
         // This will fetch the maximum tag corresponding to the current mutation
         long startTime = System.nanoTime();
         List<FetchTagObject> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
-        logger.debug("Mutate's fetchTag " + (System.nanoTime() - startTime));
+        StorageProxyWrite.getLogTime().writeReadTag(System.nanoTime() - startTime);
         //logger.debug("MutateTreas's size" + readList.size());
         int index = 0;
 
@@ -3601,8 +3602,7 @@ public class StorageProxy implements StorageProxyMBean
         List<DoubleTreasTag> doubleTreasTagList = new ArrayList<>();
         long startTime = System.nanoTime();
         fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
-        logger.debug("Read Value " + (System.nanoTime() - startTime));
-
+        StorageProxyWrite.getLogTime().writeReadValue(System.nanoTime() - startTime);
 
         // Add the logic here to prevent
 
@@ -3819,7 +3819,6 @@ public class StorageProxy implements StorageProxyMBean
             }
 
             // Fetch the corresponding maxTag || value (string) from the incoming mutation
-            long startTime = System.nanoTime();
             TreasTag mutationTreasTag = new TreasTag();
             String mutateValue = "";
 
@@ -4025,7 +4024,6 @@ public class StorageProxy implements StorageProxyMBean
                 for (Collection<InetAddressAndPort> dcTargets : dcGroups.values())
                     sendMessagesToNonlocalDC(message, dcTargets, responseHandler);
             }
-            logger.debug("Mutation Main Function " + (System.nanoTime() - startTime));
         }
     }
     public static void sendToHintedEndpointsTreas(final Mutation mutation,
@@ -4171,10 +4169,13 @@ public class StorageProxy implements StorageProxyMBean
             // Meaning the tag already exists,
             // no need to write into the disk anymore
             // or if the tag is smaller than what we have seen before.
-            if (minTreasTag != null && minTreasTag.isLarger(mutationTreasTag)) {
-                performLocally(stage, Optional.of(mutation),mutation::apply, responseHandler, true);
+            if (minTreasTag != null && minTreasTag.isLarger(mutationTreasTag))
+            {
+                performLocally(stage, Optional.of(mutation), mutation::apply, responseHandler, true);
                 //logger.debug("Tag Already exists, no need to write into the disk");
-            } else {
+            }
+            else
+            {
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
 
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
@@ -4182,32 +4183,36 @@ public class StorageProxy implements StorageProxyMBean
 
                 // Fetch the index from a Map
                 // byte[] myData = erasureCode[index];
-                if (hit == 1) {
+                if (hit == 1)
+                {
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
                                    .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add(minFieldColName,value)
-                                   .add("field0","");
+                                   .add(minFieldColName, value)
+                                   .add("field0", "");
                 }
-                else if (mutationTreasTag.isLarger(maxTreasTag)) {
+                else if (mutationTreasTag.isLarger(maxTreasTag))
+                {
 //                logger.debug("Always larger");
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
                                    .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add(minFieldColName,value)
-                                   .add("field0","")
+                                   .add(minFieldColName, value)
+                                   .add("field0", "")
                                    .add(oldMaxFieldName, null);
-                } else {
+                }
+                else
+                {
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
                                    .add(minTagColName, TreasTag.serialize(mutationTreasTag))
-                                   .add("field0","");
+                                   .add("field0", "");
                 }
                 Mutation coordinatorMutation = mutationBuilder.build();
-                performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
+                performLocally(stage, Optional.of(mutation), coordinatorMutation::apply, responseHandler);
             }
         }
 
@@ -4244,7 +4249,7 @@ public class StorageProxy implements StorageProxyMBean
             for (Collection<InetAddressAndPort> dcTargets : dcGroups.values())
                 sendMessagesToNonlocalDC(message, dcTargets, responseHandler);
         }
-        logger.debug("WriteBack " + (System.nanoTime() - startTime));
+        StorageProxyWrite.getLogTime().writeMutationMain(System.nanoTime() - startTime);
     }
 
     private static void checkHintOverload(InetAddressAndPort destination)
