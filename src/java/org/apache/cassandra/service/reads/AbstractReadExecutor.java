@@ -27,6 +27,7 @@ import com.google.common.collect.Iterables;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.FetchTagObject;
+import org.apache.cassandra.Treas.StorageProxyWrite;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.cql3.ColumnIdentifier;
@@ -500,6 +501,7 @@ public abstract class AbstractReadExecutor
 
     public void awaitResponsesTreasTag(FetchTagObject coordinatorInfo) throws ReadTimeoutException
     {
+        long startTime = System.nanoTime();
         try
         {
             handler.awaitResults();
@@ -515,6 +517,7 @@ public abstract class AbstractReadExecutor
                 throw e;
             }
         }
+        StorageProxyWrite.getLogTime().readTagMain(System.nanoTime() - startTime);
 
         digestResolver.fetchTag(coordinatorInfo);
         setResult(digestResolver.getReadResponse());

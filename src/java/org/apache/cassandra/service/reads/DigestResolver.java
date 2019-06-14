@@ -158,7 +158,7 @@ public class DigestResolver extends ResponseResolver
     }
 
     public void fetchTag(FetchTagObject coordinatorInfo) {
-        long startTime = System.nanoTime();
+//        long startTime = System.nanoTime();
         TreasTag localMaxTreasTag = new TreasTag();
 
         // Each readResponse represents a response from a Replica
@@ -253,7 +253,6 @@ public class DigestResolver extends ResponseResolver
         }
 
         coordinatorInfo.maxTagAll = new TreasTag(localMaxTreasTag);
-        StorageProxyWrite.getLogTime().readTagMain(System.nanoTime() - startTime);
     }
 
     public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
