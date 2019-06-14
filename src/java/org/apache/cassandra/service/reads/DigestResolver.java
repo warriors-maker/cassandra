@@ -30,6 +30,7 @@ import com.google.common.base.Preconditions;
 
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.ErasureCode;
+import org.apache.cassandra.Treas.FetchTagObject;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.cql3.ColumnIdentifier;
@@ -153,6 +154,103 @@ public class DigestResolver extends ResponseResolver
             }
         }
         return maxZResponse;
+    }
+
+    public void fetchTag(FetchTagObject coordinatorInfo) {
+        TreasTag localMaxTreasTag = new TreasTag();
+
+        // Each readResponse represents a response from a Replica
+        for (MessageIn<ReadResponse> message : this.getMessages())
+        {
+
+            ReadResponse response = message.payload;
+
+            // check if the response is indeed a data response
+            // we shouldn't get a digest response here
+            assert response.isDigestResponse() == false;
+
+            // get the partition iterator corresponding to the
+            // current data response
+            PartitionIterator pi = UnfilteredPartitionIterators.filter(response.makeIterator(command), command.nowInSec());
+
+            String minTagColName = null;
+            String maxFieldColName = null;
+            TreasTag maxCoordinatorTag = null;
+            TreasTag minCoodinatorTag = null;
+            String minFieldColName = null;
+
+            boolean myMessage = false;
+            int hit = 1;
+
+            //minTagColName == null => first time see this data
+
+            if (message.from.equals(FBUtilities.getLocalAddressAndPort())) {
+//                logger.debug("My message");
+                myMessage = true;
+            }
+
+            while (pi.hasNext())
+            {
+                // pi.next() returns a RowIterator
+                RowIterator ri = pi.next();
+                while (ri.hasNext())
+                {
+                    TreasTag curTag = new TreasTag();
+                    for (Cell c : ri.next().cells())
+                    {
+                        //TODO: Inside here we can fetch the corresponding tag the coordinator should insert
+                        // if it is a timeStamp field, we need to check it
+                        String colName = c.column().name.toString();
+                        if (colName.startsWith("tag"))
+                        {
+                            curTag = TreasTag.deserialize(c.value());
+                            if (myMessage) {
+//                                logger.debug(curTag.toString());
+                                hit++;
+                                if (minCoodinatorTag == null) {
+                                    minCoodinatorTag = curTag;
+                                    minTagColName = colName;
+                                    maxCoordinatorTag = curTag;
+                                    maxFieldColName = "field" + colName.substring(3);
+                                    minFieldColName = "field" + colName.substring(3);
+                                }
+                                else if (minCoodinatorTag.isLarger(curTag)) {
+                                    minCoodinatorTag = curTag;
+                                    minTagColName = colName;
+                                    minFieldColName = "field" + colName.substring(3);
+                                }
+                                else if (curTag.isLarger(maxCoordinatorTag)) {
+                                    maxCoordinatorTag = curTag;
+                                    maxFieldColName = "field" + colName.substring(3);
+                                }
+                            }
+                            if (curTag.isLarger(localMaxTreasTag))
+                            {
+                                localMaxTreasTag = curTag;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (myMessage) {
+                if (hit <= TreasConfig.num_concurrecy) {
+                    coordinatorInfo.minTagColName = "tag" + hit;
+                    coordinatorInfo.minFieldColName = "field" + hit;
+                } else {
+                    coordinatorInfo.minCoodinatorTag = minCoodinatorTag;
+                    coordinatorInfo.minTagColName = minTagColName;
+                    coordinatorInfo.minFieldColName = minFieldColName;
+                }
+                coordinatorInfo.maxCoordinatorTag = maxCoordinatorTag;
+                coordinatorInfo.maxFieldColName = maxFieldColName;
+                coordinatorInfo.hit = hit;
+            }
+
+            myMessage = false;
+        }
+
+        coordinatorInfo.maxTagAll = new TreasTag(localMaxTreasTag);
     }
 
     public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
