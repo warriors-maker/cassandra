@@ -3601,7 +3601,7 @@ public class StorageProxy implements StorageProxyMBean
 
         List<DoubleTreasTag> doubleTreasTagList = new ArrayList<>();
         long startTime = System.nanoTime();
-        fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
+        fetchTagValueTreas(tagValueReadList, consistencyLevel, queryStartNanoTime, doubleTreasTagList);
         StorageProxyWrite.getLogTime().writeReadValue(System.nanoTime() - startTime);
 
         // Add the logic here to prevent
