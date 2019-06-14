@@ -436,29 +436,6 @@ public abstract class AbstractReadExecutor
         }
     }
 
-    public void awaitTreasResponses(DoubleTreasTag treasTag) throws ReadTimeoutException
-    {
-        try
-        {
-            handler.awaitResults();
-        }
-        catch (ReadTimeoutException e)
-        {
-            try
-            {
-                onReadTimeout();
-            }
-            finally
-            {
-                throw e;
-            }
-        }
-
-        digestResolver.fetchTargetTags(treasTag);
-        treasTag.setReadResponse(digestResolver.getReadResponse());
-        setResult(digestResolver.getReadResponse());
-    }
-
     public void awaitResponsesAbd() throws ReadTimeoutException
     {
         try
@@ -496,6 +473,29 @@ public abstract class AbstractReadExecutor
             // digestResolver, which will be empty in this case
             setResult(digestResolver.getReadResponse());
         }
+    }
+
+    public void awaitTreasResponses(DoubleTreasTag treasTag) throws ReadTimeoutException
+    {
+        try
+        {
+            handler.awaitResults();
+        }
+        catch (ReadTimeoutException e)
+        {
+            try
+            {
+                onReadTimeout();
+            }
+            finally
+            {
+                throw e;
+            }
+        }
+
+        digestResolver.fetchTargetTags(treasTag);
+        treasTag.setReadResponse(digestResolver.getReadResponse());
+        setResult(digestResolver.getReadResponse());
     }
 
     public void awaitResponsesTreasTag(FetchTagObject coordinatorInfo) throws ReadTimeoutException

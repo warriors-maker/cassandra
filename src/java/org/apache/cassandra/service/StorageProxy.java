@@ -3373,7 +3373,7 @@ public class StorageProxy implements StorageProxyMBean
         // Also notice that Mutation List and this readList are in the correct corresponding order
         // This will fetch the maximum tag corresponding to the current mutation
         long startTime = System.nanoTime();
-        List<FetchTagObject> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
+        List<FetchTagObject> readList = fetchTagTreas(tagValueReadList, consistency_level, queryStartNanoTime);
         StorageProxyWrite.getLogTime().writeReadTag(System.nanoTime() - startTime);
         //logger.debug("MutateTreas's size" + readList.size());
         int index = 0;

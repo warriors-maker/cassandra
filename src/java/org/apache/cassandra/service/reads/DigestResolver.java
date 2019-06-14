@@ -31,6 +31,7 @@ import com.google.common.base.Preconditions;
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.FetchTagObject;
+import org.apache.cassandra.Treas.StorageProxyWrite;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.cql3.ColumnIdentifier;
@@ -157,6 +158,7 @@ public class DigestResolver extends ResponseResolver
     }
 
     public void fetchTag(FetchTagObject coordinatorInfo) {
+        long startTime = System.nanoTime();
         TreasTag localMaxTreasTag = new TreasTag();
 
         // Each readResponse represents a response from a Replica
@@ -251,6 +253,7 @@ public class DigestResolver extends ResponseResolver
         }
 
         coordinatorInfo.maxTagAll = new TreasTag(localMaxTreasTag);
+        StorageProxyWrite.getLogTime().readTagMain(System.nanoTime() - startTime);
     }
 
     public void fetchTargetTags(DoubleTreasTag doubleTreasTag) {
