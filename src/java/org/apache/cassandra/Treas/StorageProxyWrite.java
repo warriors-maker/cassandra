@@ -36,6 +36,7 @@ public class StorageProxyWrite
     private Object obj3 = new Object();
     private Object obj4 = new Object();
     private Object obj5 = new Object();
+    private Object obj6 = new Object();
 
     private static StorageProxyWrite sw = new StorageProxyWrite();
 
@@ -54,6 +55,29 @@ public class StorageProxyWrite
         catch (IOException e)
         {
             e.printStackTrace();
+        }
+    }
+
+    public void replicaPerform(long num) {
+        synchronized (obj6) {
+            int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
+            String name = absPath + "ReplicaResp" + (index + 1) + ".txt";
+            FileWriter writer = null;
+            try
+            {
+                initFile(name);
+                writer = new FileWriter(name,true);
+            } catch  (IOException e) {
+                e.printStackTrace();
+            }
+            BufferedWriter printWriter = new BufferedWriter (writer);
+            try {
+                printWriter.write(num+"");
+                printWriter.newLine();
+                printWriter.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
     }
 

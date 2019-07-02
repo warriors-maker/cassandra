@@ -17,12 +17,14 @@
  */
 package org.apache.cassandra.db;
 
+import org.apache.cassandra.Treas.StorageProxyWrite;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
+import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.tracing.Tracing;
 
@@ -40,6 +42,7 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
             throw new RuntimeException("Cannot service reads while bootstrapping!");
         }
 
+        long start = System.nanoTime();
         ReadCommand command = message.payload;
         command.setMonitoringTime(message.constructionTime, message.isCrossNode(), message.getTimeout(), message.getSlowQueryTimeout());
 
@@ -63,5 +66,6 @@ public class ReadCommandVerbHandler implements IVerbHandler<ReadCommand>
         Tracing.trace("Enqueuing response to {}", message.from);
         MessageOut<ReadResponse> reply = new MessageOut<>(MessagingService.Verb.REQUEST_RESPONSE, response, serializer());
         MessagingService.instance().sendReply(reply, id, message.from);
+        StorageProxyWrite.getLogTime().replicaPerform(System.nanoTime()-start);
     }
 }
