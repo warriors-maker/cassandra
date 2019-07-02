@@ -55,6 +55,7 @@ public class PersonalizedLogger
     public void waitFetchTag(long num) {
         synchronized (obj1) {
             String myIP = FBUtilities.getJustLocalAddress().toString();
+            System.out.println(myIP);
             String name = absPath + "ReadValue" + myIP + ".txt";
             FileWriter writer = null;
             try
@@ -63,6 +64,9 @@ public class PersonalizedLogger
                 writer = new FileWriter(name,true);
             } catch  (IOException e) {
                 e.printStackTrace();
+            }
+            if (writer == null) {
+                System.out.println("Write is null");
             }
             BufferedWriter printWriter = new BufferedWriter (writer);
             try {
