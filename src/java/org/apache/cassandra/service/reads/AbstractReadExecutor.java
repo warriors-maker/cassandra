@@ -22,6 +22,8 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+
+import org.apache.cassandra.PersonalizedLogger;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -416,6 +418,7 @@ public abstract class AbstractReadExecutor
 
     public void awaitResponsesAbd() throws ReadTimeoutException
     {
+        long startTime = System.nanoTime();
         try
         {
             // the awaitResults function is exactly the same as the original
@@ -432,6 +435,8 @@ public abstract class AbstractReadExecutor
                 throw e;
             }
         }
+        long endTime = System.nanoTime();
+        PersonalizedLogger.getLogTime().waitFetchTag(endTime - startTime);
 
         // when we get here, the consistency level must have been satisfied
         // this function is implemented in digest resolver because the data
