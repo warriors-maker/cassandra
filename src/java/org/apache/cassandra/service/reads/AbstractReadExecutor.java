@@ -70,6 +70,7 @@ import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.transport.Message;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
+import org.hsqldb.lib.Storage;
 
 /**
  * Sends a read request to the replicas needed to satisfy a given ConsistencyLevel.
@@ -478,6 +479,7 @@ public abstract class AbstractReadExecutor
 
     public void awaitTreasResponses(DoubleTreasTag treasTag) throws ReadTimeoutException
     {
+        long startTime = System.nanoTime();
         try
         {
             handler.awaitResults();
@@ -493,7 +495,7 @@ public abstract class AbstractReadExecutor
                 throw e;
             }
         }
-
+        StorageProxyWrite.getLogTime().readValue(System.nanoTime() - startTime);
         digestResolver.fetchTargetTags(treasTag);
         treasTag.setReadResponse(digestResolver.getReadResponse());
         setResult(digestResolver.getReadResponse());
@@ -517,7 +519,7 @@ public abstract class AbstractReadExecutor
                 throw e;
             }
         }
-        StorageProxyWrite.getLogTime().readTagMain(System.nanoTime() - startTime);
+        StorageProxyWrite.getLogTime().readTag(System.nanoTime() - startTime);
 
         digestResolver.fetchTag(coordinatorInfo);
         setResult(digestResolver.getReadResponse());

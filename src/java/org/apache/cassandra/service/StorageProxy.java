@@ -3550,7 +3550,6 @@ public class StorageProxy implements StorageProxyMBean
                                                            long queryStartNanoTime, List<DoubleTreasTag> doubleTreasTags)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
-//            long startTime = System.nanoTime();
             consistencyLevel = ConsistencyLevel.TREAS;
             //logger.debug("Inside fetchTagValueTreas");
             int cmdCount = commands.size();
@@ -3574,7 +3573,6 @@ public class StorageProxy implements StorageProxyMBean
                 doubleTreasTags.add(doubleTreasTag);
                 reads[i].awaitTreasResponses(doubleTreasTag);
             }
-
 
     }
 

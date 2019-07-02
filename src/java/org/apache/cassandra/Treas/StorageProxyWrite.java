@@ -57,10 +57,33 @@ public class StorageProxyWrite
         }
     }
 
-    public void readTagMain(long num) {
+    public void readTag(long num) {
         synchronized (obj5) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "ReadTagMain" + (index + 1) + ".txt";
+            String name = absPath + "ReadTagWait" + (index + 1) + ".txt";
+            FileWriter writer = null;
+            try
+            {
+                initFile(name);
+                writer = new FileWriter(name,true);
+            } catch  (IOException e) {
+                e.printStackTrace();
+            }
+            BufferedWriter printWriter = new BufferedWriter (writer);
+            try {
+                printWriter.write(num+"");
+                printWriter.newLine();
+                printWriter.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void readValue(long num) {
+        synchronized (obj5) {
+            int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
+            String name = absPath + "ReadValueWait" + (index + 1) + ".txt";
             FileWriter writer = null;
             try
             {
@@ -83,7 +106,7 @@ public class StorageProxyWrite
     public void writeReadValue(long num) {
         synchronized (obj1) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "ReadValue" + (index + 1) + ".txt";
+            String name = absPath + "ReadValueAll" + (index + 1) + ".txt";
             FileWriter writer = null;
             try
             {
@@ -106,7 +129,7 @@ public class StorageProxyWrite
     public void writeReadTag(long num) {
         synchronized (obj2) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "WriteReadTag" + (index + 1) + ".txt";
+            String name = absPath + "ReadTagAll" + (index + 1) + ".txt";
             FileWriter writer = null;
             try
             {
