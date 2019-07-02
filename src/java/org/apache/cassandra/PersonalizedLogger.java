@@ -32,13 +32,16 @@ public class PersonalizedLogger
     private Object obj3 = new Object();
     private Object obj4 = new Object();
 
+    private long identifier = System.nanoTime();
+
     private static PersonalizedLogger log = new PersonalizedLogger();
 
     public static PersonalizedLogger getLogTime() {
         return log;
     }
 
-    private final String absPath = "/root/cassandra/logs/";
+    private final String absPath = "/Users/yingjianwu/Documents/cassandra/";
+    //private final String absPath = "/root/cassandra/logs/";
 
     private  void initFile(String name){
         File file = new File(name);
@@ -54,9 +57,32 @@ public class PersonalizedLogger
 
     public void waitFetchTag(long num) {
         synchronized (obj1) {
-            String myIP = FBUtilities.getJustLocalAddress().toString();
-            System.out.println(myIP);
-            String name = absPath + "ReadValue" + myIP + ".txt";
+            String name = absPath + "ReadTag" + identifier + ".txt";
+            FileWriter writer = null;
+            try
+            {
+                initFile(name);
+                writer = new FileWriter(name,true);
+            } catch  (IOException e) {
+                e.printStackTrace();
+            }
+            if (writer == null) {
+                System.out.println("Write is null");
+            }
+            BufferedWriter printWriter = new BufferedWriter (writer);
+            try {
+                printWriter.write(num+"");
+                printWriter.newLine();
+                printWriter.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void waitReadValue(long num) {
+        synchronized (obj1) {
+            String name = absPath + "ReadValue" + identifier + ".txt";
             FileWriter writer = null;
             try
             {

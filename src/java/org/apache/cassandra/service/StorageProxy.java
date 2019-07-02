@@ -40,6 +40,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.PersonalizedLogger;
 import org.apache.cassandra.audit.AuditLogManager;
 import org.apache.cassandra.batchlog.Batch;
 import org.apache.cassandra.batchlog.BatchlogManager;
@@ -713,7 +714,7 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         HashMap<String, ABDTag> maxZMap = new HashMap<>();
-        List<ReadResponse> readList = fetchTagValue(zValueReadList, consistency_level, System.nanoTime());
+        List<ReadResponse> readList = fetchTag(zValueReadList, consistency_level, System.nanoTime());
         List<PartitionIterator> piList = new ArrayList<>();
         int idx = 0;
         for(ReadResponse rr : readList){
@@ -2084,7 +2085,7 @@ public class StorageProxy implements StorageProxyMBean
         return PartitionIterators.concat(piList);
     }
 
-    private static List<ReadResponse> fetchTagValue(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    private static List<ReadResponse> fetchTag(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         int cmdCount = commands.size();
@@ -2110,6 +2111,55 @@ public class StorageProxy implements StorageProxyMBean
         for (int i=0; i<cmdCount; i++)
         {
             reads[i].awaitResponsesAbd();
+        }
+
+        // todo: this is not needed
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].maybeRepairAdditionalReplicas();
+        }
+
+        // todo: this is not needed
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].awaitReadRepair();
+        }
+
+        List<ReadResponse> results = new ArrayList<>();
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            results.add(reads[i].getResult());
+        }
+        return results;
+    }
+
+    private static List<ReadResponse> fetchTagValue(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    throws UnavailableException, ReadFailureException, ReadTimeoutException
+    {
+        int cmdCount = commands.size();
+
+        AbstractReadExecutor[] reads = new AbstractReadExecutor[cmdCount];
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i] = AbstractReadExecutor.getReadExecutor(commands.get(i), consistencyLevel, queryStartNanoTime);
+        }
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].executeAsyncAbd();
+        }
+
+        // todo: this is not needed
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].maybeTryAdditionalReplicas();
+        }
+
+        for (int i=0; i<cmdCount; i++)
+        {
+            reads[i].awaitResponsesAbdValue();
         }
 
         // todo: this is not needed

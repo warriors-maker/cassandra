@@ -458,6 +458,48 @@ public abstract class AbstractReadExecutor
         }
     }
 
+    public void awaitResponsesAbdValue() throws ReadTimeoutException
+    {
+        long startTime = System.nanoTime();
+        try
+        {
+            // the awaitResults function is exactly the same as the original
+            handler.awaitResults();
+        }
+        catch (ReadTimeoutException e)
+        {
+            try
+            {
+                onReadTimeout();
+            }
+            finally
+            {
+                throw e;
+            }
+        }
+        long endTime = System.nanoTime();
+        PersonalizedLogger.getLogTime().waitReadValue(endTime - startTime);
+
+        // when we get here, the consistency level must have been satisfied
+        // this function is implemented in digest resolver because the data
+        // responses are in it
+        ReadResponse maxZResponse = digestResolver.extractMaxZResponse();
+
+
+        if(maxZResponse != null)
+        {
+            setResult(maxZResponse);
+        }
+        else
+        {
+            // maxZResponse is null, which is possible
+            // when the key we're trying to fetch doesn't
+            // even exist, use the default data result from
+            // digestResolver, which will be empty in this case
+            setResult(digestResolver.getReadResponse());
+        }
+    }
+
     public void awaitReadRepair() throws ReadTimeoutException
     {
         try
