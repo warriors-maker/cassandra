@@ -22,6 +22,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.concurrent.locks.Condition;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.cassandra.service.reads.ReadCallback;
+
 // fulfils the Condition interface without spurious wakeup problems
 // (or lost notify problems either: that is, even if you call await()
 // _after_ signal(), it will work as desired.)
@@ -31,6 +36,7 @@ public class SimpleCondition implements Condition
 
     private volatile WaitQueue waiting;
     private volatile boolean signaled = false;
+    protected static final Logger logger = LoggerFactory.getLogger(SimpleCondition.class);
 
     public void await() throws InterruptedException
     {
@@ -50,6 +56,9 @@ public class SimpleCondition implements Condition
     {
         if (isSignaled())
             return true;
+
+        logger.debug("not signalled");
+
         long start = System.nanoTime();
         long until = start + unit.toNanos(time);
         if (waiting == null)
@@ -57,6 +66,7 @@ public class SimpleCondition implements Condition
         WaitQueue.Signal s = waiting.register();
         if (isSignaled())
         {
+            logger.debug("is signalled");
             s.cancel();
             return true;
         }
