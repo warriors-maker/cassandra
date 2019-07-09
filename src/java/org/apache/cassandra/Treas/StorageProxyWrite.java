@@ -62,7 +62,7 @@ public class StorageProxyWrite
     public void readFromReplica(long num) {
         synchronized (obj7) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "ReplicaRes" + (index + 1) + ".txt";
+            String name = absPath + "ReplicaRes"  + ".txt";
             FileWriter writer = null;
             try
             {
@@ -85,7 +85,7 @@ public class StorageProxyWrite
     public void replicaPerform(long num) {
         synchronized (obj6) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "ReplicaPerform" + (index + 1) + ".txt";
+            String name = absPath + "ReplicaPerform"  + ".txt";
             FileWriter writer = null;
             try
             {
@@ -108,7 +108,7 @@ public class StorageProxyWrite
     public void readTag(long num) {
         synchronized (obj5) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "ReadTagWait" + (index + 1) + ".txt";
+            String name = absPath + "ReadTagWait" + ".txt";
             FileWriter writer = null;
             try
             {
@@ -131,7 +131,7 @@ public class StorageProxyWrite
     public void readValue(long num) {
         synchronized (obj5) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "ReadValueWait" + (index + 1) + ".txt";
+            String name = absPath + "ReadValueWait"  + ".txt";
             FileWriter writer = null;
             try
             {
@@ -154,7 +154,7 @@ public class StorageProxyWrite
     public void writeReadValue(long num) {
         synchronized (obj1) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "ReadValueAll" + (index + 1) + ".txt";
+            String name = absPath + "ReadValueAll"  + ".txt";
             FileWriter writer = null;
             try
             {
@@ -177,7 +177,7 @@ public class StorageProxyWrite
     public void writeReadTag(long num) {
         synchronized (obj2) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "ReadTagAll" + (index + 1) + ".txt";
+            String name = absPath + "ReadTagAll"  + ".txt";
             FileWriter writer = null;
             try
             {
@@ -200,7 +200,7 @@ public class StorageProxyWrite
     public void writeMutationMain(long num) {
         synchronized (obj3) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "writeMutationMain" + (index + 1) + ".txt";
+            String name = absPath + "writeMutationMain"  + ".txt";
             FileWriter writer = null;
             try
             {
@@ -224,7 +224,7 @@ public class StorageProxyWrite
     public void writeMutationVerb(long num) {
         synchronized (obj4) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "MutationVerb" + (index + 1) + ".txt";
+            String name = absPath + "MutationVerb" + ".txt";
             FileWriter writer = null;
             try
             {
