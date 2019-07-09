@@ -153,7 +153,7 @@ public abstract class AbstractReadExecutor
 
             if (traceState != null)
                 traceState.trace("reading {} from {}", readCommand.isDigestQuery() ? "digest" : "data", endpoint);
-            logger.debug("reading {} from {}", readCommand.isDigestQuery() ? "digest" : "data", endpoint);
+            logger.trace("reading {} from {}", readCommand.isDigestQuery() ? "digest" : "data", endpoint);
             MessageOut<ReadCommand> message = readCommand.createMessage();
             MessagingService.instance().sendRRWithFailure(message, endpoint, handler);
         }
@@ -161,7 +161,7 @@ public abstract class AbstractReadExecutor
         // We delay the local (potentially blocking) read till the end to avoid stalling remote requests.
         if (hasLocalEndpoint)
         {
-            logger.debug("reading {} locally", readCommand.isDigestQuery() ? "digest" : "data");
+            logger.trace("reading {} locally", readCommand.isDigestQuery() ? "digest" : "data");
             StageManager.getStage(Stage.READ).maybeExecuteImmediately(new LocalReadRunnable(command, handler));
         }
     }
