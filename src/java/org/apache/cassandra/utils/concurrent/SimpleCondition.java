@@ -57,7 +57,6 @@ public class SimpleCondition implements Condition
         if (isSignaled())
             return true;
 
-        logger.debug("not signalled");
 
         long start = System.nanoTime();
         long until = start + unit.toNanos(time);
@@ -66,7 +65,6 @@ public class SimpleCondition implements Condition
         WaitQueue.Signal s = waiting.register();
         if (isSignaled())
         {
-            logger.debug("is signalled");
             s.cancel();
             return true;
         }

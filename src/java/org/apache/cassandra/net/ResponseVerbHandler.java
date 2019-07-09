@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.cassandra.Treas.StorageProxyWrite;
 import org.apache.cassandra.tracing.Tracing;
 
 public class ResponseVerbHandler implements IVerbHandler
@@ -30,8 +31,10 @@ public class ResponseVerbHandler implements IVerbHandler
 
     public void doVerb(MessageIn message, int id)
     {
-        long latency = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - MessagingService.instance().getRegisteredCallbackAge(id));
-        logger.debug("Get the message from " + message.from + "and the latency is " + latency);
+        long nanoLatency = System.nanoTime() - MessagingService.instance().getRegisteredCallbackAge(id);
+        StorageProxyWrite.getLogTime().readFromReplica(nanoLatency);
+        long latency = TimeUnit.NANOSECONDS.toMillis(nanoLatency);
+        logger.debug("Get the message from " + message.from + "and the latency is " + nanoLatency);
         CallbackInfo callbackInfo = MessagingService.instance().removeRegisteredCallback(id);
         if (callbackInfo == null)
         {
