@@ -3843,6 +3843,7 @@ public class StorageProxy implements StorageProxyMBean
             HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
             int coordinator_index = addressMap.get(coordinatorAdress);
             String value = TreasConfig.byteToString(encodeMatrix[coordinator_index]);
+            logger.debug("Incoming value is" + value);
 
             if (backPressureHosts != null)
                 MessagingService.instance().applyBackPressure(backPressureHosts, responseHandler.currentTimeout());
@@ -3994,9 +3995,11 @@ public class StorageProxy implements StorageProxyMBean
 
                     String address = destination.getHostAddress(false);
                     //logger.debug("Replica address is" + address);
+
                     int replica_index = addressMap.get(address);
                     value = TreasConfig.byteToString(encodeMatrix[replica_index]);
-                    //logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);
+
+                    logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);
 
 
                     // Based on their IP address fetch the according byte array
@@ -4018,8 +4021,10 @@ public class StorageProxy implements StorageProxyMBean
                     MessagingService.instance().sendRR(uniqueReplicaMessage, destination, responseHandler, true);
                 }
             }
+
             if (dcGroups != null)
             {
+                logger.debug("Send to non-local");
                 // for each datacenter, send the message to one node to relay the write to other replicas
                 for (Collection<InetAddressAndPort> dcTargets : dcGroups.values())
                     sendMessagesToNonlocalDC(message, dcTargets, responseHandler);
