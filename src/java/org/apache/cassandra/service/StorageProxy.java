@@ -3843,6 +3843,7 @@ public class StorageProxy implements StorageProxyMBean
             HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
             int coordinator_index = addressMap.get(coordinatorAdress);
             String value = TreasConfig.byteToString(encodeMatrix[coordinator_index]);
+            logger.debug("Hey, Preparing to send to others");
             logger.debug("Incoming value is" + value);
 
             if (backPressureHosts != null)

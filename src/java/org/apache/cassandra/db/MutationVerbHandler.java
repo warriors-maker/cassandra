@@ -91,6 +91,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         Row data = message.payload.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         for (Cell c : data.cells())
         {
+            logger.debug("Hey, I am here");
             logger.debug(c.value().toString());
             if (c.column().name.toString().equals("tag1")) {
                 mutationTag = TreasTag.deserialize(c.value());
