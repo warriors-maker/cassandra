@@ -4233,6 +4233,8 @@ public class StorageProxy implements StorageProxyMBean
                 int replica_index = addressMap.get(address);
                 value = TreasConfig.byteToString(encodeMatrix[replica_index]);
 
+                logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);
+
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
                 long timeStamp = FBUtilities.timestampMicros();
