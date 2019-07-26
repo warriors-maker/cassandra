@@ -4128,7 +4128,8 @@ public class StorageProxy implements StorageProxyMBean
             }
         }
 
-        // TODO: In the future value will need to be broken down into codes but now is the whole data
+        logger.debug("The value is " + mutateValue);
+        
 //        long startTime = System.nanoTime();
         byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
         //logger.debug("Encode takes time" + (System.nanoTime() - startTime));
