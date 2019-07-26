@@ -254,6 +254,18 @@ public class DigestResolver extends ResponseResolver
                         // Notice that only one column has the data
                         else if (colName.startsWith("field") && !colName.equals("field0"))
                         {
+                            logger.debug(colName);
+                            // Fetch the code out
+                            String value = "";
+                            try
+                            {
+                                value = ByteBufferUtil.string(c.value());
+                            }
+                            catch (Exception e)
+                            {
+                                e.printStackTrace();
+                            }
+
                             // Find the corresponding index to fetch the tag value
                             int index = Integer.parseInt(colName.substring(TreasConfig.VAL_PREFIX.length()));
                             String treasTagColumn = "tag" + index;
@@ -270,16 +282,16 @@ public class DigestResolver extends ResponseResolver
                                 }
                                 continue;
                             }
-                            // Fetch the code out
-                            String value = "";
-                            try
-                            {
-                                value = ByteBufferUtil.string(c.value());
-                            }
-                            catch (Exception e)
-                            {
-                                e.printStackTrace();
-                            }
+//                            // Fetch the code out
+//                            String value = "";
+//                            try
+//                            {
+//                                value = ByteBufferUtil.string(c.value());
+//                            }
+//                            catch (Exception e)
+//                            {
+//                                e.printStackTrace();
+//                            }
 
 
                             if (decodeMap.containsKey(treasTag))
