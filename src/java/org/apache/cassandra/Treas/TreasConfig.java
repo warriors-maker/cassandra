@@ -43,9 +43,9 @@ public class TreasConfig
 
 //    public static final String[] ADDRESSES = {"localhost/127.0.0.1"};
 
-    public static final String[] ADDRESSES = {"10.142.15.199", "10.142.15.200","10.142.15.201","10.142.15.202","10.142.15.203"};
+    //public static final String[] ADDRESSES = {"10.142.15.199", "10.142.15.200","10.142.15.201","10.142.15.202","10.142.15.203"};
 
-//    public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.2","10.0.0.3","10.0.0.4","10.0.0.5"};
+    public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.2","10.0.0.3","10.0.0.4","10.0.0.5"};
 
     private static HashMap<String, Integer> map = new HashMap<>();
 
