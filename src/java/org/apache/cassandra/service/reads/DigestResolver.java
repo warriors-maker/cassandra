@@ -188,7 +188,7 @@ public class DigestResolver extends ResponseResolver
             String address = message.from.address.toString().substring(1);
             //logger.debug("Address are" + address);
             int id = addressMap.get(address);
-            //logger.debug("The message is from" + address + "ID is: " + id);
+            logger.debug("The message is from" + address + "ID is: " + id);
 
             ReadResponse response = message.payload;
 
@@ -392,7 +392,7 @@ public class DigestResolver extends ResponseResolver
             }
 
             String value = ErasureCode.decodeeData(decodeMatrix, shardPresent, length);
-            //logger.debug("Convert the data to value" + value);
+            logger.debug("Convert the data to value" + value);
             doubleTreasTag.setReadResult(value);
         }
 
