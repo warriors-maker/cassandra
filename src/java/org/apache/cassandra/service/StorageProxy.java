@@ -3376,7 +3376,7 @@ public class StorageProxy implements StorageProxyMBean
                         mutationBuilder.update(tableMetadata)
                                        .timestamp(queryStartNanoTime)
                                        .row()
-                                       .add("field1", mutationValue)
+                                       .add("field0", mutationValue)
                                        .add("tag" + 1, queryStartNanoTime);
                         mutation = mutationBuilder.build();
                     }
