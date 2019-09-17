@@ -47,6 +47,7 @@ import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.FetchTagObject;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
+import org.apache.cassandra.Treas.TreasUtil;
 import org.apache.cassandra.audit.AuditLogManager;
 import org.apache.cassandra.batchlog.Batch;
 import org.apache.cassandra.batchlog.BatchlogManager;
@@ -3334,88 +3335,18 @@ public class StorageProxy implements StorageProxyMBean
     public static void mutate(Collection<? extends IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
     throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
     {
-
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-        //logger.debug("Inside mutate");
 
         long startTime = System.nanoTime();
 
-        // Treas get, need to get the maximum TimeStamp
-        // create an read command to fetch the tag value corresponding to the key from all the replicas including myself
-        List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>();
+        //mutations.
 
+        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
 
-        // Build the mutation with the newly added value + maximum tag we get
-        List<IMutation> newMutations = new ArrayList<>();
-        List<IMutation> notDataMutations = new ArrayList<>();
-
-        for (IMutation mutation : mutations)
-        {
-            if (mutation.getKeyspaceName().equals("ycsb")) {
-                //logger.debug("Is ycsb");
-                TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
-
-                int nowInSec = FBUtilities.nowInSeconds();
-                DecoratedKey  decoratedKey =  mutation.key();
-
-                SinglePartitionReadCommand tagValueRead = SinglePartitionReadCommand.fullPartitionRead(
-                tableMetadata,
-                nowInSec,
-                decoratedKey
-                );
-                tagValueReadList.add(tagValueRead);
-            } else {
-                notDataMutations.add(mutation);
-            }
-        }
-
-        // Individual elements inside here corresponds to one mutate command
-        // Also notice that Mutation List and this readList are in the correct corresponding order
-        // This will fetch the maximum tag corresponding to the current mutation
-        List<FetchTagObject> readList = fetchTagTreas(tagValueReadList, consistency_level, System.nanoTime());
-        //logger.debug("MutateTreas's size" + readList.size());
-        int index = 0;
-
-
-        for (IMutation mutation : mutations) {
-            if (!mutation.getKeyspaceName().equals("ycsb")) {
-                continue;
-            }
-
-            Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
-
-            TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
-            long timeStamp = FBUtilities.timestampMicros();
-
-            TreasTag maxCurrentTag = readList.get(index).maxTagAll;
-            //logger.debug("Max Tag from All is" + maxCurrentTag);
-            // Increment the tag value
-            maxCurrentTag.nextTag();
-            //logger.debug("Max Tag increment is" + maxCurrentTag);
-
-            mutationBuilder.update(tableMetadata)
-                           .timestamp(timeStamp)
-                           .row()
-                           .add(TreasConfig.TAG_ONE, TreasTag.serialize(maxCurrentTag));
-
-            Mutation tagMutation = mutationBuilder.build();
-
-            // Merge the maxTimeStamp with the data
-            List<Mutation> mutationMergeList = new ArrayList<>();
-            mutationMergeList.add(tagMutation);
-            mutationMergeList.add((Mutation)mutation);
-            Mutation newMutation = Mutation.merge(mutationMergeList);
-            newMutations.add(newMutation);
-            index ++;
-        }
-
-        List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(newMutations.size() + notDataMutations.size());
-
-        index = 0;
         try
         {
-            for (IMutation mutation : newMutations)
+            for (IMutation mutation : mutations)
             {
                 if (mutation instanceof CounterMutation)
                 {
@@ -3423,24 +3354,33 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 else
                 {
-                    WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+                    WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     if (mutation.getKeyspaceName().equals("ycsb")) {
-                        //logger.debug("Is ycsb");
-                        responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, System.nanoTime(),readList.get(index)));
-                    } else {
-                        responseHandlers.add(performWrite(mutation, ConsistencyLevel.TREAS, localDataCenter, standardWritePerformer, null, wt, System.nanoTime()));
-                    }
-            }
-            }
+                        //Include the physical timeStamp into TagOne;
+                        String mutationValue = "";
+                        // Read from the Mutation
+                        Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+                        try {
+                            for (Cell c : data.cells())
+                            {
+                                if (c.column().name.toString().equals("field0")) {
+                                    mutationValue = ByteBufferUtil.string(c.value());
+                                }
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
 
-            for (IMutation mutation : notDataMutations) {
-                if (mutation instanceof CounterMutation)
-                {
-                    responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
-                }
-                else
-                {
-                    WriteType wt = newMutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
+                        Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
+                        TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+                        mutationBuilder.update(tableMetadata)
+                                       .timestamp(queryStartNanoTime)
+                                       .row()
+                                       .add("field1", mutationValue)
+                                       .add("tag" + 1, queryStartNanoTime);
+                        mutation = mutationBuilder.build();
+                    }
+
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
                 }
             }
@@ -3455,11 +3395,10 @@ public class StorageProxy implements StorageProxyMBean
         {
             if (consistency_level == ConsistencyLevel.ANY)
             {
-                hintMutations(newMutations);
+                hintMutations(mutations);
             }
             else
             {
-
                 if (ex instanceof WriteFailureException)
                 {
                     writeMetrics.failures.mark();
@@ -3497,7 +3436,7 @@ public class StorageProxy implements StorageProxyMBean
             long latency = System.nanoTime() - startTime;
             writeMetrics.addNano(latency);
             writeMetricsMap.get(consistency_level).addNano(latency);
-            updateCoordinatorWriteLatencyTableMetric(newMutations, latency);
+            updateCoordinatorWriteLatencyTableMetric(mutations, latency);
         }
     }
 
@@ -3634,8 +3573,8 @@ public class StorageProxy implements StorageProxyMBean
         // Fetch valid information
         List<IMutation> mutations = new ArrayList<>();
         for (DoubleTreasTag doubleTreasTag : doubleTreasTags) {
-            TreasTag quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
-            TreasTag decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
+            Long quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
+            Long decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
             DecoratedKey key = doubleTreasTag.getKey();
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
             String keySpace = doubleTreasTag.getKeySpace();
@@ -3647,7 +3586,7 @@ public class StorageProxy implements StorageProxyMBean
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
-                               .add(TreasConfig.TAG_ONE, TreasTag.serialize(decodeMaxTag))
+                               .add(TreasConfig.TAG_ONE, decodeMaxTag)
                                .add("field0", value);
                 Mutation mutation = mutationBuilder.build();
                 mutations.add(mutation);
@@ -3817,13 +3756,13 @@ public class StorageProxy implements StorageProxyMBean
             }
 
             // Fetch the corresponding maxTag || value (string) from the incoming mutation
-            TreasTag mutationTreasTag = new TreasTag();
+            Long mutationTag = null;
             String mutateValue = "";
 
             Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
             for (Cell cell : data.cells()) {
                 if (cell.column().name.toString().equals("tag1")) {
-                    mutationTreasTag = TreasTag.deserialize(cell.value());
+                    mutationTag = TreasUtil.getLong(cell.value());
                 } else if (cell.column().name.toString().equals("field0")) {
                     try {
                         mutateValue = ByteBufferUtil.string(cell.value());
@@ -3833,12 +3772,17 @@ public class StorageProxy implements StorageProxyMBean
                 }
             }
 
-            // TODO: In the future value will need to be broken down into codes but now is the whole data
             byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
             //logger.debug("Finish EncodeData");
+            String coordinatorAdress = "";
+            if (TreasConfig.ADDRESSES[0].startsWith("local")) {
+                coordinatorAdress = FBUtilities.getJustLocalAddress().toString();
+            } else {
+                coordinatorAdress = FBUtilities.getJustLocalAddress().toString().substring(1);
+            }
 
-            String coordinatorAdress = FBUtilities.getJustLocalAddress().toString().substring(1);
             HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
+            System.out.println("Address is" + coordinatorAdress);
             int coordinator_index = addressMap.get(coordinatorAdress);
             String value = TreasConfig.byteToString(encodeMatrix[coordinator_index]);
 
@@ -3864,11 +3808,11 @@ public class StorageProxy implements StorageProxyMBean
                 );
 
                 String minTagColName = "";
-                TreasTag minTreasTag = null;
+                Long minTreasTag = null;
                 String minFieldColName = "";
 
                 String maxTagColName = "";
-                TreasTag maxTreasTag = null;
+                Long maxTreasTag = null;
                 String oldMaxFieldName = "";
 
 
@@ -3893,12 +3837,12 @@ public class StorageProxy implements StorageProxyMBean
                                 if (colName.startsWith("tag")) {
                                     hit++;
                                     // If the tag already exists, ignore it.
-                                    if (TreasTag.deserialize(cell.value()).equals(mutationTreasTag)) {
+                                    if (TreasUtil.getLong(cell.value()).equals(mutationTag)) {
                                         exist = true;
                                         break;
                                     } else {
                                         // Fetch the tagValue
-                                        TreasTag localTag = TreasTag.deserialize(cell.value());
+                                        Long localTag = TreasUtil.getLong(cell.value());
 
                                         if (minTreasTag == null) {
                                             minTreasTag = localTag;
@@ -3906,10 +3850,10 @@ public class StorageProxy implements StorageProxyMBean
                                             maxTagColName = colName;
                                             maxTreasTag = localTag;
                                         } else {
-                                            if (localTag.isLarger(maxTreasTag)) {
+                                            if (localTag.compareTo(maxTreasTag) > 0) {
                                                 maxTagColName = colName;
                                                 maxTreasTag = localTag;
-                                            } else if (minTreasTag.isLarger(localTag))
+                                            } else if (minTreasTag.compareTo(localTag) > 0)
                                             {
                                                 minTagColName = colName;
                                                 minTreasTag = localTag;
@@ -3922,13 +3866,13 @@ public class StorageProxy implements StorageProxyMBean
                     }
                 }
 
-                if (!maxTagColName.equals("")) {
+                if (!maxTagColName.isEmpty()) {
                     oldMaxFieldName = "field" + maxTagColName.substring(3);
                 }
                 // Meaning the tag already exists,
                 // no need to write into the disk anymore
                 // or if the tag is smaller than what we have seen before.
-                if (exist || (minTreasTag != null && minTreasTag.isLarger(mutationTreasTag))) {
+                if (exist || (minTreasTag != null && minTreasTag .compareTo(mutationTag) > 0)) {
                     performLocally(stage, Optional.of(mutation),mutation::apply, responseHandler, true);
                     //logger.debug("Tag Already exists, no need to write into the disk");
                 }
@@ -3950,18 +3894,22 @@ public class StorageProxy implements StorageProxyMBean
                     // Fetch the index from a Map
                     // byte[] myData = erasureCode[index];
                     if (hit == 1) {
+                        System.out.println(minFieldColName);
+                        System.out.println(minTagColName);
+                        System.out.println("Hit is" + hit);
+                        System.out.println(mutationTag);
                         mutationBuilder.update(tableMetadata)
                                        .timestamp(timeStamp)
                                        .row()
-                                       .add(minTagColName, TreasTag.serialize(mutationTreasTag))
+                                       .add(minTagColName, mutationTag)
                                        .add(minFieldColName,value)
                                        .add("field0","");
                     }
-                    else if (mutationTreasTag.isLarger(maxTreasTag)) {
+                    else if (mutationTag.compareTo(maxTreasTag) > 0) {
                         mutationBuilder.update(tableMetadata)
                                        .timestamp(timeStamp)
                                        .row()
-                                       .add(minTagColName, TreasTag.serialize(mutationTreasTag))
+                                       .add(minTagColName, mutationTag)
                                        .add(minFieldColName,value)
                                        .add("field0","")
                                        .add(oldMaxFieldName, null);
@@ -3969,7 +3917,7 @@ public class StorageProxy implements StorageProxyMBean
                         mutationBuilder.update(tableMetadata)
                                        .timestamp(timeStamp)
                                        .row()
-                                       .add(minTagColName, TreasTag.serialize(mutationTreasTag))
+                                       .add(minTagColName, mutationTag)
                                        .add("field0","");
                     }
 
@@ -3979,9 +3927,6 @@ public class StorageProxy implements StorageProxyMBean
                 }
             }
 
-//            long sendEndTime = System.nanoTime();
-//            long sendTotalTime = sendEndTime - sendStartTime;
-            //logger.debug("Mutatie main function" + sendTotalTime);
 
             // Send to Replica
             if (localDc != null)
@@ -4006,7 +3951,7 @@ public class StorageProxy implements StorageProxyMBean
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
-                                   .add(TreasConfig.TAG_ONE, TreasTag.serialize(mutationTreasTag))
+                                   .add(TreasConfig.TAG_ONE, mutationTag)
                                    .add(TreasConfig.VAL_ONE,value)
                                    .add("field0","");
 
@@ -4110,13 +4055,13 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         // Fetch the corresponding maxTag || value (string) from the incoming mutation
-        TreasTag mutationTreasTag = new TreasTag();
+        Long mutationTag = null;
         String mutateValue = "";
 
         Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
         for (Cell cell : data.cells()) {
             if (cell.column().name.toString().equals("tag1")) {
-                mutationTreasTag = TreasTag.deserialize(cell.value());
+                mutationTag = TreasUtil.getLong(cell.value());
             } else if (cell.column().name.toString().equals("field0")) {
                 try {
                     //long startTime = System.nanoTime();
@@ -4158,16 +4103,16 @@ public class StorageProxy implements StorageProxyMBean
 
             int hit = coordinatorInfo.hit;
             String minTagColName = coordinatorInfo.minTagColName;
-            TreasTag minTreasTag = coordinatorInfo.minCoodinatorTag;
+            Long minTreasTag = coordinatorInfo.minCoodinatorTag;
             String minFieldColName = coordinatorInfo.minFieldColName;
 
-            TreasTag maxTreasTag = coordinatorInfo.maxCoordinatorTag;
+            Long maxTreasTag = coordinatorInfo.maxCoordinatorTag;
             String oldMaxFieldName = coordinatorInfo.maxFieldColName;
 
             // Meaning the tag already exists,
             // no need to write into the disk anymore
             // or if the tag is smaller than what we have seen before.
-            if (minTreasTag != null && minTreasTag.isLarger(mutationTreasTag)) {
+            if (minTreasTag != null && minTreasTag.compareTo(mutationTag) > 0) {
                 performLocally(stage, Optional.of(mutation),mutation::apply, responseHandler, true);
                 //logger.debug("Tag Already exists, no need to write into the disk");
             } else {
@@ -4182,16 +4127,16 @@ public class StorageProxy implements StorageProxyMBean
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
-                                   .add(minTagColName, TreasTag.serialize(mutationTreasTag))
+                                   .add(minTagColName, mutationTag)
                                    .add(minFieldColName,value)
                                    .add("field0","");
                 }
-                else if (mutationTreasTag.isLarger(maxTreasTag)) {
+                else if (mutationTag.compareTo(maxTreasTag) > 0) {
 //                logger.debug("Always larger");
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
-                                   .add(minTagColName, TreasTag.serialize(mutationTreasTag))
+                                   .add(minTagColName, mutationTag)
                                    .add(minFieldColName,value)
                                    .add("field0","")
                                    .add(oldMaxFieldName, null);
@@ -4199,7 +4144,7 @@ public class StorageProxy implements StorageProxyMBean
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
-                                   .add(minTagColName, TreasTag.serialize(mutationTreasTag))
+                                   .add(minTagColName, mutationTag)
                                    .add("field0","");
                 }
                 Mutation coordinatorMutation = mutationBuilder.build();
@@ -4224,7 +4169,7 @@ public class StorageProxy implements StorageProxyMBean
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
-                               .add(TreasConfig.TAG_ONE, TreasTag.serialize(mutationTreasTag))
+                               .add(TreasConfig.TAG_ONE, mutationTag)
                                .add(TreasConfig.VAL_ONE,value)
                                .add("field0","");
 

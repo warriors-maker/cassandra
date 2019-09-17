@@ -30,14 +30,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class TreasTag implements Serializable{
-    private int logicalTIme;
+    private Long logicalTIme;
     private String writerId ;
     private static final Logger logger = LoggerFactory.getLogger(TreasTag.class);
 
     public TreasTag(){
-        this.logicalTIme = -1;
+        this.logicalTIme = null;
         this.writerId = FBUtilities.getLocalAddressAndPort().toString(false);
-//        logger.info(this.toString());
     }
 
     public TreasTag(TreasTag treasTag) {
@@ -47,12 +46,12 @@ public class TreasTag implements Serializable{
 
     private TreasTag(String tagString){
         String[] tagArray = tagString.split(";");
-        this.logicalTIme = Integer.parseInt(tagArray[0]);
+        this.logicalTIme = Long.parseLong(tagArray[0]);
         this.writerId = tagArray[1];
 //        logger.info(this.toString());
     }
 
-    public void setLogicalTIme(int logicalTIme) {
+    public void setLogicalTIme(long logicalTIme) {
         this.logicalTIme = logicalTIme;
     }
 
@@ -60,7 +59,7 @@ public class TreasTag implements Serializable{
         this.writerId = writerId;
     }
 
-    public int getTime(){
+    public Long getTime(){
         return logicalTIme;
     }
 
@@ -70,7 +69,6 @@ public class TreasTag implements Serializable{
 
     public TreasTag nextTag(){
         this.logicalTIme++;
-//        logger.info(this.toString());
         return this;
     }
 
@@ -106,7 +104,7 @@ public class TreasTag implements Serializable{
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + this.getTime();
+
         return result;
     }
 

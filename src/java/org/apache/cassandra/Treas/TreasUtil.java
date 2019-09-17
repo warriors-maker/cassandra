@@ -18,13 +18,14 @@
 
 package org.apache.cassandra.Treas;
 
-public class FetchTagObject
+import java.nio.ByteBuffer;
+
+public class TreasUtil
 {
-    public String minTagColName = null;
-    public String maxFieldColName = null;
-    public Long maxCoordinatorTag = null;
-    public Long minCoodinatorTag = null;
-    public int hit = 1;
-    public Long maxTagAll = null;
-    public String minFieldColName;
+    public static Long getLong(ByteBuffer bb) {
+        int pos = bb.position();
+        Long time = bb.getLong();
+        bb.position(pos);
+        return time;
+    }
 }

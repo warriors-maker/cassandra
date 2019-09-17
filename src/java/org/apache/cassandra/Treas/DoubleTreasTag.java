@@ -27,8 +27,8 @@ import org.apache.cassandra.schema.TableMetadata;
 
 public class DoubleTreasTag
 {
-    private TreasTag quorumMaxTreasTag = new TreasTag();
-    private TreasTag recoverMaxTreasTag = new TreasTag();
+    private Long quorumMaxTreasTag = null;
+    private Long recoverMaxTreasTag = null;
     private List<String> codes = null;
     private ReadResponse readResponse;
     private String readResult;
@@ -56,22 +56,22 @@ public class DoubleTreasTag
         this.readResult = readResult;
     }
 
-    public TreasTag getQuorumMaxTreasTag()
+    public Long getQuorumMaxTreasTag()
     {
         return quorumMaxTreasTag;
     }
 
-    public void setQuorumMaxTreasTag(TreasTag quorumMaxTreasTag)
+    public void setQuorumMaxTreasTag(Long quorumMaxTreasTag)
     {
         this.quorumMaxTreasTag = quorumMaxTreasTag;
     }
 
-    public TreasTag getRecoverMaxTreasTag()
+    public Long getRecoverMaxTreasTag()
     {
         return recoverMaxTreasTag;
     }
 
-    public void setRecoverMaxTreasTag(TreasTag recoverMaxTreasTag)
+    public void setRecoverMaxTreasTag(Long recoverMaxTreasTag)
     {
         this.recoverMaxTreasTag = recoverMaxTreasTag;
     }

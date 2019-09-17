@@ -19,6 +19,7 @@ package org.apache.cassandra.service.reads;
 
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.sql.Blob;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,6 +33,7 @@ import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
+import org.apache.cassandra.Treas.TreasUtil;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.partitions.PartitionIterator;
@@ -159,13 +161,13 @@ public class DigestResolver extends ResponseResolver
         //logger.debug("Inside awaitResponsesTreasTagValue");
         //System.out.println("Inside awaitResponsesTreasTagValue");
 //        long startTime = System.nanoTime();
-        HashMap<TreasTag, Integer> quorumMap = new HashMap<>();
+        HashMap<Long, Integer> quorumMap = new HashMap<>();
 
-        HashMap<TreasTag, List<String>> decodeMap = new HashMap<>();
-        HashMap<TreasTag, Integer> decodeCountMap = new HashMap<>();
+        HashMap<Long, List<String>> decodeMap = new HashMap<>();
+        HashMap<Long, Integer> decodeCountMap = new HashMap<>();
 
-        TreasTag quorumTagMax = new TreasTag();
-        TreasTag decodeTagMax = new TreasTag();
+        Long quorumTagMax = null;
+        Long decodeTagMax = null;
 
         // This needs to be a Map<Integer, String>:
         // Integer represents the ID of server
@@ -185,7 +187,10 @@ public class DigestResolver extends ResponseResolver
 
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
-            String address = message.from.address.toString().substring(1);
+            String address = message.from.address.toString();
+            if (!address.startsWith("local")) {
+                address = address.substring(1);
+            }
             //logger.debug("Address are" + address);
             int id = addressMap.get(address);
             logger.debug("The message is from" + address + "ID is: " + id);
@@ -223,8 +228,9 @@ public class DigestResolver extends ResponseResolver
                         // if it is a timeStamp field, we need to check it
                         if (colName.startsWith("tag"))
                         {
-
-                            TreasTag curTag = TreasTag.deserialize(c.value());
+                            System.out.println(colName);
+                            Long curTag = TreasUtil.getLong(c.value());
+                            System.out.println("CurrentTag is" + curTag);
 
                             if (quorumMap.containsKey(curTag))
                             {
@@ -233,7 +239,7 @@ public class DigestResolver extends ResponseResolver
                                 // if has enough k values
                                 if (currentCount == TreasConfig.num_intersect)
                                 {
-                                    if (curTag.isLarger(quorumTagMax))
+                                    if (quorumTagMax == null || curTag.compareTo(quorumTagMax) > 0)
                                     {
                                         quorumTagMax = curTag;
                                     }
@@ -244,22 +250,24 @@ public class DigestResolver extends ResponseResolver
                                 quorumMap.put(curTag, 1);
                                 if (TreasConfig.num_intersect == 1)
                                 {
-                                    if (curTag.isLarger(quorumTagMax))
+                                    //
+                                    if ((quorumTagMax == null) || curTag.compareTo(quorumTagMax) > 0)
                                     {
                                         quorumTagMax = curTag;
                                     }
                                 }
                             }
                         }
-                        // Notice that only one column has the data
+                        //Notice that only one column has the data
                         else if (colName.startsWith("field") && !colName.equals("field0"))
                         {
-                            logger.debug(colName);
+                            logger.debug("ColName is" + colName);
                             // Fetch the code out
                             String value = "";
                             try
                             {
                                 value = ByteBufferUtil.string(c.value());
+                                System.out.println("Value is" + value);
                             }
                             catch (Exception e)
                             {
@@ -269,10 +277,13 @@ public class DigestResolver extends ResponseResolver
                             // Find the corresponding index to fetch the tag value
                             int index = Integer.parseInt(colName.substring(TreasConfig.VAL_PREFIX.length()));
                             String treasTagColumn = "tag" + index;
+                            System.out.println(treasTagColumn);
                             ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(treasTagColumn, true);
                             ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
                             Cell tagCell = row.getCell(columnMetadata);
-                            TreasTag treasTag = TreasTag.deserialize(tagCell.value());
+                            Long treasTag = TreasUtil.getLong(tagCell.value());
+
+                            System.out.println("TreasTag" + treasTag);
 
                             if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
                                 int count = decodeCountMap.get(decodeTagMax) + 1;
@@ -282,16 +293,7 @@ public class DigestResolver extends ResponseResolver
                                 }
                                 continue;
                             }
-//                            // Fetch the code out
-//                            String value = "";
-//                            try
-//                            {
-//                                value = ByteBufferUtil.string(c.value());
-//                            }
-//                            catch (Exception e)
-//                            {
-//                                e.printStackTrace();
-//                            }
+
 
 
                             if (decodeMap.containsKey(treasTag))
@@ -303,11 +305,10 @@ public class DigestResolver extends ResponseResolver
                                 int count = decodeCountMap.get(treasTag) + 1;
                                 decodeCountMap.put(treasTag,count);
 
-//                                decodeMap.get(treasTag).set(id, value);
 
                                 if (count == TreasConfig.num_recover)
                                 {
-                                    if (treasTag.isLarger(decodeTagMax))
+                                    if (decodeTagMax == null || treasTag.compareTo(decodeTagMax) > 0)
                                     {
                                         decodeTagMax = treasTag;
                                         decodeValMax = codeList;
@@ -327,7 +328,7 @@ public class DigestResolver extends ResponseResolver
                                 decodeCountMap.put(treasTag,1);
                                 if (TreasConfig.num_recover == 1)
                                 {
-                                    if (treasTag.isLarger(decodeTagMax))
+                                    if ((decodeTagMax == null) || treasTag.compareTo(decodeTagMax) > 0)
                                     {
                                         decodeTagMax = treasTag;
                                         decodeValMax = codelist;
@@ -348,17 +349,15 @@ public class DigestResolver extends ResponseResolver
         //logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
 
         // Either one of them is not satisfied stop the procedure;
-        if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1)
+        if (quorumTagMax == null || decodeTagMax == null)
         {
             doubleTreasTag.setReadResult(null);
         }
         else
         {
             //logger.debug("Successfully get the result");
-            doubleTreasTag.getQuorumMaxTreasTag().setWriterId(quorumTagMax.getWriterId());
-            doubleTreasTag.getQuorumMaxTreasTag().setLogicalTIme(quorumTagMax.getTime());
-            doubleTreasTag.getRecoverMaxTreasTag().setWriterId(decodeTagMax.getWriterId());
-            doubleTreasTag.getRecoverMaxTreasTag().setLogicalTIme(decodeTagMax.getTime());
+            doubleTreasTag.setQuorumMaxTreasTag(quorumTagMax);
+            doubleTreasTag.setRecoverMaxTreasTag(decodeTagMax);
 
             int length = 0;
             for (int i = 0; i < decodeValMax.size(); i++) {
@@ -378,6 +377,7 @@ public class DigestResolver extends ResponseResolver
             for (int i = 0; i < decodeValMax.size(); i++) {
 
                 String value = decodeValMax.get(i);
+                System.out.println("Decode value is" + value);
 
                 if (value == null || value.isEmpty() || count == TreasConfig.num_recover) {
                     decodeMatrix[i] = new byte[length];
@@ -392,6 +392,7 @@ public class DigestResolver extends ResponseResolver
             }
 
             String value = ErasureCode.decodeeData(decodeMatrix, shardPresent, length);
+            System.out.println("Get the value" + value);
             logger.debug("Convert the data to value" + value);
             doubleTreasTag.setReadResult(value);
         }

@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
+import org.apache.cassandra.Treas.TreasUtil;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.partitions.PartitionIterator;
 import org.apache.cassandra.db.partitions.UnfilteredPartitionIterator;
@@ -79,10 +80,10 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         boolean exist = false;
         String minTagColumn = "";
         String maxTagColumn ="";
-        TreasTag localMinTag = null;
-        TreasTag localMaxTag = null;
+        Long localMinTag = null;
+        Long localMaxTag = null;
 
-        TreasTag mutationTag = null;
+        Long mutationTag = null;
         String mutationValue = "";
 
         // Read from the Mutation
@@ -90,7 +91,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
         for (Cell c : data.cells())
         {
             if (c.column().name.toString().equals("tag1")) {
-                mutationTag = TreasTag.deserialize(c.value());
+                mutationTag = TreasUtil.getLong(c.value());
             } else if (c.column().name.toString().equals("field1")) {
                 mutationValue = ByteBufferUtil.string(c.value());
             }
@@ -126,7 +127,7 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                         String colName = cell.column().name.toString();
 
                         if (colName.startsWith("tag")) {
-                            TreasTag currentTag = TreasTag.deserialize(cell.value());
+                            Long currentTag = TreasUtil.getLong(cell.value());
                             hit++;
                             if (currentTag.equals(mutationTag)) {
                                 exist = true;
@@ -139,11 +140,11 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                                 minTagColumn = colName;
                             }
                             else {
-                                if (currentTag.isLarger(localMaxTag)) {
+                                if (currentTag.compareTo(localMaxTag) > 0) {
                                     localMaxTag = currentTag;
                                     maxTagColumn = colName;
                                 }
-                                else if (localMinTag.isLarger(currentTag)) {
+                                else if (localMinTag.compareTo(currentTag) > 0) {
                                     localMinTag = currentTag;
                                     minTagColumn = colName;
                                 }
@@ -160,15 +161,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
             reply(id, replyTo);
             return;
         }
-
-//        if (localMaxTag != null) {
-//            logger.debug("Max Tag: " + localMaxTag.toString());
-//            logger.debug("Max Tag colname: " + maxTagColumn);
-//            logger.debug("Min Tag: " + localMinTag.toString());
-//            logger.debug("Min Tag colName: " + minTagColumn);
-//        } else {
-//            logger.debug("First time see this data");
-//        }
 
 
         Mutation mutation = message.payload;
@@ -190,12 +182,12 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                 // If larger, we need to
                 // First add to the hit spot (Both Tag and Value)
                 // Remove value
-                if (mutationTag.isLarger(localMaxTag)) {
+                if (mutationTag.compareTo(localMaxTag) > 0) {
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
                                    .add("field0","")
-                                   .add("tag" + hit, TreasTag.serialize(mutationTag))
+                                   .add("tag" + hit, mutationTag)
                                    .add("field" + hit, mutationValue)
                                    .add("field" + maxTagColumn.substring(3),null);
                 }
@@ -206,28 +198,28 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                                    .timestamp(timeStamp)
                                    .row()
                                    .add("field0","")
-                                   .add("tag" + hit, TreasTag.serialize(mutationTag));
+                                   .add("tag" + hit, mutationTag);
                 }
             }
         }
 
         else {
-            if (mutationTag.isLarger(localMaxTag)) {
+            if (mutationTag.compareTo(localMaxTag) > 0) {
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
                                .add("field" + maxTagColumn.substring(3),null)
                                .add("field" + minTagColumn.substring(3), mutationValue)
                                .add("field0","")
-                               .add(minTagColumn,TreasTag.serialize(mutationTag));
+                               .add(minTagColumn,mutationTag);
             }
 
-            else if (mutationTag.isLarger(localMinTag)){
+            else if (mutationTag.compareTo(localMinTag) > 0){
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
                                .add("field0","")
-                               .add(minTagColumn, TreasTag.serialize(mutationTag));
+                               .add(minTagColumn, mutationTag);
             } else {
                 reply(id, replyTo);
                 return;

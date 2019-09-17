@@ -29,6 +29,7 @@ import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.FetchTagObject;
 import org.apache.cassandra.Treas.TreasConfig;
 import org.apache.cassandra.Treas.TreasTag;
+import org.apache.cassandra.Treas.TreasUtil;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.IMutation;
 import org.apache.cassandra.db.Mutation;
@@ -516,7 +517,7 @@ public abstract class AbstractReadExecutor
             }
         }
 
-        TreasTag localMaxTreasTag = new TreasTag();
+        Long localMaxTreasTag = null;
 
         // Each readResponse represents a response from a Replica
         for (MessageIn<ReadResponse> message : digestResolver.getMessages())
@@ -534,8 +535,8 @@ public abstract class AbstractReadExecutor
 
             String minTagColName = null;
             String maxFieldColName = null;
-            TreasTag maxCoordinatorTag = null;
-            TreasTag minCoodinatorTag = null;
+            Long maxCoordinatorTag = null;
+            Long minCoodinatorTag = null;
             String minFieldColName = null;
 
             boolean myMessage = false;
@@ -554,7 +555,7 @@ public abstract class AbstractReadExecutor
                 RowIterator ri = pi.next();
                 while (ri.hasNext())
                 {
-                    TreasTag curTag = new TreasTag();
+                    Long curTag = null;
                     for (Cell c : ri.next().cells())
                     {
                         //TODO: Inside here we can fetch the corresponding tag the coordinator should insert
@@ -562,7 +563,7 @@ public abstract class AbstractReadExecutor
                         String colName = c.column().name.toString();
                         if (colName.startsWith("tag"))
                         {
-                            curTag = TreasTag.deserialize(c.value());
+                            curTag = TreasUtil.getLong(c.value());
                             if (myMessage) {
 //                                logger.debug(curTag.toString());
                                 hit++;
@@ -573,17 +574,17 @@ public abstract class AbstractReadExecutor
                                     maxFieldColName = "field" + colName.substring(3);
                                     minFieldColName = "field" + colName.substring(3);
                                 }
-                                else if (minCoodinatorTag.isLarger(curTag)) {
+                                else if (minCoodinatorTag.compareTo(curTag) > 0) {
                                     minCoodinatorTag = curTag;
                                     minTagColName = colName;
                                     minFieldColName = "field" + colName.substring(3);
                                 }
-                                else if (curTag.isLarger(maxCoordinatorTag)) {
+                                else if (curTag.compareTo(maxCoordinatorTag) > 0) {
                                     maxCoordinatorTag = curTag;
                                     maxFieldColName = "field" + colName.substring(3);
                                 }
                             }
-                            if (curTag.isLarger(localMaxTreasTag))
+                            if (curTag.compareTo(localMaxTreasTag) > 0)
                             {
                                 localMaxTreasTag = curTag;
                             }
@@ -606,10 +607,10 @@ public abstract class AbstractReadExecutor
                 coordinatorInfo.hit = hit;
             }
 
-            myMessage = false;
+
         }
 
-        coordinatorInfo.maxTagAll = new TreasTag(localMaxTreasTag);
+        coordinatorInfo.maxTagAll = localMaxTreasTag;
         setResult(digestResolver.getReadResponse());
     }
 
