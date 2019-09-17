@@ -22,7 +22,7 @@ import java.nio.ByteBuffer;
 
 public class TreasUtil
 {
-    public static Long getLong(ByteBuffer bb) {
+    public synchronized static Long getLong(ByteBuffer bb) {
         int pos = bb.position();
         Long time = bb.getLong();
         bb.position(pos);
