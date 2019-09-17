@@ -1437,7 +1437,7 @@ public class StorageProxy implements StorageProxyMBean
 
         // exit early if we can't fulfill the CL at this time
         responseHandler.assureSufficientLiveNodes();
-
+        logger.debug("Prepare to writeback 1");
         performer.apply(mutation, Iterables.concat(naturalEndpoints, pendingEndpoints), responseHandler, localDataCenter, consistency_level, flag);
         return responseHandler;
     }
@@ -3696,6 +3696,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 else
                 {
+                    logger.debug("Prepare to Write back");
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime, true));
                 }
