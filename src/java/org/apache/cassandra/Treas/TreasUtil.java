@@ -19,6 +19,8 @@
 package org.apache.cassandra.Treas;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,5 +43,11 @@ public class TreasUtil
         Long time = bb.getLong();
         bb.position(pos);
         return time;
+    }
+
+    public synchronized static void printTags(HashMap<Long,List<String>> map) {
+        for (Long tag: map.keySet()) {
+            logger.debug(tag+"");
+        }
     }
 }

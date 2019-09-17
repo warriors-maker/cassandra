@@ -280,7 +280,7 @@ public class DigestResolver extends ResponseResolver
                             ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
                             Cell tagCell = row.getCell(columnMetadata);
                             Long treasTag = TreasUtil.getLong(tagCell.value());
-                            logger.debug(treasTag+"");
+
 
                             if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
                                 int count = decodeCountMap.get(decodeTagMax) + 1;
@@ -302,7 +302,6 @@ public class DigestResolver extends ResponseResolver
                                 int count = decodeCountMap.get(treasTag) + 1;
                                 decodeCountMap.put(treasTag,count);
 
-                                logger.debug("Decode" + count);
                                 if (count >= TreasConfig.num_recover)
                                 {
 //                                    if (decodeTagMax != null) {
@@ -351,6 +350,7 @@ public class DigestResolver extends ResponseResolver
         if (doubleTreasTag.isNeedWriteBack()) {
             int count = decodeCountMap.get(decodeTagMax);
             logger.debug(count+"");
+            TreasUtil.printTags(decodeMap);
         }
 
         // Either one of them is not satisfied stop the procedure;
