@@ -228,9 +228,9 @@ public class DigestResolver extends ResponseResolver
                         // if it is a timeStamp field, we need to check it
                         if (colName.startsWith("tag"))
                         {
-                            System.out.println(colName);
+//                            System.out.println(colName);
                             Long curTag = TreasUtil.getLong(c.value());
-                            System.out.println("CurrentTag is" + curTag);
+//                            System.out.println("CurrentTag is" + curTag);
 
                             if (quorumMap.containsKey(curTag))
                             {

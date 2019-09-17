@@ -3792,7 +3792,7 @@ public class StorageProxy implements StorageProxyMBean
             HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
 //            System.out.println("Address is" + coordinatorAdress);
             int coordinator_index = addressMap.get(coordinatorAdress);
-            logger.debug(encodeMatrix[coordinator_index].toString());
+            //logger.debug(encodeMatrix[coordinator_index].toString());
             String value = TreasConfig.byteToString(encodeMatrix[coordinator_index]);
 
             if (backPressureHosts != null)
