@@ -20,10 +20,17 @@ package org.apache.cassandra.Treas;
 
 import java.nio.ByteBuffer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.cassandra.service.StorageProxy;
+
 public class TreasUtil
 {
+    private static final Logger logger = LoggerFactory.getLogger(TreasUtil.class);
     public synchronized static Long getLong(ByteBuffer bb) {
         int pos = bb.position();
+        logger.debug(bb.capacity() + " " + pos);
         Long time = bb.getLong();
         bb.position(pos);
         return time;

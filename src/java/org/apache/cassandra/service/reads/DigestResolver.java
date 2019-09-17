@@ -277,13 +277,11 @@ public class DigestResolver extends ResponseResolver
                             // Find the corresponding index to fetch the tag value
                             int index = Integer.parseInt(colName.substring(TreasConfig.VAL_PREFIX.length()));
                             String treasTagColumn = "tag" + index;
-                            System.out.println(treasTagColumn);
                             ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(treasTagColumn, true);
                             ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
                             Cell tagCell = row.getCell(columnMetadata);
                             Long treasTag = TreasUtil.getLong(tagCell.value());
-
-                            System.out.println("TreasTag" + treasTag);
+                            
 
                             if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
                                 int count = decodeCountMap.get(decodeTagMax) + 1;
