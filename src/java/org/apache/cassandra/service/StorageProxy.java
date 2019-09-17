@@ -3586,9 +3586,10 @@ public class StorageProxy implements StorageProxyMBean
                 mutationBuilder.update(tableMetadata)
                                .timestamp(timeStamp)
                                .row()
-                               .add(TreasConfig.TAG_ONE, decodeMaxTag)
+                               .add("tag1", decodeMaxTag)
                                .add("field0", value);
                 Mutation mutation = mutationBuilder.build();
+
                 mutations.add(mutation);
                 logger.debug("Need to write back");
                 if (decodeMaxTag == null) {
@@ -3604,11 +3605,9 @@ public class StorageProxy implements StorageProxyMBean
                 if (key == null) {
                     logger.debug("key is null");
                 } else {
-                    logger.debug(key.toString());
+                    logger.debug(key.getKey().toString());
                 }
-                if (doubleTreasTag.isNeedWriteBack()) {
-                    logger.debug("Need to write back from var");
-                }
+
 
             }
         }
