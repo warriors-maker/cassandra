@@ -4168,7 +4168,7 @@ public class StorageProxy implements StorageProxyMBean
                     }
                 }
             }
-            
+
             logger.debug("Writeback: " + mutationTag + " " + mutateValue);
 
             byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
