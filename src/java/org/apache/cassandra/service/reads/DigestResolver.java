@@ -305,7 +305,9 @@ public class DigestResolver extends ResponseResolver
                                 logger.debug("Decode" + count);
                                 if (count >= TreasConfig.num_recover)
                                 {
-                                    logger.debug("Bigger" + (treasTag.compareTo(decodeTagMax) > 0));
+                                    if (decodeTagMax != null) {
+                                        logger.debug("Bigger" + (treasTag.compareTo(decodeTagMax) > 0));
+                                    }
                                     if (decodeTagMax == null || treasTag.compareTo(decodeTagMax) > 0)
                                     {
                                         decodeTagMax = treasTag;
