@@ -52,6 +52,7 @@ public class ErasureCode
 //    }
 
     public static byte[][] encodeData(String value) {
+        logger.debug("The value is" + value);
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         final int valueSize =  value.length();
         //logger.debug("Inside encodeData");
