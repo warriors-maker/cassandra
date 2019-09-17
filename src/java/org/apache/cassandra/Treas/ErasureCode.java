@@ -52,7 +52,7 @@ public class ErasureCode
 //    }
 
     public static byte[][] encodeData(String value) {
-        ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
+        ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, PARITY_SHARDS);
         final int valueSize =  value.length();
         //logger.debug("Inside encodeData");
 
@@ -88,7 +88,7 @@ public class ErasureCode
         }
 
         // Make the buffers to hold the shards.
-        byte [] [] shards = new byte [TOTAL_SHARDS] [shardSize];
+        byte [][] shards = new byte [TOTAL_SHARDS] [shardSize];
 
         // Fill in the data shards
         for (int i = 0; i < DATA_SHARDS; i++) {
@@ -99,6 +99,10 @@ public class ErasureCode
         //logger.debug("Before Encode Parity");
         reedSolomon.encodeParity(shards, 0, shardSize);
         //logger.debug("Finish Encode");
+        logger.debug("Coding looks like the folliowing");
+        for (int i = 0; i < shards.length; i++) {
+            logger.debug(shards[i].toString());
+        }
         return shards;
     }
 
