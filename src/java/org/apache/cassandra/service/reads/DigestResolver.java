@@ -388,7 +388,7 @@ public class DigestResolver extends ResponseResolver
                     shardPresent[i] = true;
                 }
             }
-            logger.debug(count + "");
+//            logger.debug(count + "");
 
             String value = ErasureCode.decodeeData(decodeMatrix, shardPresent, length);
 //            System.out.println("Get the value" + value);
