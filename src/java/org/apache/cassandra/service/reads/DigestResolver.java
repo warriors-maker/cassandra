@@ -267,7 +267,6 @@ public class DigestResolver extends ResponseResolver
                             try
                             {
                                 value = ByteBufferUtil.string(c.value());
-                                System.out.println("Value is" + value);
                             }
                             catch (Exception e)
                             {
@@ -281,7 +280,7 @@ public class DigestResolver extends ResponseResolver
                             ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
                             Cell tagCell = row.getCell(columnMetadata);
                             Long treasTag = TreasUtil.getLong(tagCell.value());
-                            
+
 
                             if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
                                 int count = decodeCountMap.get(decodeTagMax) + 1;
@@ -366,8 +365,8 @@ public class DigestResolver extends ResponseResolver
                     break;
                 }
             }
-            logger.debug("The size is" + decodeValMax.size());
-            logger.debug("The length is " + length);
+//            logger.debug("The size is" + decodeValMax.size());
+//            logger.debug("The length is " + length);
 
             boolean []shardPresent = new boolean[TreasConfig.num_server];
             byte[][] decodeMatrix = new byte[TreasConfig.num_server][length];
