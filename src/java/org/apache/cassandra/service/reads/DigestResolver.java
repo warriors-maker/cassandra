@@ -363,11 +363,13 @@ public class DigestResolver extends ResponseResolver
             for (int i = 0; i < decodeValMax.size(); i++) {
                 String value = decodeValMax.get(i);
                 if (value != null && ! value.isEmpty()) {
+                    //logger.debug("Coding_value is " + value);
                     length = TreasConfig.stringToByte(value).length;
                     break;
                 }
             }
-
+            logger.debug("The size is" + decodeValMax.size());
+            logger.debug("The length is " + length);
 
             boolean []shardPresent = new boolean[TreasConfig.num_server];
             byte[][] decodeMatrix = new byte[TreasConfig.num_server][length];
@@ -377,7 +379,6 @@ public class DigestResolver extends ResponseResolver
             for (int i = 0; i < decodeValMax.size(); i++) {
 
                 String value = decodeValMax.get(i);
-                System.out.println("Decode value is" + value);
 
                 if (value == null || value.isEmpty() || count == TreasConfig.num_recover) {
                     decodeMatrix[i] = new byte[length];
