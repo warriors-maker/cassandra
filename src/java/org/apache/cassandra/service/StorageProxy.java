@@ -3543,9 +3543,6 @@ public class StorageProxy implements StorageProxyMBean
 
         // Add the logic here to prevent
 
-        // Do the writeBack
-        writebackTreas(doubleTreasTagList, consistencyLevel, System.nanoTime());
-
 
         List<PartitionIterator> piList = new ArrayList<>();
         int idx = 0;
@@ -3556,6 +3553,10 @@ public class StorageProxy implements StorageProxyMBean
             piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command, doubleTreasTag), command.nowInSec()));
             idx++;
         }
+
+        // Do the writeBack
+        //writebackTreas(doubleTreasTagList, consistencyLevel, System.nanoTime());
+        
         return PartitionIterators.concat(piList);
     }
 
