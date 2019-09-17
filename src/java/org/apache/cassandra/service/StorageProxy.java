@@ -3590,12 +3590,28 @@ public class StorageProxy implements StorageProxyMBean
                                .add("field0", value);
                 Mutation mutation = mutationBuilder.build();
                 mutations.add(mutation);
+            } else {
+                logger.debug("Need to write back");
+                if (value == null) {
+                    logger.debug("value is null");
+                } else {
+                    logger.debug(value);
+                }
+                if (key == null) {
+                    logger.debug("key is null");
+                } else {
+                    logger.debug(key.toString());
+                }
+                if (doubleTreasTag.isNeedWriteBack()) {
+                    logger.debug("Need to write back from var");
+                }
             }
         }
 
         if (mutations.size() == 0) {
             return;
         } else {
+
             logger.debug("Need to write back");
         }
 
