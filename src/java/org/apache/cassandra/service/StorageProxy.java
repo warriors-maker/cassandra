@@ -3592,6 +3592,9 @@ public class StorageProxy implements StorageProxyMBean
                 Mutation mutation = mutationBuilder.build();
                 mutations.add(mutation);
                 logger.debug("Need to write back");
+                if (decodeMaxTag == null) {
+                    logger.debug("DecodeMaxTag is null");
+                }
                 if (value == null) {
                     logger.debug("value is null");
                 } else {

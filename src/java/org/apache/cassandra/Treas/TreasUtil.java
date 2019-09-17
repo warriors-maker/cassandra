@@ -35,8 +35,8 @@ public class TreasUtil
             pos = bb.position();
             time = bb.getLong();
         } catch (Exception e) {
-            logger.debug("TreasUtil " + pos + "" + bb.capacity());
-            e.printStackTrace();
+            logger.debug("TreasUtil " + pos + " " + bb.capacity());
+            throw e;
         }
         bb.position(pos);
         return time;
