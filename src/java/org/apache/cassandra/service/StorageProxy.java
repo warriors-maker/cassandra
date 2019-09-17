@@ -3921,7 +3921,7 @@ public class StorageProxy implements StorageProxyMBean
                                        .add("field0","");
                     }
 
-
+                    logger.debug("Send to myself is: value: " + value);
                     Mutation coordinatorMutation = mutationBuilder.build();
                     performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
                 }
@@ -3939,7 +3939,8 @@ public class StorageProxy implements StorageProxyMBean
                     //logger.debug("Replica address is" + address);
                     int replica_index = addressMap.get(address);
                     value = TreasConfig.byteToString(encodeMatrix[replica_index]);
-                    //logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);
+
+                    logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);
 
 
                     // Based on their IP address fetch the according byte array
