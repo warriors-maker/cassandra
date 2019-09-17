@@ -3593,6 +3593,12 @@ public class StorageProxy implements StorageProxyMBean
             }
         }
 
+        if (mutations.size() == 0) {
+            return;
+        } else {
+            logger.debug("Need to write back");
+        }
+
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
 
         try
@@ -3897,10 +3903,6 @@ public class StorageProxy implements StorageProxyMBean
                     // Fetch the index from a Map
                     // byte[] myData = erasureCode[index];
                     if (hit == 1) {
-                        System.out.println(minFieldColName);
-                        System.out.println(minTagColName);
-                        System.out.println("Hit is" + hit);
-                        System.out.println(mutationTag);
                         mutationBuilder.update(tableMetadata)
                                        .timestamp(timeStamp)
                                        .row()
@@ -3924,7 +3926,7 @@ public class StorageProxy implements StorageProxyMBean
                                        .add("field0","");
                     }
 
-                    logger.debug("Send to myself is: value: " + value);
+                    //logger.debug("Send to myself is: value: " + value);
                     Mutation coordinatorMutation = mutationBuilder.build();
                     performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
                 }
@@ -3942,11 +3944,11 @@ public class StorageProxy implements StorageProxyMBean
                     //logger.debug("Replica address is" + address);
                     int replica_index = addressMap.get(address);
 
-                    logger.debug(encodeMatrix[replica_index].toString());
+                    //logger.debug(encodeMatrix[replica_index].toString());
 
                     value = TreasConfig.byteToString(encodeMatrix[replica_index]);
 
-                    logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);
+                    //logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);
 
 
                     // Based on their IP address fetch the according byte array

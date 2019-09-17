@@ -193,7 +193,7 @@ public class DigestResolver extends ResponseResolver
             }
             //logger.debug("Address are" + address);
             int id = addressMap.get(address);
-            logger.debug("The message is from" + address + "ID is: " + id);
+            //logger.debug("The message is from" + address + "ID is: " + id);
 
             ReadResponse response = message.payload;
 
@@ -261,7 +261,7 @@ public class DigestResolver extends ResponseResolver
                         //Notice that only one column has the data
                         else if (colName.startsWith("field") && !colName.equals("field0"))
                         {
-                            logger.debug("ColName is" + colName);
+                            //logger.debug("ColName is" + colName);
                             // Fetch the code out
                             String value = "";
                             try
@@ -392,8 +392,8 @@ public class DigestResolver extends ResponseResolver
             }
 
             String value = ErasureCode.decodeeData(decodeMatrix, shardPresent, length);
-            System.out.println("Get the value" + value);
-            logger.debug("Convert the data to value" + value);
+//            System.out.println("Get the value" + value);
+//            logger.debug("Convert the data to value" + value);
             doubleTreasTag.setReadResult(value);
         }
 
