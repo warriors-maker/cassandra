@@ -3773,6 +3773,12 @@ public class StorageProxy implements StorageProxyMBean
             }
 
             byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
+
+            logger.debug("Coding looks like the folliowing");
+            for (int i = 0; i < encodeMatrix.length; i++) {
+                logger.debug(encodeMatrix[i].toString());
+            }
+
             //logger.debug("Finish EncodeData");
             String coordinatorAdress = "";
             if (TreasConfig.ADDRESSES[0].startsWith("local")) {
@@ -3782,8 +3788,9 @@ public class StorageProxy implements StorageProxyMBean
             }
 
             HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
-            System.out.println("Address is" + coordinatorAdress);
+//            System.out.println("Address is" + coordinatorAdress);
             int coordinator_index = addressMap.get(coordinatorAdress);
+            logger.debug(encodeMatrix[coordinator_index].toString());
             String value = TreasConfig.byteToString(encodeMatrix[coordinator_index]);
 
             if (backPressureHosts != null)
@@ -3938,6 +3945,9 @@ public class StorageProxy implements StorageProxyMBean
                     String address = destination.getHostAddress(false);
                     //logger.debug("Replica address is" + address);
                     int replica_index = addressMap.get(address);
+
+                    logger.debug(encodeMatrix[replica_index].toString());
+
                     value = TreasConfig.byteToString(encodeMatrix[replica_index]);
 
                     logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);

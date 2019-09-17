@@ -99,10 +99,6 @@ public class ErasureCode
         //logger.debug("Before Encode Parity");
         reedSolomon.encodeParity(shards, 0, shardSize);
         //logger.debug("Finish Encode");
-        logger.debug("Coding looks like the folliowing");
-        for (int i = 0; i < shards.length; i++) {
-            logger.debug(shards[i].toString());
-        }
         return shards;
     }
 
