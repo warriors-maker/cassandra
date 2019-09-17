@@ -3774,10 +3774,6 @@ public class StorageProxy implements StorageProxyMBean
 
             byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
 
-            logger.debug("Coding looks like the folliowing");
-            for (int i = 0; i < encodeMatrix.length; i++) {
-                logger.debug(encodeMatrix[i].toString());
-            }
 
             //logger.debug("Finish EncodeData");
             String coordinatorAdress = "";
