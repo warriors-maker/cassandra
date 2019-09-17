@@ -362,7 +362,7 @@ public class DigestResolver extends ResponseResolver
                 if (value != null && ! value.isEmpty()) {
                     //logger.debug("Coding_value is " + value);
                     length = TreasConfig.stringToByte(value).length;
-                    break;
+                    logger.debug(TreasConfig.stringToByte(value).length + "");
                 }
             }
 //            logger.debug("The size is" + decodeValMax.size());
