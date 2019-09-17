@@ -3555,8 +3555,8 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         // Do the writeBack
-        //writebackTreas(doubleTreasTagList, consistencyLevel, System.nanoTime());
-        
+        writebackTreas(doubleTreasTagList, consistencyLevel, System.nanoTime());
+
         return PartitionIterators.concat(piList);
     }
 
