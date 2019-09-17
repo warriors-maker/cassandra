@@ -29,16 +29,16 @@ public class TreasUtil
 {
     private static final Logger logger = LoggerFactory.getLogger(TreasUtil.class);
     public synchronized static Long getLong(ByteBuffer bb) {
-        int pos = -1;
-        Long time = null;
+//        int pos = -1;
+//        Long time = null;
 //        try {
 //
 //        } catch (Exception e) {
 //
 //            throw e;
 //        }
-        pos = bb.position();
-        time = bb.getLong();
+        int pos = bb.position();
+        Long time = bb.getLong();
         bb.position(pos);
         return time;
     }
