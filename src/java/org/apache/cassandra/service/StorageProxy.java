@@ -3574,7 +3574,6 @@ public class StorageProxy implements StorageProxyMBean
         // Fetch valid information
         List<IMutation> mutations = new ArrayList<>();
         for (DoubleTreasTag doubleTreasTag : doubleTreasTags) {
-            Long quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
             Long decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
             DecoratedKey key = doubleTreasTag.getKey();
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
@@ -3594,6 +3593,8 @@ public class StorageProxy implements StorageProxyMBean
                 logger.debug("Need to write back");
                 if (decodeMaxTag == null) {
                     logger.debug("DecodeMaxTag is null");
+                } else {
+                    logger.debug(decodeMaxTag + "");
                 }
                 if (value == null) {
                     logger.debug("value is null");
@@ -3615,7 +3616,6 @@ public class StorageProxy implements StorageProxyMBean
         if (mutations.size() == 0) {
             return;
         } else {
-
             logger.debug("Need to write back");
         }
 

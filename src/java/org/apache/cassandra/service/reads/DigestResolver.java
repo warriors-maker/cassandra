@@ -344,6 +344,11 @@ public class DigestResolver extends ResponseResolver
         //logger.debug("Finish reading Quorum and Decodable");
         //System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
         //logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+        
+        if (doubleTreasTag.isNeedWriteBack()) {
+            int count = decodeCountMap.get(decodeTagMax);
+            logger.debug(count+"");
+        }
 
         // Either one of them is not satisfied stop the procedure;
         if (quorumTagMax == null || decodeTagMax == null)
@@ -362,7 +367,7 @@ public class DigestResolver extends ResponseResolver
                 if (value != null && ! value.isEmpty()) {
                     //logger.debug("Coding_value is " + value);
                     length = TreasConfig.stringToByte(value).length;
-                    logger.debug(TreasConfig.stringToByte(value).length + "");
+                    //logger.debug(TreasConfig.stringToByte(value).length + "");
                 }
             }
 //            logger.debug("The size is" + decodeValMax.size());
