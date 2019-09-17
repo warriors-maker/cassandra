@@ -282,7 +282,6 @@ public class DigestResolver extends ResponseResolver
                             Long treasTag = TreasUtil.getLong(tagCell.value());
                             logger.debug(treasTag+"");
 
-
                             if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
                                 int count = decodeCountMap.get(decodeTagMax) + 1;
                                 decodeCountMap.put(decodeTagMax, count);
@@ -303,9 +302,10 @@ public class DigestResolver extends ResponseResolver
                                 int count = decodeCountMap.get(treasTag) + 1;
                                 decodeCountMap.put(treasTag,count);
 
-
-                                if (count == TreasConfig.num_recover)
+                                logger.debug("Decode" + count);
+                                if (count >= TreasConfig.num_recover)
                                 {
+                                    logger.debug("Bigger" + (treasTag.compareTo(decodeTagMax) > 0));
                                     if (decodeTagMax == null || treasTag.compareTo(decodeTagMax) > 0)
                                     {
                                         decodeTagMax = treasTag;

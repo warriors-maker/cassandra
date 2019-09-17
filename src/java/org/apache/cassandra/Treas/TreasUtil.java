@@ -31,13 +31,14 @@ public class TreasUtil
     public synchronized static Long getLong(ByteBuffer bb) {
         int pos = -1;
         Long time = null;
-        try {
-            pos = bb.position();
-            time = bb.getLong();
-        } catch (Exception e) {
-            logger.debug("TreasUtil " + pos + " " + bb.capacity());
-            throw e;
-        }
+//        try {
+//
+//        } catch (Exception e) {
+//
+//            throw e;
+//        }
+        pos = bb.position();
+        time = bb.getLong();
         bb.position(pos);
         return time;
     }
