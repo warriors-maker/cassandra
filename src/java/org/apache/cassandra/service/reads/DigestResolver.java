@@ -350,7 +350,7 @@ public class DigestResolver extends ResponseResolver
         if (doubleTreasTag.isNeedWriteBack()) {
             int count = decodeCountMap.get(decodeTagMax);
             logger.debug(count+"");
-            TreasUtil.printTags(decodeMap);
+            TreasUtil.printTags(decodeMap,decodeCountMap);
         }
 
         // Either one of them is not satisfied stop the procedure;
@@ -368,9 +368,7 @@ public class DigestResolver extends ResponseResolver
             for (int i = 0; i < decodeValMax.size(); i++) {
                 String value = decodeValMax.get(i);
                 if (value != null && ! value.isEmpty()) {
-                    //logger.debug("Coding_value is " + value);
                     length = TreasConfig.stringToByte(value).length;
-                    //logger.debug(TreasConfig.stringToByte(value).length + "");
                 }
             }
 //            logger.debug("The size is" + decodeValMax.size());

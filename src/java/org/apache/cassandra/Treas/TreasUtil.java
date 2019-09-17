@@ -45,9 +45,9 @@ public class TreasUtil
         return time;
     }
 
-    public synchronized static void printTags(HashMap<Long,List<String>> map) {
+    public synchronized static void printTags(HashMap<Long,List<String>> map ,HashMap<Long, Integer> decodeCountMap) {
         for (Long tag: map.keySet()) {
-            logger.debug(tag+"");
+            logger.debug(tag + " " + decodeCountMap.get(tag));
         }
     }
 }
