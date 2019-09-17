@@ -171,6 +171,7 @@ public class StorageProxy implements StorageProxyMBean
             throws OverloadedException
             {
                 assert mutation instanceof Mutation;
+                logger.debug("Sending for writeBack pls");
                 sendToHintedEndpointsWriteBack((Mutation) mutation, targets, responseHandler, localDataCenter, Stage.MUTATION,flag);
             }
 
@@ -1426,6 +1427,7 @@ public class StorageProxy implements StorageProxyMBean
                                                                        boolean flag)
     throws UnavailableException, OverloadedException
     {
+        logger.debug("Prepare to writeback 1");
         String keyspaceName = mutation.getKeyspaceName();
         AbstractReplicationStrategy rs = Keyspace.open(keyspaceName).getReplicationStrategy();
 
@@ -1437,7 +1439,7 @@ public class StorageProxy implements StorageProxyMBean
 
         // exit early if we can't fulfill the CL at this time
         responseHandler.assureSufficientLiveNodes();
-        logger.debug("Prepare to writeback 1");
+        logger.debug("Prepare to writeback 2");
         performer.apply(mutation, Iterables.concat(naturalEndpoints, pendingEndpoints), responseHandler, localDataCenter, consistency_level, flag);
         return responseHandler;
     }
