@@ -365,8 +365,8 @@ public class DigestResolver extends ResponseResolver
                     break;
                 }
             }
-//            logger.debug("The size is" + decodeValMax.size());
-//            logger.debug("The length is " + length);
+            logger.debug("The size is" + decodeValMax.size());
+            logger.debug("The length is " + length);
 
             boolean []shardPresent = new boolean[TreasConfig.num_server];
             byte[][] decodeMatrix = new byte[TreasConfig.num_server][length];
