@@ -166,6 +166,18 @@ public class StorageProxy implements StorageProxyMBean
                               Iterable<InetAddressAndPort> targets,
                               AbstractWriteResponseHandler<IMutation> responseHandler,
                               String localDataCenter,
+                              ConsistencyLevel consistency_level,
+                              boolean flag)
+            throws OverloadedException
+            {
+                assert mutation instanceof Mutation;
+                sendToHintedEndpointsWriteBack((Mutation) mutation, targets, responseHandler, localDataCenter, Stage.MUTATION,flag);
+            }
+
+            public void apply(IMutation mutation,
+                              Iterable<InetAddressAndPort> targets,
+                              AbstractWriteResponseHandler<IMutation> responseHandler,
+                              String localDataCenter,
                               ConsistencyLevel consistencyLevel,
                               FetchTagObject coordinatorInfo) throws OverloadedException
             {
@@ -200,6 +212,16 @@ public class StorageProxy implements StorageProxyMBean
             {
 
             }
+
+            public void apply(IMutation mutation,
+                              Iterable<InetAddressAndPort> targets,
+                              AbstractWriteResponseHandler<IMutation> responseHandler,
+                              String localDataCenter,
+                              ConsistencyLevel consistencyLevel,
+                              boolean flag) throws OverloadedException
+            {
+                counterWriteTask(mutation, targets, responseHandler, localDataCenter).run();
+            }
         };
 
         counterWriteOnCoordinatorPerformer = new WritePerformer()
@@ -222,6 +244,17 @@ public class StorageProxy implements StorageProxyMBean
                               FetchTagObject coordinatorInfo) throws OverloadedException
             {
 
+            }
+
+            public void apply(IMutation mutation,
+                              Iterable<InetAddressAndPort> targets,
+                              AbstractWriteResponseHandler<IMutation> responseHandler,
+                              String localDataCenter,
+                              ConsistencyLevel consistencyLevel,
+                              boolean flag)
+            {
+                StageManager.getStage(Stage.COUNTER_MUTATION)
+                            .execute(counterWriteTask(mutation, targets, responseHandler, localDataCenter));
             }
         };
 
@@ -1380,6 +1413,32 @@ public class StorageProxy implements StorageProxyMBean
         responseHandler.assureSufficientLiveNodes();
 
         performer.apply(mutation, Iterables.concat(naturalEndpoints, pendingEndpoints), responseHandler, localDataCenter, consistency_level);
+        return responseHandler;
+    }
+
+    public static AbstractWriteResponseHandler<IMutation> performWrite(IMutation mutation,
+                                                                       ConsistencyLevel consistency_level,
+                                                                       String localDataCenter,
+                                                                       WritePerformer performer,
+                                                                       Runnable callback,
+                                                                       WriteType writeType,
+                                                                       long queryStartNanoTime,
+                                                                       boolean flag)
+    throws UnavailableException, OverloadedException
+    {
+        String keyspaceName = mutation.getKeyspaceName();
+        AbstractReplicationStrategy rs = Keyspace.open(keyspaceName).getReplicationStrategy();
+
+        Token tk = mutation.key().getToken();
+        List<InetAddressAndPort> naturalEndpoints = StorageService.instance.getNaturalEndpoints(keyspaceName, tk);
+        Collection<InetAddressAndPort> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, keyspaceName);
+
+        AbstractWriteResponseHandler<IMutation> responseHandler = rs.getWriteResponseHandler(naturalEndpoints, pendingEndpoints, consistency_level, callback, writeType, queryStartNanoTime);
+
+        // exit early if we can't fulfill the CL at this time
+        responseHandler.assureSufficientLiveNodes();
+
+        performer.apply(mutation, Iterables.concat(naturalEndpoints, pendingEndpoints), responseHandler, localDataCenter, consistency_level, flag);
         return responseHandler;
     }
 
@@ -2955,6 +3014,13 @@ public class StorageProxy implements StorageProxyMBean
                           String localDataCenter,
                           ConsistencyLevel consistencyLevel,
                           FetchTagObject coordinatorInfo) throws OverloadedException;
+
+        public void apply(IMutation mutation,
+                          Iterable<InetAddressAndPort> targets,
+                          AbstractWriteResponseHandler<IMutation> responseHandler,
+                          String localDataCenter,
+                          ConsistencyLevel consistencyLevel,
+                          boolean flag) throws OverloadedException;
     }
 
     /**
@@ -3796,6 +3862,314 @@ public class StorageProxy implements StorageProxyMBean
                     }
                 }
             }
+
+            byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
+
+
+            //logger.debug("Finish EncodeData");
+            String coordinatorAdress = "";
+            if (TreasConfig.ADDRESSES[0].startsWith("local")) {
+                coordinatorAdress = FBUtilities.getJustLocalAddress().toString();
+            } else {
+                coordinatorAdress = FBUtilities.getJustLocalAddress().toString().substring(1);
+            }
+
+            HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
+//            System.out.println("Address is" + coordinatorAdress);
+            int coordinator_index = addressMap.get(coordinatorAdress);
+            //logger.debug(encodeMatrix[coordinator_index].toString());
+            String value = TreasConfig.byteToString(encodeMatrix[coordinator_index]);
+
+            if (backPressureHosts != null)
+                MessagingService.instance().applyBackPressure(backPressureHosts, responseHandler.currentTimeout());
+
+            if (endpointsToHint != null)
+                submitHint(mutation, endpointsToHint, responseHandler);
+
+            // Send to MySelf
+            if (insertLocal)
+            {
+                // Build my OWN Mutation
+                // Need to first fetch all the information locally
+                // replace the smallest tag
+
+                //Read Locally
+                SinglePartitionReadCommand localRead =
+                SinglePartitionReadCommand.fullPartitionRead(
+                mutation.getPartitionUpdates().iterator().next().metadata(),
+                FBUtilities.nowInSeconds(),
+                mutation.key()
+                );
+
+                String minTagColName = "";
+                Long minTreasTag = null;
+                String minFieldColName = "";
+
+                String maxTagColName = "";
+                Long maxTreasTag = null;
+                String oldMaxFieldName = "";
+
+
+                int hit = 1;
+                boolean exist = false;
+                try (ReadExecutionController executionController = localRead.executionController();
+                     UnfilteredPartitionIterator iterator = localRead.executeLocally(executionController))
+                {
+                    // first we have to transform it into a PartitionIterator
+                    PartitionIterator pi = UnfilteredPartitionIterators.filter(iterator, localRead.nowInSec());
+                    while(pi.hasNext())
+                    {
+                        RowIterator ri = pi.next();
+                        while(ri.hasNext())
+                        {
+                            Row r = ri.next();
+
+                            for (Cell cell : r.cells()) {
+
+                                String colName = cell.column().name.toString();
+
+                                if (colName.startsWith("tag")) {
+                                    hit++;
+                                    // If the tag already exists, ignore it.
+                                    if (TreasUtil.getLong(cell.value()).equals(mutationTag)) {
+                                        exist = true;
+                                        break;
+                                    } else {
+                                        // Fetch the tagValue
+                                        Long localTag = TreasUtil.getLong(cell.value());
+
+                                        if (minTreasTag == null) {
+                                            minTreasTag = localTag;
+                                            minTagColName = colName;
+                                            maxTagColName = colName;
+                                            maxTreasTag = localTag;
+                                        } else {
+                                            if (localTag.compareTo(maxTreasTag) > 0) {
+                                                maxTagColName = colName;
+                                                maxTreasTag = localTag;
+                                            } else if (minTreasTag.compareTo(localTag) > 0)
+                                            {
+                                                minTagColName = colName;
+                                                minTreasTag = localTag;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (!maxTagColName.isEmpty()) {
+                    oldMaxFieldName = "field" + maxTagColName.substring(3);
+                }
+                // Meaning the tag already exists,
+                // no need to write into the disk anymore
+                // or if the tag is smaller than what we have seen before.
+                if (exist || (minTreasTag != null && minTreasTag .compareTo(mutationTag) > 0)) {
+                    performLocally(stage, Optional.of(mutation),mutation::apply, responseHandler, true);
+                    //logger.debug("Tag Already exists, no need to write into the disk");
+                }
+                // If No data in the table
+                else if (hit <= TreasConfig.num_concurrecy) {
+                    minFieldColName = "field" + hit;
+                    minTagColName = "tag" + hit;
+                }
+                else {
+                    minFieldColName = "field" + minTagColName.substring(3);
+                }
+
+                if (!exist) {
+                    Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
+
+                    TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+                    long timeStamp = FBUtilities.timestampMicros();
+
+                    // Fetch the index from a Map
+                    // byte[] myData = erasureCode[index];
+                    if (hit == 1) {
+                        mutationBuilder.update(tableMetadata)
+                                       .timestamp(timeStamp)
+                                       .row()
+                                       .add(minTagColName, mutationTag)
+                                       .add(minFieldColName,value)
+                                       .add("field0","");
+                    }
+                    else if (mutationTag.compareTo(maxTreasTag) > 0) {
+                        mutationBuilder.update(tableMetadata)
+                                       .timestamp(timeStamp)
+                                       .row()
+                                       .add(minTagColName, mutationTag)
+                                       .add(minFieldColName,value)
+                                       .add("field0","")
+                                       .add(oldMaxFieldName, null);
+                    } else {
+                        mutationBuilder.update(tableMetadata)
+                                       .timestamp(timeStamp)
+                                       .row()
+                                       .add(minTagColName, mutationTag)
+                                       .add("field0","");
+                    }
+
+                    //logger.debug("Send to myself is: value: " + value);
+                    Mutation coordinatorMutation = mutationBuilder.build();
+                    performLocally(stage, Optional.of(mutation),coordinatorMutation::apply, responseHandler);
+                }
+            }
+
+
+            // Send to Replica
+            if (localDc != null)
+            {
+                for (InetAddressAndPort destination : localDc)
+                {
+                    // Build unique Mutation for all replicas
+
+                    String address = destination.getHostAddress(false);
+                    //logger.debug("Replica address is" + address);
+                    int replica_index = addressMap.get(address);
+
+                    //logger.debug(encodeMatrix[replica_index].toString());
+
+                    value = TreasConfig.byteToString(encodeMatrix[replica_index]);
+
+                    //logger.debug("Send to Current destination is: " + destination.toString() + "id :" + replica_index + "value: " + value);
+
+
+                    // Based on their IP address fetch the according byte array
+                    // Fetch the index from a Map
+                    // byte[] myData = erasureCode[index];
+                    Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(mutation.getKeyspaceName(), mutation.key());
+                    TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
+                    long timeStamp = FBUtilities.timestampMicros();
+                    mutationBuilder.update(tableMetadata)
+                                   .timestamp(timeStamp)
+                                   .row()
+                                   .add(TreasConfig.TAG_ONE, mutationTag)
+                                   .add(TreasConfig.VAL_ONE,value)
+                                   .add("field0","");
+
+                    Mutation uniqueMutation = mutationBuilder.build();
+                    MessageOut uniqueReplicaMessage = uniqueMutation.createMessage();
+
+                    MessagingService.instance().sendRR(uniqueReplicaMessage, destination, responseHandler, true);
+                }
+            }
+            if (dcGroups != null)
+            {
+                // for each datacenter, send the message to one node to relay the write to other replicas
+                for (Collection<InetAddressAndPort> dcTargets : dcGroups.values())
+                    sendMessagesToNonlocalDC(message, dcTargets, responseHandler);
+            }
+        }
+    }
+    public static void sendToHintedEndpointsWriteBack(final Mutation mutation,
+                                             Iterable<InetAddressAndPort> targets,
+                                             AbstractWriteResponseHandler<IMutation> responseHandler,
+                                             String localDataCenter,
+                                             Stage stage, boolean flag)
+    throws OverloadedException
+    {
+        if (!mutation.getKeyspaceName().equals("ycsb")) {
+            sendToHintedEndpointsOriginal(mutation,targets,responseHandler,localDataCenter,stage);
+            logger.debug("Not inside for writeBack");
+        }
+        else {
+            logger.debug("Inside sendTohintedEndPoint for writeback");
+
+            int targetsSize = Iterables.size(targets);
+
+            // this dc replicas:
+            Collection<InetAddressAndPort> localDc = null;
+            // extra-datacenter replicas, grouped by dc
+            Map<String, Collection<InetAddressAndPort>> dcGroups = null;
+            // only need to create a Message for non-local writes
+            MessageOut<Mutation> message = null;
+
+            boolean insertLocal = false;
+            ArrayList<InetAddressAndPort> endpointsToHint = null;
+
+            List<InetAddressAndPort> backPressureHosts = null;
+
+            for (InetAddressAndPort destination : targets)
+            {
+                checkHintOverload(destination);
+
+                if (FailureDetector.instance.isAlive(destination))
+                {
+                    if (canDoLocalRequest(destination))
+                    {
+                        insertLocal = true;
+                    }
+                    else
+                    {
+                        // belongs on a different server
+                        if (message == null)
+                            message = mutation.createMessage();
+
+                        String dc = DatabaseDescriptor.getEndpointSnitch().getDatacenter(destination);
+
+                        // direct writes to local DC or old Cassandra versions
+                        // (1.1 knows how to forward old-style String message IDs; updated to int in 2.0)
+                        if (localDataCenter.equals(dc))
+                        {
+                            if (localDc == null)
+                                localDc = new ArrayList<>(targetsSize);
+
+                            localDc.add(destination);
+                        }
+                        else
+                        {
+                            Collection<InetAddressAndPort> messages = (dcGroups != null) ? dcGroups.get(dc) : null;
+                            if (messages == null)
+                            {
+                                messages = new ArrayList<>(3); // most DCs will have <= 3 replicas
+                                if (dcGroups == null)
+                                    dcGroups = new HashMap<>();
+                                dcGroups.put(dc, messages);
+                            }
+
+                            messages.add(destination);
+                        }
+
+                        if (backPressureHosts == null)
+                            backPressureHosts = new ArrayList<>(targetsSize);
+
+                        backPressureHosts.add(destination);
+                    }
+                }
+                else
+                {
+                    //Immediately mark the response as expired since the request will not be sent
+                    responseHandler.expired();
+                    if (shouldHint(destination))
+                    {
+                        if (endpointsToHint == null)
+                            endpointsToHint = new ArrayList<>(targetsSize);
+
+                        endpointsToHint.add(destination);
+                    }
+                }
+            }
+
+            // Fetch the corresponding maxTag || value (string) from the incoming mutation
+            Long mutationTag = null;
+            String mutateValue = "";
+
+            Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+            for (Cell cell : data.cells()) {
+                if (cell.column().name.toString().equals("tag1")) {
+                    mutationTag = TreasUtil.getLong(cell.value());
+                } else if (cell.column().name.toString().equals("field0")) {
+                    try {
+                        mutateValue = ByteBufferUtil.string(cell.value());
+                    } catch (CharacterCodingException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            
+            logger.debug("Writeback: " + mutationTag + " " + mutateValue);
 
             byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
 
