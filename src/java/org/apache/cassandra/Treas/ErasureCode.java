@@ -123,7 +123,7 @@ public class ErasureCode
 
         try
         {
-            logger.debug(decodeBytes.length + " " + valueSize + " " + key);
+            logger.debug(decodeBytes.length + " " + valueSize);
             out.write(decodeBytes, BYTES_IN_INT, valueSize);
         }
         catch (IOException e)
