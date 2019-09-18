@@ -18,7 +18,6 @@
 
 package org.apache.cassandra.Treas;
 
-import java.nio.charset.Charset;
 import java.util.Base64;
 import java.util.HashMap;
 
@@ -55,17 +54,12 @@ public class TreasConfig
 
     // Convert the byte array to String to send back to client
     public static String byteToString(byte[] bytes) {
-        try {
-            return new String(bytes, "UTF-8");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
+        return Base64.getEncoder().encodeToString(bytes);
     }
 
     // Convert incoming String value
     public static byte[] stringToByte(String value) {
-        return value.getBytes(Charset.forName("UTF-8"));
+        return Base64.getDecoder().decode(value);
     }
 
     // Create the Empty Codes based on what I set
