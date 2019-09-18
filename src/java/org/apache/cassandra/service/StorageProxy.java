@@ -171,7 +171,7 @@ public class StorageProxy implements StorageProxyMBean
             throws OverloadedException
             {
                 assert mutation instanceof Mutation;
-                logger.debug("Sending for writeBack pls");
+                //logger.debug("Sending for writeBack pls");
                 sendToHintedEndpointsWriteBack((Mutation) mutation, targets, responseHandler, localDataCenter, Stage.MUTATION,flag);
             }
 
@@ -1427,7 +1427,7 @@ public class StorageProxy implements StorageProxyMBean
                                                                        boolean flag)
     throws UnavailableException, OverloadedException
     {
-        logger.debug("Prepare to writeback 1");
+        //logger.debug("Prepare to writeback 1");
         String keyspaceName = mutation.getKeyspaceName();
         AbstractReplicationStrategy rs = Keyspace.open(keyspaceName).getReplicationStrategy();
 
@@ -1438,9 +1438,9 @@ public class StorageProxy implements StorageProxyMBean
         AbstractWriteResponseHandler<IMutation> responseHandler = rs.getWriteResponseHandler(naturalEndpoints, pendingEndpoints, consistency_level, callback, writeType, queryStartNanoTime);
 
         // exit early if we can't fulfill the CL at this time
-        logger.debug("Prepare to writeback 2");
+        //logger.debug("Prepare to writeback 2");
         responseHandler.assureSufficientLiveNodes();
-        logger.debug("Prepare to writeback 3");
+        //logger.debug("Prepare to writeback 3");
         performer.apply(mutation, Iterables.concat(naturalEndpoints, pendingEndpoints), responseHandler, localDataCenter, consistency_level, flag);
         return responseHandler;
     }
@@ -3629,22 +3629,22 @@ public class StorageProxy implements StorageProxyMBean
                 Mutation mutation = mutationBuilder.build();
 
                 mutations.add(mutation);
-                logger.debug("Need to write back");
-                if (decodeMaxTag == null) {
-                    logger.debug("DecodeMaxTag is null");
-                } else {
-                    logger.debug(decodeMaxTag + "");
-                }
-                if (value == null) {
-                    logger.debug("value is null");
-                } else {
-                    logger.debug(value);
-                }
-                if (key == null) {
-                    logger.debug("key is null");
-                } else {
-                    logger.debug(key.getKey().toString());
-                }
+//                logger.debug("Need to write back");
+//                if (decodeMaxTag == null) {
+//                    logger.debug("DecodeMaxTag is null");
+//                } else {
+//                    logger.debug(decodeMaxTag + "");
+//                }
+//                if (value == null) {
+//                    logger.debug("value is null");
+//                } else {
+//                    logger.debug(value);
+//                }
+//                if (key == null) {
+//                    logger.debug("key is null");
+//                } else {
+//                    logger.debug(key.getKey().toString());
+//                }
             }
         }
 
@@ -3681,8 +3681,6 @@ public class StorageProxy implements StorageProxyMBean
 
         if (mutations.size() == 0) {
             return;
-        } else {
-            logger.debug("Need to write back");
         }
 
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
@@ -3697,7 +3695,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 else
                 {
-                    logger.debug("Prepare to Write back");
+                    //logger.debug("Prepare to Write back");
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime, true));
                 }
@@ -4074,10 +4072,10 @@ public class StorageProxy implements StorageProxyMBean
     {
         if (!mutation.getKeyspaceName().equals("ycsb")) {
             sendToHintedEndpointsOriginal(mutation,targets,responseHandler,localDataCenter,stage);
-            logger.debug("Not inside for writeBack");
+            //logger.debug("Not inside for writeBack");
         }
         else {
-            logger.debug("Inside sendTohintedEndPoint for writeback");
+            //logger.debug("Inside sendTohintedEndPoint for writeback");
 
             int targetsSize = Iterables.size(targets);
 
@@ -4171,7 +4169,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
             }
 
-            logger.debug("Writeback: " + mutationTag + " " + mutateValue);
+            //logger.debug("Writeback: " + mutationTag + " " + mutateValue);
 
             byte [][]encodeMatrix = new ErasureCode().encodeData(mutateValue);
 

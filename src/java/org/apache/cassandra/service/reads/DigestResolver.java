@@ -229,9 +229,6 @@ public class DigestResolver extends ResponseResolver
                         if (colName.startsWith("tag"))
                         {
 //                            System.out.println(colName);
-                            if (c.value().capacity() == 0) {
-                                logger.debug("The capacity is 0");
-                            }
                             Long curTag = TreasUtil.getLong(c.value());
 //                            System.out.println("CurrentTag is" + curTag);
 
@@ -350,11 +347,11 @@ public class DigestResolver extends ResponseResolver
         //System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
         //logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
 
-        if (doubleTreasTag.isNeedWriteBack()) {
-            int count = decodeCountMap.get(decodeTagMax);
-            logger.debug(count+"");
-            TreasUtil.printTags(decodeMap,decodeCountMap);
-        }
+//        if (doubleTreasTag.isNeedWriteBack()) {
+//            int count = decodeCountMap.get(decodeTagMax);
+//            logger.debug(count+"");
+//            TreasUtil.printTags(decodeMap,decodeCountMap);
+//        }
 
         // Either one of them is not satisfied stop the procedure;
         if (quorumTagMax == null || decodeTagMax == null)
