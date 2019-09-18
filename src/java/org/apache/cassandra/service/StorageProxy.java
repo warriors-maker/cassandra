@@ -1438,8 +1438,9 @@ public class StorageProxy implements StorageProxyMBean
         AbstractWriteResponseHandler<IMutation> responseHandler = rs.getWriteResponseHandler(naturalEndpoints, pendingEndpoints, consistency_level, callback, writeType, queryStartNanoTime);
 
         // exit early if we can't fulfill the CL at this time
+        logger.debug("Prepare to writeback 3");
         responseHandler.assureSufficientLiveNodes();
-        logger.debug("Prepare to writeback 2");
+        logger.debug("Prepare to writeback 3");
         performer.apply(mutation, Iterables.concat(naturalEndpoints, pendingEndpoints), responseHandler, localDataCenter, consistency_level, flag);
         return responseHandler;
     }
@@ -3609,39 +3610,8 @@ public class StorageProxy implements StorageProxyMBean
         fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
 
 
-        // Add the logic here to prevent
-
-
-        List<PartitionIterator> piList = new ArrayList<>();
-        int idx = 0;
-        for (DoubleTreasTag doubleTreasTag : doubleTreasTagList)
-        {
-            ReadResponse rr = doubleTreasTag.getReadResponse();
-            SinglePartitionReadCommand command = commands.get(idx);
-            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command, doubleTreasTag), command.nowInSec()));
-            idx++;
-        }
-
-        // Do the writeBack
-        writebackTreas(doubleTreasTagList, consistencyLevel, System.nanoTime());
-
-        return PartitionIterators.concat(piList);
-    }
-
-
-    public static void writebackTreas(List<DoubleTreasTag> doubleTreasTags, ConsistencyLevel consistency_level, long queryStartNanoTime)
-    throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
-    {
-        // this function is the same as the original mutate function
-        Tracing.trace("Determining replicas for mutation");
-        consistency_level = ConsistencyLevel.TREAS;
-        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-
-        long startTime = System.nanoTime();
-
-        // Fetch valid information
         List<IMutation> mutations = new ArrayList<>();
-        for (DoubleTreasTag doubleTreasTag : doubleTreasTags) {
+        for (DoubleTreasTag doubleTreasTag : doubleTreasTagList) {
             Long decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
             DecoratedKey key = doubleTreasTag.getKey();
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
@@ -3675,10 +3645,39 @@ public class StorageProxy implements StorageProxyMBean
                 } else {
                     logger.debug(key.getKey().toString());
                 }
-
-
             }
         }
+
+        // Do the writeBack
+        writebackTreas(mutations, consistencyLevel, System.nanoTime());
+
+        List<PartitionIterator> piList = new ArrayList<>();
+        int idx = 0;
+        for (DoubleTreasTag doubleTreasTag : doubleTreasTagList)
+        {
+            ReadResponse rr = doubleTreasTag.getReadResponse();
+            SinglePartitionReadCommand command = commands.get(idx);
+            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command, doubleTreasTag), command.nowInSec()));
+            idx++;
+        }
+
+
+        return PartitionIterators.concat(piList);
+    }
+
+
+    public static void writebackTreas(List<IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
+    throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
+    {
+        // this function is the same as the original mutate function
+        Tracing.trace("Determining replicas for mutation");
+        consistency_level = ConsistencyLevel.TREAS;
+        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
+
+        long startTime = System.nanoTime();
+
+        // Fetch valid information
+
 
         if (mutations.size() == 0) {
             return;
