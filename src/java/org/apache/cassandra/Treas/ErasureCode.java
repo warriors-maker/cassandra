@@ -117,7 +117,9 @@ public class ErasureCode
             System.arraycopy(shards[i], 0, decodeBytes, shardSize * i, shardSize);
         }
 
-        int valueSize = ByteBuffer.wrap(decodeBytes).getInt();
+//        int valueSize = ByteBuffer.wrap(decodeBytes).getInt();
+
+        int valueSize = decodeBytes.length;
 
         OutputStream out = new ByteArrayOutputStream();
 
