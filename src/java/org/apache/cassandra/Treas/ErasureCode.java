@@ -106,11 +106,10 @@ public class ErasureCode
         return shards;
     }
 
-    public static String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize) {
+    public String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize) {
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         reedSolomon.decodeMissing(shards, shardPresent, 0, shardSize);
-//        System.out.println(new String(shards[0]));
-//        System.out.println("shardSize is" + shardSize);
+
         byte [] decodeBytes = new byte[shardSize * DATA_SHARDS];
 
         //System.out.println("valueSize is" + shardSize);
