@@ -70,7 +70,7 @@ public class ErasureCode
 
 
         ByteBuffer.wrap(allBytes).putInt(valueSize);
-        InputStream in = new ByteArrayInputStream(TreasConfig.stringToByte(value));
+        InputStream in = new ByteArrayInputStream(value.getBytes(Charset.forName("UTF-8")));
 
         try {
             in.read(allBytes, BYTES_IN_INT, valueSize);
