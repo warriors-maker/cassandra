@@ -395,7 +395,14 @@ public class DigestResolver extends ResponseResolver
                 }
             }
 //            logger.debug(count + "");
-            String value = new ErasureCode().decodeeData(decodeMatrix, shardPresent, length, key.getKey().toString());
+
+            String skey = "";
+            try {
+                skey = ByteBufferUtil.string(key.getKey());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            String value = new ErasureCode().decodeeData(decodeMatrix, shardPresent, length, skey);
 //            System.out.println("Get the value" + value);
 //            logger.debug("Convert the data to value" + value);
             doubleTreasTag.setReadResult(value);
