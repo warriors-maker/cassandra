@@ -3649,7 +3649,7 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         // Do the writeBack
-        writebackTreas(mutations, consistencyLevel, System.nanoTime());
+        //writebackTreas(mutations, consistencyLevel, System.nanoTime());
 
         List<PartitionIterator> piList = new ArrayList<>();
         int idx = 0;

@@ -106,7 +106,7 @@ public class ErasureCode
         return shards;
     }
 
-    public synchronized String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize, String key) {
+    public String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize, String key) {
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         reedSolomon.decodeMissing(shards, shardPresent, 0, shardSize);
 
@@ -123,12 +123,11 @@ public class ErasureCode
 
         try
         {
-            logger.debug(decodeBytes.length + " " + valueSize);
+            logger.debug(decodeBytes.length + " " + valueSize + " " + key);
             out.write(decodeBytes, BYTES_IN_INT, valueSize);
         }
         catch (IOException e)
         {
-            logger.debug(key);
             e.printStackTrace();
         }
 

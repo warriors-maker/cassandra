@@ -377,18 +377,18 @@ public class DigestResolver extends ResponseResolver
             boolean []shardPresent = new boolean[TreasConfig.num_server];
             byte[][] decodeMatrix = new byte[TreasConfig.num_server][length];
 
-            int count = 0;
+            //int count = 0;
 
             for (int i = 0; i < decodeValMax.size(); i++) {
 
                 String value = decodeValMax.get(i);
 
-                if (value == null || value.isEmpty() || count == TreasConfig.num_recover) {
+                if (value == null || value.isEmpty() ) {
                     decodeMatrix[i] = new byte[length];
                 }
 
                 else {
-                    count++;
+                    //count++;
                     byte[] replica_array = TreasConfig.stringToByte(value);
                     decodeMatrix[i] = replica_array;
                     shardPresent[i] = true;
