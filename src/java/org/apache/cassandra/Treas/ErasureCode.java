@@ -106,7 +106,7 @@ public class ErasureCode
         return shards;
     }
 
-    public String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize, String key) {
+    public synchronized String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize, String key) {
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         reedSolomon.decodeMissing(shards, shardPresent, 0, shardSize);
 
