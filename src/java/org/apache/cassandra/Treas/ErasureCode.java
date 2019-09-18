@@ -119,7 +119,7 @@ public class ErasureCode
 
 //        int valueSize = ByteBuffer.wrap(decodeBytes).getInt();
 
-        int valueSize = decodeBytes.length;
+        int valueSize = decodeBytes.length - 4;
 
         OutputStream out = new ByteArrayOutputStream();
 
