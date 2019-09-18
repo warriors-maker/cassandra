@@ -1438,7 +1438,7 @@ public class StorageProxy implements StorageProxyMBean
         AbstractWriteResponseHandler<IMutation> responseHandler = rs.getWriteResponseHandler(naturalEndpoints, pendingEndpoints, consistency_level, callback, writeType, queryStartNanoTime);
 
         // exit early if we can't fulfill the CL at this time
-        logger.debug("Prepare to writeback 3");
+        logger.debug("Prepare to writeback 2");
         responseHandler.assureSufficientLiveNodes();
         logger.debug("Prepare to writeback 3");
         performer.apply(mutation, Iterables.concat(naturalEndpoints, pendingEndpoints), responseHandler, localDataCenter, consistency_level, flag);

@@ -275,8 +275,8 @@ public enum ConsistencyLevel
                 break;
             case TREAS:
                 int currentLive = countLocalEndpoints(liveEndpoints);
-                //logger.debug( "CurrentLive: " + currentLive + " , Needed: " + TreasConfig.QUORUM);
-                if (currentLive != TreasConfig.QUORUM) {
+                logger.debug( "CurrentLive: " + currentLive + " , Needed: " + TreasConfig.QUORUM);
+                if (currentLive < TreasConfig.QUORUM) {
                     throw new UnavailableException(this, TreasConfig.QUORUM, currentLive);
                 }
                 break;
