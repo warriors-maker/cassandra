@@ -3454,7 +3454,11 @@ public class StorageProxy implements StorageProxyMBean
                         mutation = mutationBuilder.build();
 
                         printValue = mutationValue;
-                        printKey = mutation.key().getKey().toString();
+                        try {
+                            printKey = ByteBufferUtil.string(mutation.key().getKey());
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
 
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
@@ -3629,7 +3633,13 @@ public class StorageProxy implements StorageProxyMBean
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
             String keySpace = doubleTreasTag.getKeySpace();
             String value = doubleTreasTag.getReadResult();
-            printKey = key.getKey().toString();
+
+            try {
+                printKey = ByteBufferUtil.string(key.getKey());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
             printValue = value;
             if (key != null && value != null  && doubleTreasTag.isNeedWriteBack()) {
                 //logger.debug("Write Back");
