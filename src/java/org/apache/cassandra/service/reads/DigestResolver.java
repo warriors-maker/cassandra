@@ -21,6 +21,7 @@ import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.Blob;
+import java.time.chrono.Era;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -402,7 +403,7 @@ public class DigestResolver extends ResponseResolver
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            String value = new ErasureCode().decodeeData(decodeMatrix, shardPresent, length, skey);
+            String value = new ErasureCode().decodeData(decodeMatrix, shardPresent, length, skey);
 //            System.out.println("Get the value" + value);
 //            logger.debug("Convert the data to value" + value);
             doubleTreasTag.setReadResult(value);

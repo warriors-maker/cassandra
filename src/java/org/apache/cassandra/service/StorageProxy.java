@@ -3412,6 +3412,9 @@ public class StorageProxy implements StorageProxyMBean
         //mutations.
 
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
+        IMutation printMutation = null;
+        String printValue = null;
+        String printKey = null;
 
         try
         {
@@ -3425,6 +3428,7 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     if (mutation.getKeyspaceName().equals("ycsb")) {
+                        printMutation = mutation;
                         //Include the physical timeStamp into TagOne;
                         String mutationValue = "";
                         // Read from the Mutation
@@ -3448,6 +3452,9 @@ public class StorageProxy implements StorageProxyMBean
                                        .add("field0", mutationValue)
                                        .add("tag" + 1, queryStartNanoTime);
                         mutation = mutationBuilder.build();
+
+                        printValue = mutationValue;
+                        printKey = mutation.key().getKey().toString();
                     }
 
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
@@ -3506,6 +3513,10 @@ public class StorageProxy implements StorageProxyMBean
             writeMetrics.addNano(latency);
             writeMetricsMap.get(consistency_level).addNano(latency);
             updateCoordinatorWriteLatencyTableMetric(mutations, latency);
+            // Write our own log to the file
+            if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
+                org.apache.cassandra.Treas.Logger.getLogger().writeMutateStats(latency, printKey, printValue);
+            }
         }
     }
 
@@ -3609,7 +3620,8 @@ public class StorageProxy implements StorageProxyMBean
         List<DoubleTreasTag> doubleTreasTagList = new ArrayList<>();
         fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
 
-
+        String printValue = null;
+        String printKey = null;
         List<IMutation> mutations = new ArrayList<>();
         for (DoubleTreasTag doubleTreasTag : doubleTreasTagList) {
             Long decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
@@ -3617,6 +3629,8 @@ public class StorageProxy implements StorageProxyMBean
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
             String keySpace = doubleTreasTag.getKeySpace();
             String value = doubleTreasTag.getReadResult();
+            printKey = key.getKey().toString();
+            printValue = value;
             if (key != null && value != null  && doubleTreasTag.isNeedWriteBack()) {
                 //logger.debug("Write Back");
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(keySpace, key);
@@ -3627,24 +3641,7 @@ public class StorageProxy implements StorageProxyMBean
                                .add("tag1", decodeMaxTag)
                                .add("field0", value);
                 Mutation mutation = mutationBuilder.build();
-
                 mutations.add(mutation);
-//                logger.debug("Need to write back");
-//                if (decodeMaxTag == null) {
-//                    logger.debug("DecodeMaxTag is null");
-//                } else {
-//                    logger.debug(decodeMaxTag + "");
-//                }
-//                if (value == null) {
-//                    logger.debug("value is null");
-//                } else {
-//                    logger.debug(value);
-//                }
-//                if (key == null) {
-//                    logger.debug("key is null");
-//                } else {
-//                    logger.debug(key.getKey().toString());
-//                }
             }
         }
 
@@ -3661,7 +3658,12 @@ public class StorageProxy implements StorageProxyMBean
             idx++;
         }
 
-
+        //Log our Read latnecy here
+        long currentTime = System.nanoTime();
+        long latency = currentTime - queryStartNanoTime;
+        if (printKey != null && printValue != null) {
+            org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, printKey, printValue);
+        }
         return PartitionIterators.concat(piList);
     }
 
@@ -3863,7 +3865,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
             }
 
-            byte [][]encodeMatrix = new ErasureCode().encodeData(mutateValue);
+            byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
 
 
             //logger.debug("Finish EncodeData");
@@ -4171,7 +4173,7 @@ public class StorageProxy implements StorageProxyMBean
 
             //logger.debug("Writeback: " + mutationTag + " " + mutateValue);
 
-            byte [][]encodeMatrix = new ErasureCode().encodeData(mutateValue);
+            byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
 
 
             //logger.debug("Finish EncodeData");
@@ -4478,7 +4480,7 @@ public class StorageProxy implements StorageProxyMBean
         //logger.debug("The value is " + mutateValue);
 
 //        long startTime = System.nanoTime();
-        byte [][]encodeMatrix = new ErasureCode().encodeData(mutateValue);
+        byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
         //logger.debug("Encode takes time" + (System.nanoTime() - startTime));
 
         String coordinatorAdress = FBUtilities.getJustLocalAddress().toString().substring(1);

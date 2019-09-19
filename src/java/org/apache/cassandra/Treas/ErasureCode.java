@@ -51,7 +51,8 @@ public class ErasureCode
 //        return reedSolomon;
 //    }
 
-    public byte[][] encodeData(String value) {
+    //Can make this function static since String is immutable
+    public static byte[][] encodeData(String value) {
         //logger.debug("The value is" + value);
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         final int valueSize =  value.length();
@@ -106,7 +107,8 @@ public class ErasureCode
         return shards;
     }
 
-    public String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize, String key) {
+    // Cannot make is static since our input is mutatble
+    public String decodeData(byte[][] shards, boolean []shardPresent, int shardSize, String key) {
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         reedSolomon.decodeMissing(shards, shardPresent, 0, shardSize);
 
