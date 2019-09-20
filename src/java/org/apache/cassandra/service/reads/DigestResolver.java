@@ -47,6 +47,7 @@ import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.ABDColomns;
 import org.apache.cassandra.service.ABDTag;
+import org.apache.cassandra.service.EchoVerbHandler;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -279,8 +280,17 @@ public class DigestResolver extends ResponseResolver
                             String treasTagColumn = "tag" + index;
                             ColumnIdentifier tagOneIdentifier = new ColumnIdentifier(treasTagColumn, true);
                             ColumnMetadata columnMetadata = ri.metadata().getColumn(tagOneIdentifier);
-                            Cell tagCell = row.getCell(columnMetadata);
-                            Long treasTag = TreasUtil.getLong(tagCell.value());
+                            Cell tagCell = null;
+                            Long treasTag = null;
+                            while (true) {
+                                try {
+                                    tagCell = row.getCell(columnMetadata);
+                                    treasTag = TreasUtil.getLong(tagCell.value());
+                                    break;
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
 
 
                             if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
