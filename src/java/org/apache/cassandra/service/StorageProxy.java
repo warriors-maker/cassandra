@@ -3605,10 +3605,8 @@ public class StorageProxy implements StorageProxyMBean
         // first we have to create a full partition read based on the
         // incoming read command to cover both value and tag_value column
         //logger.debug("Inside fetchRowTreas");
-        
-        if (consistencyLevel != ConsistencyLevel.ONE) {
-            consistencyLevel = ConsistencyLevel.TREAS;
-        }
+
+        consistencyLevel = ConsistencyLevel.TREAS;
 
         List<SinglePartitionReadCommand> tagValueReadList = new ArrayList<>(commands.size());
         for (SinglePartitionReadCommand readCommand : commands)
@@ -3679,20 +3677,7 @@ public class StorageProxy implements StorageProxyMBean
             org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, printKey, printValue);
         }
 
-        tagValueReadList = new ArrayList<>(commands.size());
-        for (SinglePartitionReadCommand readCommand: commands)
-        {
-            SinglePartitionReadCommand tagValueRead =
-            SinglePartitionReadCommand.fullPartitionRead(
-            readCommand.metadata(),
-            FBUtilities.nowInSeconds(),
-            readCommand.partitionKey()
-            );
-            tagValueReadList.add(tagValueRead);
-        }
-        PartitionIterator tagValueResult = fetchRowsTreas(tagValueReadList, ConsistencyLevel.ONE, System.nanoTime());
-
-        return tagValueResult;
+        return PartitionIterators.concat(piList);
     }
 
 
