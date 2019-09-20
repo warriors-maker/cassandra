@@ -3834,7 +3834,7 @@ public class StorageProxy implements StorageProxyMBean
             }
 
             // TODO: In the future value will need to be broken down into codes but now is the whole data
-            byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
+            byte [][]encodeMatrix = new ErasureCode().encodeData(mutateValue);
             //logger.debug("Finish EncodeData");
 
             String coordinatorAdress = FBUtilities.getJustLocalAddress().toString().substring(1);
@@ -4130,7 +4130,7 @@ public class StorageProxy implements StorageProxyMBean
 
         // TODO: In the future value will need to be broken down into codes but now is the whole data
 //        long startTime = System.nanoTime();
-        byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
+        byte [][]encodeMatrix = new ErasureCode().encodeData(mutateValue);
         //logger.debug("Encode takes time" + (System.nanoTime() - startTime));
 
         String coordinatorAdress = FBUtilities.getJustLocalAddress().toString().substring(1);

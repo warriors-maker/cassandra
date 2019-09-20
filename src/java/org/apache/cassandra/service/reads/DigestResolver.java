@@ -379,7 +379,7 @@ public class DigestResolver extends ResponseResolver
                 }
             }
 
-            String value = ErasureCode.decodeeData(decodeMatrix, shardPresent, length);
+            String value = new ErasureCode().decodeeData(decodeMatrix, shardPresent, length);
             //logger.debug("Convert the data to value" + value);
             doubleTreasTag.setReadResult(value);
         }

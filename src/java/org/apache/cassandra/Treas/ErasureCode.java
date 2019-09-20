@@ -51,7 +51,7 @@ public class ErasureCode
 //        return reedSolomon;
 //    }
 
-    public static byte[][] encodeData(String value) {
+    public byte[][] encodeData(String value) {
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         final int valueSize =  value.length();
         //logger.debug("Inside encodeData");
@@ -102,7 +102,7 @@ public class ErasureCode
         return shards;
     }
 
-    public static String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize) {
+    public String decodeeData(byte[][] shards, boolean []shardPresent, int shardSize) {
         ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
         reedSolomon.decodeMissing(shards, shardPresent, 0, shardSize);
 //        System.out.println(new String(shards[0]));
@@ -114,7 +114,7 @@ public class ErasureCode
             System.arraycopy(shards[i], 0, decodeBytes, shardSize * i, shardSize);
         }
 
-        int valueSize = ByteBuffer.wrap(decodeBytes).getInt();
+        int valueSize = decodeBytes.length - 4;
 
         OutputStream out = new ByteArrayOutputStream();
 
