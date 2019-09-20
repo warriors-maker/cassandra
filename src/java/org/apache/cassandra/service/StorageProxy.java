@@ -3340,6 +3340,9 @@ public class StorageProxy implements StorageProxyMBean
         //logger.debug("Inside mutate");
 
         long startTime = System.nanoTime();
+        IMutation printMutation = null;
+        String printValue = null;
+        String printKey = null;
 
         // Treas get, need to get the maximum TimeStamp
         // create an read command to fetch the tag value corresponding to the key from all the replicas including myself
@@ -3359,12 +3362,32 @@ public class StorageProxy implements StorageProxyMBean
                 int nowInSec = FBUtilities.nowInSeconds();
                 DecoratedKey  decoratedKey =  mutation.key();
 
+
+                Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+                try {
+                    for (Cell c : data.cells())
+                    {
+                        if (c.column().name.toString().equals("field0")) {
+                            printValue = ByteBufferUtil.string(c.value());
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
                 SinglePartitionReadCommand tagValueRead = SinglePartitionReadCommand.fullPartitionRead(
                 tableMetadata,
                 nowInSec,
                 decoratedKey
                 );
+
                 tagValueReadList.add(tagValueRead);
+                printMutation = mutation;
+                try {
+                    printKey = ByteBufferUtil.string(mutation.key().getKey());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             } else {
                 notDataMutations.add(mutation);
             }
@@ -3494,10 +3517,14 @@ public class StorageProxy implements StorageProxyMBean
         }
         finally
         {
-            long latency = System.nanoTime() - startTime;
+            long currentTime = System.nanoTime();
+            long latency = currentTime - startTime;
             writeMetrics.addNano(latency);
             writeMetricsMap.get(consistency_level).addNano(latency);
             updateCoordinatorWriteLatencyTableMetric(newMutations, latency);
+            if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
+                org.apache.cassandra.Treas.Logger.getLogger().writeMutateStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
+            }
         }
     }
 
@@ -3601,45 +3628,23 @@ public class StorageProxy implements StorageProxyMBean
         List<DoubleTreasTag> doubleTreasTagList = new ArrayList<>();
         fetchTagValueTreas(tagValueReadList, consistencyLevel, System.nanoTime(), doubleTreasTagList);
 
+        String printValue = null;
+        String printKey = null;
 
-        // Add the logic here to prevent
-
-        // Do the writeBack
-        writebackTreas(doubleTreasTagList, consistencyLevel, System.nanoTime());
-
-
-        List<PartitionIterator> piList = new ArrayList<>();
-        int idx = 0;
-        for (DoubleTreasTag doubleTreasTag : doubleTreasTagList)
-        {
-            ReadResponse rr = doubleTreasTag.getReadResponse();
-            SinglePartitionReadCommand command = commands.get(idx);
-            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command, doubleTreasTag), command.nowInSec()));
-            idx++;
-        }
-        return PartitionIterators.concat(piList);
-    }
-
-
-    public static void writebackTreas(List<DoubleTreasTag> doubleTreasTags, ConsistencyLevel consistency_level, long queryStartNanoTime)
-    throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
-    {
-        // this function is the same as the original mutate function
-        Tracing.trace("Determining replicas for mutation");
-        consistency_level = ConsistencyLevel.TREAS;
-        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-
-        long startTime = System.nanoTime();
-
-        // Fetch valid information
         List<IMutation> mutations = new ArrayList<>();
-        for (DoubleTreasTag doubleTreasTag : doubleTreasTags) {
+        for (DoubleTreasTag doubleTreasTag : doubleTreasTagList) {
             TreasTag quorumMaxTag = doubleTreasTag.getQuorumMaxTreasTag();
             TreasTag decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
             DecoratedKey key = doubleTreasTag.getKey();
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
             String keySpace = doubleTreasTag.getKeySpace();
             String value = doubleTreasTag.getReadResult();
+            try {
+                printKey = ByteBufferUtil.string(key.getKey());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            printValue = value;
             if (key != null && value != null  && doubleTreasTag.isNeedWriteBack()) {
                 //logger.debug("Write Back");
                 Mutation.SimpleBuilder mutationBuilder = Mutation.simpleBuilder(keySpace, key);
@@ -3653,6 +3658,39 @@ public class StorageProxy implements StorageProxyMBean
                 mutations.add(mutation);
             }
         }
+
+        // Do the writeBack
+        writebackTreas(mutations, consistencyLevel, System.nanoTime());
+
+
+        List<PartitionIterator> piList = new ArrayList<>();
+        int idx = 0;
+        for (DoubleTreasTag doubleTreasTag : doubleTreasTagList)
+        {
+            ReadResponse rr = doubleTreasTag.getReadResponse();
+            SinglePartitionReadCommand command = commands.get(idx);
+            piList.add(UnfilteredPartitionIterators.filter(rr.makeIterator(command, doubleTreasTag), command.nowInSec()));
+            idx++;
+        }
+
+        long currentTime = System.nanoTime();
+        long latency = currentTime - queryStartNanoTime;
+        if (printKey != null && printValue != null) {
+            org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
+        }
+        return PartitionIterators.concat(piList);
+    }
+
+
+    public static void writebackTreas(List<IMutation> mutations, ConsistencyLevel consistency_level, long queryStartNanoTime)
+    throws UnavailableException, OverloadedException, WriteTimeoutException, WriteFailureException
+    {
+        // this function is the same as the original mutate function
+        Tracing.trace("Determining replicas for mutation");
+        consistency_level = ConsistencyLevel.TREAS;
+        final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
+
+        long startTime = System.nanoTime();
 
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
 
