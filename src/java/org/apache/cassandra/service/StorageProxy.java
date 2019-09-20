@@ -3412,9 +3412,9 @@ public class StorageProxy implements StorageProxyMBean
         //mutations.
 
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
-        IMutation printMutation = null;
-        String printValue = null;
-        String printKey = null;
+//        IMutation printMutation = null;
+//        String printValue = null;
+//        String printKey = null;
 
         try
         {
@@ -3428,7 +3428,7 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     if (mutation.getKeyspaceName().equals("ycsb")) {
-                        printMutation = mutation;
+                        //printMutation = mutation;
                         //Include the physical timeStamp into TagOne;
                         String mutationValue = "";
                         // Read from the Mutation
@@ -3453,12 +3453,12 @@ public class StorageProxy implements StorageProxyMBean
                                        .add("tag" + 1, queryStartNanoTime);
                         mutation = mutationBuilder.build();
 
-                        printValue = mutationValue;
-                        try {
-                            printKey = ByteBufferUtil.string(mutation.key().getKey());
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
+//                        printValue = mutationValue;
+//                        try {
+//                            printKey = ByteBufferUtil.string(mutation.key().getKey());
+//                        } catch (Exception e) {
+//                            e.printStackTrace();
+//                        }
                     }
 
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime));
@@ -3518,9 +3518,9 @@ public class StorageProxy implements StorageProxyMBean
             writeMetricsMap.get(consistency_level).addNano(latency);
             updateCoordinatorWriteLatencyTableMetric(mutations, latency);
             // Write our own log to the file
-            if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
-                org.apache.cassandra.Treas.Logger.getLogger().writeMutateStats(latency, printKey, printValue);
-            }
+//            if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
+//                org.apache.cassandra.Treas.Logger.getLogger().writeMutateStats(latency, printKey, printValue);
+//            }
         }
     }
 
@@ -3671,11 +3671,11 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         //Log our Read latnecy here
-        long currentTime = System.nanoTime();
-        long latency = currentTime - queryStartNanoTime;
-        if (printKey != null && printValue != null) {
-            org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, printKey, printValue);
-        }
+//        long currentTime = System.nanoTime();
+//        long latency = currentTime - queryStartNanoTime;
+//        if (printKey != null && printValue != null) {
+//            org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, printKey, printValue);
+//        }
 
         return PartitionIterators.concat(piList);
     }
