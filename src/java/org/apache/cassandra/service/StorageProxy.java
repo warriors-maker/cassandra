@@ -3875,7 +3875,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
             }
 
-            byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
+            byte [][]encodeMatrix = new ErasureCode().encodeData(mutateValue);
 
 
             //logger.debug("Finish EncodeData");
@@ -4183,7 +4183,7 @@ public class StorageProxy implements StorageProxyMBean
 
             //logger.debug("Writeback: " + mutationTag + " " + mutateValue);
 
-            byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
+            byte [][]encodeMatrix = new ErasureCode().encodeData(mutateValue);
 
 
             //logger.debug("Finish EncodeData");
@@ -4490,7 +4490,7 @@ public class StorageProxy implements StorageProxyMBean
         //logger.debug("The value is " + mutateValue);
 
 //        long startTime = System.nanoTime();
-        byte [][]encodeMatrix = ErasureCode.encodeData(mutateValue);
+        byte [][]encodeMatrix = new ErasureCode().encodeData(mutateValue);
         //logger.debug("Encode takes time" + (System.nanoTime() - startTime));
 
         String coordinatorAdress = FBUtilities.getJustLocalAddress().toString().substring(1);
