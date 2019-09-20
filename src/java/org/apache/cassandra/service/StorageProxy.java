@@ -3513,13 +3513,14 @@ public class StorageProxy implements StorageProxyMBean
         }
         finally
         {
-            long latency = System.nanoTime() - startTime;
+            long currentTime = System.nanoTime();
+            long latency = currentTime - startTime;
             writeMetrics.addNano(latency);
             writeMetricsMap.get(consistency_level).addNano(latency);
             updateCoordinatorWriteLatencyTableMetric(mutations, latency);
             // Write our own log to the file
             if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
-                org.apache.cassandra.Treas.Logger.getLogger().writeMutateStats(latency, printKey, printValue);
+                org.apache.cassandra.Treas.Logger.getLogger().writeMutateStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
             }
         }
     }
@@ -3670,14 +3671,15 @@ public class StorageProxy implements StorageProxyMBean
             idx++;
         }
 
+        PartitionIterator pi = PartitionIterators.concat(piList);
+
         //Log our Read latnecy here
         long currentTime = System.nanoTime();
         long latency = currentTime - queryStartNanoTime;
         if (printKey != null && printValue != null) {
-            org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, printKey, printValue);
+            org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
         }
-
-        return PartitionIterators.concat(piList);
+        return pi;
     }
 
 

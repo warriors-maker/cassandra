@@ -51,10 +51,10 @@ public class Logger
         }
     }
 
-    public void writeMutateStats(long num, String value, String key) {
+    public void writeMutateStats(long num, long startTime, long endTime, String value, String key) {
         synchronized (obj1) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "muateStats" + index + ".txt";
+            String name = absPath + "oreasMuateStats" + index + ".txt";
             FileWriter writer = null;
             try
             {
@@ -65,7 +65,7 @@ public class Logger
             }
             BufferedWriter printWriter = new BufferedWriter (writer);
             try {
-                printWriter.write(num +  " ");
+                printWriter.write(num +  " " + startTime + ' ' + endTime + ' ');
                 printWriter.write(value +  ' ');
                 printWriter.write(key + ' ');
                 printWriter.newLine();
@@ -76,10 +76,10 @@ public class Logger
         }
     }
 
-    public void writeReadStats(long num, String value, String key) {
+    public void writeReadStats(long num, long startTime, long endTime, String value, String key) {
         synchronized (obj2) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "readStats" + index + ".txt";
+            String name = absPath + "oreasReadStats" + index + ".txt";
             FileWriter writer = null;
             try
             {
@@ -90,7 +90,7 @@ public class Logger
             }
             BufferedWriter printWriter = new BufferedWriter (writer);
             try {
-                printWriter.write(num + " ");
+                printWriter.write(num +  " " + startTime + ' ' + endTime + ' ');
                 printWriter.write(value + ' ');
                 printWriter.write(key + ' ');
                 printWriter.newLine();
