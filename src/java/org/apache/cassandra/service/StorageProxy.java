@@ -46,6 +46,7 @@ import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.FetchTagObject;
 import org.apache.cassandra.Treas.TreasConfig;
+import org.apache.cassandra.Treas.TreasObj;
 import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.audit.AuditLogManager;
 import org.apache.cassandra.batchlog.Batch;
@@ -1965,7 +1966,8 @@ public class StorageProxy implements StorageProxyMBean
                 throw new ReadFailureException(consistencyLevel, e.received, e.blockFor, false, e.failureReasonByEndpoint);
             }
 
-            result = fetchRows(group.queries, consistencyForCommitOrFetch, queryStartNanoTime);
+            TreasObj o = fetchRows(group.queries, consistencyForCommitOrFetch, queryStartNanoTime);
+            result = o.pi;
         }
         catch (UnavailableException e)
         {
@@ -2006,9 +2008,14 @@ public class StorageProxy implements StorageProxyMBean
     {
         //logger.debug("Read Regular: " + consistencyLevel.toString());
         long start = System.nanoTime();
+        String printKey = null;
+        String printValue = null;
         try
         {
-            PartitionIterator result = fetchRows(group.queries, consistencyLevel, queryStartNanoTime);
+            TreasObj o = fetchRows(group.queries, consistencyLevel, queryStartNanoTime);
+            printKey = o.printKey;
+            printValue = o.printValue;
+            PartitionIterator result = o.pi;
             // Note that the only difference between the command in a group must be the partition key on which
             // they applied.
             boolean enforceStrictLiveness = group.queries.get(0).metadata().enforceStrictLiveness();
@@ -2038,7 +2045,11 @@ public class StorageProxy implements StorageProxyMBean
         }
         finally
         {
-            long latency = System.nanoTime() - start;
+            long currentTime = System.nanoTime();
+            long latency = currentTime - start;
+            if (printKey != null && printValue != null) {
+                org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
+            }
             readMetrics.addNano(latency);
             readMetricsMap.get(consistencyLevel).addNano(latency);
             // TODO avoid giving every command the same latency number.  Can fix this in CASSADRA-5329
@@ -2058,7 +2069,7 @@ public class StorageProxy implements StorageProxyMBean
      * 4. If the digests (if any) match the data return the data
      * 5. else carry out read repair by getting data from all the nodes.
      */
-    private static PartitionIterator fetchRows(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
+    private static TreasObj fetchRows(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
             throws UnavailableException, ReadFailureException, ReadTimeoutException
     {
         // check if the target table has the z_value column,
@@ -2116,7 +2127,8 @@ public class StorageProxy implements StorageProxyMBean
             results.add(UnfilteredPartitionIterators.filter(reads[i].getResult().makeIterator(command), command.nowInSec()));
         }
 
-        return PartitionIterators.concat(results);
+        PartitionIterator pi = PartitionIterators.concat(results);
+        return new TreasObj(pi, null, null);
     }
 
     private static PartitionIterator fetchRowsAbd(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
@@ -3603,7 +3615,7 @@ public class StorageProxy implements StorageProxyMBean
     }
 
     // Read for Treas
-    private static PartitionIterator fetchRowsTreas (List < SinglePartitionReadCommand > commands, ConsistencyLevel
+    private static TreasObj fetchRowsTreas (List < SinglePartitionReadCommand > commands, ConsistencyLevel
                                                                                                    consistencyLevel,long queryStartNanoTime)
     throws UnavailableException, ReadFailureException, ReadTimeoutException {
         // first we have to create a full partition read based on the
@@ -3674,12 +3686,9 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         PartitionIterator pi =  PartitionIterators.concat(piList);
-        long currentTime = System.nanoTime();
-        long latency = currentTime - queryStartNanoTime;
-        if (printKey != null && printValue != null) {
-            org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
-        }
-        return pi;
+        TreasObj o = new TreasObj(pi, printKey, printValue);
+
+        return o;
     }
 
 
