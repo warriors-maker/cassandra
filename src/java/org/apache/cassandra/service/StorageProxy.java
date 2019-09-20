@@ -3673,12 +3673,13 @@ public class StorageProxy implements StorageProxyMBean
             idx++;
         }
 
+        PartitionIterator pi =  PartitionIterators.concat(piList);
         long currentTime = System.nanoTime();
         long latency = currentTime - queryStartNanoTime;
         if (printKey != null && printValue != null) {
             org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
         }
-        return PartitionIterators.concat(piList);
+        return pi;
     }
 
 
