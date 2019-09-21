@@ -37,7 +37,7 @@ public class Logger
 
         String myAddr = FBUtilities.getJustLocalAddress().toString().substring(1);
         int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-        String name = absPath + "oreasStats" + index + ".txt";
+        String name = absPath + "treasStats" + index + ".txt";
         FileWriter writer = null;
         try
         {
