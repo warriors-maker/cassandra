@@ -54,6 +54,7 @@ public class Logger
 
     public void writeStats(String action, long startTime, long endTime, String value, int opID) {
         synchronized (obj1) {
+            String myAddr = FBUtilities.getJustLocalAddress().toString().substring(1);
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
             String name = absPath + "oreasStats" + index + ".txt";
             FileWriter writer = null;
@@ -68,7 +69,7 @@ public class Logger
             try {
                 printWriter.write(action +  " " + startTime + ' ' + endTime + ' ');
                 printWriter.write(value +  ' ');
-                printWriter.write(opID + ' ');
+                printWriter.write(myAddr + '/' + opID + ' ');
                 printWriter.newLine();
                 printWriter.close();
             } catch (IOException e) {
