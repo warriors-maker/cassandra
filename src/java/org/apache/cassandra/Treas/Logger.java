@@ -52,29 +52,28 @@ public class Logger
         }
     }
 
-    public void writeStats(String action, long startTime, long endTime, String value, int opID) {
-        synchronized (obj1) {
-            String myAddr = FBUtilities.getJustLocalAddress().toString().substring(1);
-            int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "oreasStats" + index + ".txt";
-            FileWriter writer = null;
-            try
-            {
-                initFile(name);
-                writer = new FileWriter(name,true);
-            } catch  (IOException e) {
-                e.printStackTrace();
-            }
-            BufferedWriter printWriter = new BufferedWriter (writer);
-            try {
-                printWriter.write(action +  " " + startTime + ' ' + endTime + ' ');
-                printWriter.write(value +  ' ');
-                printWriter.write(myAddr + '/' + opID + ' ');
-                printWriter.newLine();
-                printWriter.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+    public synchronized void writeStats(String action, long startTime, long endTime, String value, int opID) {
+
+        String myAddr = FBUtilities.getJustLocalAddress().toString().substring(1);
+        int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
+        String name = absPath + "oreasStats" + index + ".txt";
+        FileWriter writer = null;
+        try
+        {
+            initFile(name);
+            writer = new FileWriter(name,true);
+        } catch  (IOException e) {
+            e.printStackTrace();
+        }
+        BufferedWriter printWriter = new BufferedWriter (writer);
+        try {
+            printWriter.write(action +  " " + startTime + ' ' + endTime + ' ');
+            printWriter.write(value +  ' ');
+            printWriter.write(myAddr + '/' + opID + ' ');
+            printWriter.newLine();
+            printWriter.close();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
