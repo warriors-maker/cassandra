@@ -3538,7 +3538,7 @@ public class StorageProxy implements StorageProxyMBean
             // Write our own log to the file
             if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
                 int operation = opID.getAndIncrement();
-                org.apache.cassandra.Treas.Logger.getLogger().writeStats("Write", queryStartNanoTime, currentTime, printValue, operation);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("WRITE", queryStartNanoTime, currentTime, printValue, operation);
             }
         }
     }
