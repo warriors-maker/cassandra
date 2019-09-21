@@ -2051,7 +2051,7 @@ public class StorageProxy implements StorageProxyMBean
             long currentTime = System.nanoTime();
             long latency = currentTime - start;
             if (printKey != null && printValue != null) {
-                org.apache.cassandra.Treas.Logger.getLogger().writeStats("READ", queryStartNanoTime, currentTime, printKey, operation);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("READ", queryStartNanoTime, currentTime, printValue, operation);
             }
             readMetrics.addNano(latency);
             readMetricsMap.get(consistencyLevel).addNano(latency);
@@ -3539,7 +3539,7 @@ public class StorageProxy implements StorageProxyMBean
             updateCoordinatorWriteLatencyTableMetric(newMutations, latency);
             if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
                 int operation = atomicInteger.getAndIncrement();
-                org.apache.cassandra.Treas.Logger.getLogger().writeStats("WRITE", queryStartNanoTime, currentTime, printKey, operation);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("WRITE", queryStartNanoTime, currentTime, printValue, operation);
             }
         }
     }
