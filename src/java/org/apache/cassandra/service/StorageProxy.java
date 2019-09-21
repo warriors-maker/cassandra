@@ -106,6 +106,7 @@ public class StorageProxy implements StorageProxyMBean
     private static final WritePerformer standardWritePerformer;
     private static final WritePerformer counterWritePerformer;
     private static final WritePerformer counterWriteOnCoordinatorPerformer;
+    private static AtomicInteger atomicInteger = new AtomicInteger(0);
 
     public static final StorageProxy instance = new StorageProxy();
 
@@ -2010,11 +2011,13 @@ public class StorageProxy implements StorageProxyMBean
         long start = System.nanoTime();
         String printKey = null;
         String printValue = null;
+        int operation = -1;
         try
         {
             TreasObj o = fetchRows(group.queries, consistencyLevel, queryStartNanoTime);
             printKey = o.printKey;
             printValue = o.printValue;
+            operation = o.opID;
             PartitionIterator result = o.pi;
             // Note that the only difference between the command in a group must be the partition key on which
             // they applied.
@@ -2048,7 +2051,7 @@ public class StorageProxy implements StorageProxyMBean
             long currentTime = System.nanoTime();
             long latency = currentTime - start;
             if (printKey != null && printValue != null) {
-                org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("READ", queryStartNanoTime, currentTime, printKey, operation);
             }
             readMetrics.addNano(latency);
             readMetricsMap.get(consistencyLevel).addNano(latency);
@@ -2128,7 +2131,7 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         PartitionIterator pi = PartitionIterators.concat(results);
-        return new TreasObj(pi, null, null);
+        return new TreasObj(pi, null, null, -1);
     }
 
     private static PartitionIterator fetchRowsAbd(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
@@ -3535,7 +3538,8 @@ public class StorageProxy implements StorageProxyMBean
             writeMetricsMap.get(consistency_level).addNano(latency);
             updateCoordinatorWriteLatencyTableMetric(newMutations, latency);
             if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
-                org.apache.cassandra.Treas.Logger.getLogger().writeMutateStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
+                int operation = atomicInteger.getAndIncrement();
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("WRITE", queryStartNanoTime, currentTime, printKey, operation);
             }
         }
     }
@@ -3686,7 +3690,8 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         PartitionIterator pi =  PartitionIterators.concat(piList);
-        TreasObj o = new TreasObj(pi, printKey, printValue);
+        int operation = atomicInteger.getAndIncrement();
+        TreasObj o = new TreasObj(pi, printKey, printValue, operation);
 
         return o;
     }
