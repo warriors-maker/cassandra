@@ -25,11 +25,13 @@ public class TreasObj
     public PartitionIterator pi;
     public String printKey;
     public String printValue;
+    public int opID;
 
-    public TreasObj(PartitionIterator pi, String printKey, String printValue) {
+    public TreasObj(PartitionIterator pi, String printKey, String printValue, int opID) {
         this.pi = pi;
         this.printKey = printKey;
         this.printValue = printValue;
+        this.opID = opID;
     }
 
 }

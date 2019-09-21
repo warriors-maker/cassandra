@@ -22,6 +22,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.cassandra.utils.FBUtilities;
 
@@ -51,10 +52,10 @@ public class Logger
         }
     }
 
-    public void writeMutateStats(long num, long startTime, long endTime, String value, String key) {
+    public void writeStats(String action, long startTime, long endTime, String value, int opID) {
         synchronized (obj1) {
             int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "oreasMuateStats" + index + ".txt";
+            String name = absPath + "oreasStats" + index + ".txt";
             FileWriter writer = null;
             try
             {
@@ -65,9 +66,9 @@ public class Logger
             }
             BufferedWriter printWriter = new BufferedWriter (writer);
             try {
-                printWriter.write(num +  " " + startTime + ' ' + endTime + ' ');
+                printWriter.write(action +  " " + startTime + ' ' + endTime + ' ');
                 printWriter.write(value +  ' ');
-                printWriter.write(key + ' ');
+                printWriter.write(opID + ' ');
                 printWriter.newLine();
                 printWriter.close();
             } catch (IOException e) {
@@ -76,30 +77,30 @@ public class Logger
         }
     }
 
-    public void writeReadStats(long num, long startTime, long endTime, String value, String key) {
-        synchronized (obj2) {
-            int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
-            String name = absPath + "oreasReadStats" + index + ".txt";
-            FileWriter writer = null;
-            try
-            {
-                initFile(name);
-                writer = new FileWriter(name,true);
-            } catch  (IOException e) {
-                e.printStackTrace();
-            }
-            BufferedWriter printWriter = new BufferedWriter (writer);
-            try {
-                printWriter.write(num +  " " + startTime + ' ' + endTime + ' ');
-                printWriter.write(value + ' ');
-                printWriter.write(key + ' ');
-                printWriter.newLine();
-                printWriter.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
+//    public void writeReadStats(long num, long startTime, long endTime, String value, int opID) {
+//        synchronized (obj2) {
+//            int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
+//            String name = absPath + "oreasReadStats" + index + ".txt";
+//            FileWriter writer = null;
+//            try
+//            {
+//                initFile(name);
+//                writer = new FileWriter(name,true);
+//            } catch  (IOException e) {
+//                e.printStackTrace();
+//            }
+//            BufferedWriter printWriter = new BufferedWriter (writer);
+//            try {
+//                printWriter.write(num +  " " + startTime + ' ' + endTime + ' ');
+//                printWriter.write(value + ' ');
+//                printWriter.write(opID + ' ');
+//                printWriter.newLine();
+//                printWriter.close();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+//    }
 
 
 }

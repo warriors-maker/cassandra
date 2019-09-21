@@ -104,6 +104,8 @@ public class StorageProxy implements StorageProxyMBean
 
     public static final String UNREACHABLE = "UNREACHABLE";
 
+    public static AtomicInteger opID = new AtomicInteger(0);
+
     private static final WritePerformer standardWritePerformer;
     private static final WritePerformer counterWritePerformer;
     private static final WritePerformer counterWriteOnCoordinatorPerformer;
@@ -2073,12 +2075,14 @@ public class StorageProxy implements StorageProxyMBean
         long start = System.nanoTime();
         String printKey = null;
         String printValue = null;
+        int operation = -1;
         try
         {
             TreasObj o = fetchRows(group.queries, consistencyLevel, queryStartNanoTime);
             printKey = o.printKey;
             printValue = o.printValue;
             PartitionIterator result = o.pi;
+            operation = o.opID;
             // Note that the only difference between the command in a group must be the partition key on which
             // they applied.
             boolean enforceStrictLiveness = group.queries.get(0).metadata().enforceStrictLiveness();
@@ -2111,7 +2115,7 @@ public class StorageProxy implements StorageProxyMBean
             long currentTime = System.nanoTime();
             long latency = currentTime - start;
             if (printKey != null && printValue != null) {
-                org.apache.cassandra.Treas.Logger.getLogger().writeReadStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("READ", queryStartNanoTime, currentTime, printValue, operation);
             }
             readMetrics.addNano(latency);
             readMetricsMap.get(consistencyLevel).addNano(latency);
@@ -2191,7 +2195,7 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         PartitionIterator pi = PartitionIterators.concat(results);
-        return new TreasObj(pi, null, null);
+        return new TreasObj(pi, null, null, 0);
     }
 
     private static PartitionIterator fetchRowsAbd(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
@@ -3450,6 +3454,7 @@ public class StorageProxy implements StorageProxyMBean
                             {
                                 if (c.column().name.toString().equals("field0")) {
                                     mutationValue = ByteBufferUtil.string(c.value());
+                                    printValue = mutationValue;
                                 }
                             }
                         } catch (Exception e) {
@@ -3464,8 +3469,8 @@ public class StorageProxy implements StorageProxyMBean
                                        .add("field0", mutationValue)
                                        .add("tag" + 1, queryStartNanoTime);
                         mutation = mutationBuilder.build();
+                        
 
-                        printValue = mutationValue;
                         try {
                             printKey = ByteBufferUtil.string(mutation.key().getKey());
                         } catch (Exception e) {
@@ -3530,9 +3535,10 @@ public class StorageProxy implements StorageProxyMBean
             writeMetrics.addNano(latency);
             writeMetricsMap.get(consistency_level).addNano(latency);
             updateCoordinatorWriteLatencyTableMetric(mutations, latency);
+            int operation = opID.getAndIncrement();
             // Write our own log to the file
             if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
-                org.apache.cassandra.Treas.Logger.getLogger().writeMutateStats(latency, queryStartNanoTime, currentTime, printKey, printValue);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("Write", queryStartNanoTime, currentTime, printValue, operation);
             }
         }
     }
@@ -3686,7 +3692,8 @@ public class StorageProxy implements StorageProxyMBean
         PartitionIterator pi = PartitionIterators.concat(piList);
 
         //Log our Read latnecy here
-        TreasObj o = new TreasObj(pi, printKey, printValue);
+        int operation = opID.getAndIncrement();
+        TreasObj o = new TreasObj(pi, printKey, printValue, operation);
 
         return o;
     }
