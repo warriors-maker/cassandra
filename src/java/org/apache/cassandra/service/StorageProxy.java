@@ -3535,9 +3535,9 @@ public class StorageProxy implements StorageProxyMBean
             writeMetrics.addNano(latency);
             writeMetricsMap.get(consistency_level).addNano(latency);
             updateCoordinatorWriteLatencyTableMetric(mutations, latency);
-            int operation = opID.getAndIncrement();
             // Write our own log to the file
             if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
+                int operation = opID.getAndIncrement();
                 org.apache.cassandra.Treas.Logger.getLogger().writeStats("Write", queryStartNanoTime, currentTime, printValue, operation);
             }
         }
