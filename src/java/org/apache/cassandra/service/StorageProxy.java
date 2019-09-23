@@ -3675,10 +3675,10 @@ public class StorageProxy implements StorageProxyMBean
                                .row()
                                .add(TreasConfig.TAG_ONE, TreasTag.serialize(decodeMaxTag))
                                .add("field0", value);
-                printTag = TreasTag.serialize(decodeMaxTag);
                 Mutation mutation = mutationBuilder.build();
                 mutations.add(mutation);
             }
+            printTag = TreasTag.serialize(decodeMaxTag);
         }
 
         // Do the writeBack
