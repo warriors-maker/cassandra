@@ -3424,6 +3424,7 @@ public class StorageProxy implements StorageProxyMBean
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();
+        consistency_level = ConsistencyLevel.TREAS;
 
         //mutations.
 
