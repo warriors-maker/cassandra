@@ -4213,9 +4213,7 @@ public class StorageProxy implements StorageProxyMBean
             String minTagColName = coordinatorInfo.minTagColName;
             TreasTag minTreasTag = coordinatorInfo.minCoodinatorTag;
             String minFieldColName = coordinatorInfo.minFieldColName;
-            logger.debug("MinTagColumn seen: " + minTagColName);
-            logger.debug("MinFieldColumn seen: " + minFieldColName);
-            logger.debug("Identifier is seen: " + StorageProxy.atomicInteger.get());
+
 
             TreasTag maxTreasTag = coordinatorInfo.maxCoordinatorTag;
             String oldMaxFieldName = coordinatorInfo.maxFieldColName;
