@@ -596,9 +596,8 @@ public abstract class AbstractReadExecutor
                 if (hit <= TreasConfig.num_concurrecy) {
                     coordinatorInfo.minTagColName = "tag" + hit;
                     coordinatorInfo.minFieldColName = "field" + hit;
-                    logger.debug("minTag from ReadTag" + minTagColName);
+                    logger.debug("minTag from ReadTag" + coordinatorInfo.minTagColName);
                 } else {
-                    logger.debug("Bigger than concurrency");
                     coordinatorInfo.minCoodinatorTag = minCoodinatorTag;
                     coordinatorInfo.minTagColName = minTagColName;
                     coordinatorInfo.minFieldColName = minFieldColName;
