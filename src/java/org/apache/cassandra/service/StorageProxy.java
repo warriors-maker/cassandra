@@ -3378,18 +3378,18 @@ public class StorageProxy implements StorageProxyMBean
                 DecoratedKey  decoratedKey =  mutation.key();
 
 
-//                Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
-//                try {
-//                    for (Cell c : data.cells())
-//                    {
-//                        if (c.column().name.toString().equals("field0")) {
-//                            printValue = ByteBufferUtil.string(c.value());
-//                        }
-//                    }
-//                } catch (Exception e) {
-//                    e.printStackTrace();
-//                }
-                printValue = "1";
+                Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+                try {
+                    for (Cell c : data.cells())
+                    {
+                        if (c.column().name.toString().equals("field0")) {
+                            printValue = ByteBufferUtil.string(c.value());
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
 
                 SinglePartitionReadCommand tagValueRead = SinglePartitionReadCommand.fullPartitionRead(
                 tableMetadata,
@@ -4213,6 +4213,8 @@ public class StorageProxy implements StorageProxyMBean
             String minTagColName = coordinatorInfo.minTagColName;
             TreasTag minTreasTag = coordinatorInfo.minCoodinatorTag;
             String minFieldColName = coordinatorInfo.minFieldColName;
+            logger.debug("MinTagColumn seen:" + minTagColName);
+            logger.debug("MinFieldColumn seen:" + minFieldColName);
 
             TreasTag maxTreasTag = coordinatorInfo.maxCoordinatorTag;
             String oldMaxFieldName = coordinatorInfo.maxFieldColName;
@@ -4229,7 +4231,7 @@ public class StorageProxy implements StorageProxyMBean
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
                 long timeStamp = FBUtilities.timestampMicros();
 
-                logger.debug(minFieldColName + " " +mutationTreasTag.toString());
+                logger.debug(minTagColName + " " +mutationTreasTag.toString());
 
                 // Fetch the index from a Map
                 // byte[] myData = erasureCode[index];

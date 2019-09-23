@@ -597,6 +597,7 @@ public abstract class AbstractReadExecutor
                     coordinatorInfo.minTagColName = "tag" + hit;
                     coordinatorInfo.minFieldColName = "field" + hit;
                     logger.debug("minTag from ReadTag" + coordinatorInfo.minTagColName);
+                    logger.debug("minField from ReadTag" + coordinatorInfo.minFieldColName);
                 } else {
                     coordinatorInfo.minCoodinatorTag = minCoodinatorTag;
                     coordinatorInfo.minTagColName = minTagColName;
