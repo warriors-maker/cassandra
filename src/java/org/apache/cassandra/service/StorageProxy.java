@@ -106,7 +106,7 @@ public class StorageProxy implements StorageProxyMBean
     private static final WritePerformer standardWritePerformer;
     private static final WritePerformer counterWritePerformer;
     private static final WritePerformer counterWriteOnCoordinatorPerformer;
-    private static AtomicInteger atomicInteger = new AtomicInteger(0);
+    public static AtomicInteger atomicInteger = new AtomicInteger(0);
 
     public static final StorageProxy instance = new StorageProxy();
 
@@ -4213,8 +4213,9 @@ public class StorageProxy implements StorageProxyMBean
             String minTagColName = coordinatorInfo.minTagColName;
             TreasTag minTreasTag = coordinatorInfo.minCoodinatorTag;
             String minFieldColName = coordinatorInfo.minFieldColName;
-            logger.debug("MinTagColumn seen:" + minTagColName);
-            logger.debug("MinFieldColumn seen:" + minFieldColName);
+            logger.debug("MinTagColumn seen: " + minTagColName);
+            logger.debug("MinFieldColumn seen: " + minFieldColName);
+            logger.debug("Identifier is seen: " + StorageProxy.atomicInteger.get());
 
             TreasTag maxTreasTag = coordinatorInfo.maxCoordinatorTag;
             String oldMaxFieldName = coordinatorInfo.maxFieldColName;

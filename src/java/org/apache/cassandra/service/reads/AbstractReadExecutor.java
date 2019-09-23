@@ -598,6 +598,7 @@ public abstract class AbstractReadExecutor
                     coordinatorInfo.minFieldColName = "field" + hit;
                     logger.debug("minTag from ReadTag" + coordinatorInfo.minTagColName);
                     logger.debug("minField from ReadTag" + coordinatorInfo.minFieldColName);
+                    logger.debug("Identifier is" + StorageProxy.atomicInteger.get());
                 } else {
                     coordinatorInfo.minCoodinatorTag = minCoodinatorTag;
                     coordinatorInfo.minTagColName = minTagColName;
