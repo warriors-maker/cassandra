@@ -67,7 +67,7 @@ public class Logger
         }
         BufferedWriter printWriter = new BufferedWriter (writer);
         try {
-            printWriter.write(action +  ' '+ myAddr + '/' + opID + ' ' + startTime + ' ' + endTime + ' ' + timeStamp);
+            printWriter.write(action +  ' '+ myAddr + '/' + opID + ' ' + startTime + ' ' + endTime + ' ' + timeStamp + ' ');
             printWriter.write(value +  ' ');
             printWriter.newLine();
             printWriter.close();
