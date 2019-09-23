@@ -2012,12 +2012,14 @@ public class StorageProxy implements StorageProxyMBean
         String printKey = null;
         String printValue = null;
         int operation = -1;
+        String printTag = null;
         try
         {
             TreasObj o = fetchRows(group.queries, consistencyLevel, queryStartNanoTime);
             printKey = o.printKey;
             printValue = o.printValue;
             operation = o.opID;
+            printTag = o.printTag;
             PartitionIterator result = o.pi;
             // Note that the only difference between the command in a group must be the partition key on which
             // they applied.
@@ -2051,7 +2053,7 @@ public class StorageProxy implements StorageProxyMBean
             long currentTime = System.nanoTime();
             long latency = currentTime - start;
             if (printKey != null && printValue != null) {
-                org.apache.cassandra.Treas.Logger.getLogger().writeStats("READ", queryStartNanoTime, currentTime, printValue, operation);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("READ", queryStartNanoTime, currentTime, printValue, operation,printTag);
             }
             readMetrics.addNano(latency);
             readMetricsMap.get(consistencyLevel).addNano(latency);
@@ -2131,7 +2133,7 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         PartitionIterator pi = PartitionIterators.concat(results);
-        return new TreasObj(pi, null, null, -1);
+        return new TreasObj(pi, null, null, -1, null);
     }
 
     private static PartitionIterator fetchRowsAbd(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
@@ -3358,6 +3360,7 @@ public class StorageProxy implements StorageProxyMBean
         IMutation printMutation = null;
         String printValue = null;
         String printKey = null;
+        String printTag = null;
 
         // Treas get, need to get the maximum TimeStamp
         // create an read command to fetch the tag value corresponding to the key from all the replicas including myself
@@ -3437,7 +3440,7 @@ public class StorageProxy implements StorageProxyMBean
                            .timestamp(timeStamp)
                            .row()
                            .add(TreasConfig.TAG_ONE, TreasTag.serialize(maxCurrentTag));
-
+            printTag = TreasTag.serialize(maxCurrentTag);
             Mutation tagMutation = mutationBuilder.build();
 
             // Merge the maxTimeStamp with the data
@@ -3540,7 +3543,7 @@ public class StorageProxy implements StorageProxyMBean
             updateCoordinatorWriteLatencyTableMetric(newMutations, latency);
             if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
                 int operation = atomicInteger.getAndIncrement();
-                org.apache.cassandra.Treas.Logger.getLogger().writeStats("WRITE", queryStartNanoTime, currentTime, printValue, operation);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("WRITE", queryStartNanoTime, currentTime, printValue, operation, printTag);
             }
         }
     }
@@ -3647,6 +3650,7 @@ public class StorageProxy implements StorageProxyMBean
 
         String printValue = null;
         String printKey = null;
+        String printTag = null;
 
         List<IMutation> mutations = new ArrayList<>();
         for (DoubleTreasTag doubleTreasTag : doubleTreasTagList) {
@@ -3671,6 +3675,7 @@ public class StorageProxy implements StorageProxyMBean
                                .row()
                                .add(TreasConfig.TAG_ONE, TreasTag.serialize(decodeMaxTag))
                                .add("field0", value);
+                printTag = TreasTag.serialize(decodeMaxTag);
                 Mutation mutation = mutationBuilder.build();
                 mutations.add(mutation);
             }
@@ -3692,7 +3697,7 @@ public class StorageProxy implements StorageProxyMBean
 
         PartitionIterator pi =  PartitionIterators.concat(piList);
         int operation = atomicInteger.getAndIncrement();
-        TreasObj o = new TreasObj(pi, printKey, printValue, operation);
+        TreasObj o = new TreasObj(pi, printKey, printValue, operation, printTag);
 
         return o;
     }
