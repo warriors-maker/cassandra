@@ -2076,6 +2076,7 @@ public class StorageProxy implements StorageProxyMBean
         String printKey = null;
         String printValue = null;
         int operation = -1;
+        Long timeStamp = null;
         try
         {
             TreasObj o = fetchRows(group.queries, consistencyLevel, queryStartNanoTime);
@@ -2083,6 +2084,7 @@ public class StorageProxy implements StorageProxyMBean
             printValue = o.printValue;
             PartitionIterator result = o.pi;
             operation = o.opID;
+            timeStamp = o.timeStamp;
             // Note that the only difference between the command in a group must be the partition key on which
             // they applied.
             boolean enforceStrictLiveness = group.queries.get(0).metadata().enforceStrictLiveness();
@@ -2115,7 +2117,7 @@ public class StorageProxy implements StorageProxyMBean
             long currentTime = System.nanoTime();
             long latency = currentTime - start;
             if (printKey != null && printValue != null) {
-                org.apache.cassandra.Treas.Logger.getLogger().writeStats("READ", queryStartNanoTime, currentTime, printValue, operation);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("READ", queryStartNanoTime, currentTime, printValue, operation, timeStamp);
             }
             readMetrics.addNano(latency);
             readMetricsMap.get(consistencyLevel).addNano(latency);
@@ -2195,7 +2197,7 @@ public class StorageProxy implements StorageProxyMBean
         }
 
         PartitionIterator pi = PartitionIterators.concat(results);
-        return new TreasObj(pi, null, null, 0);
+        return new TreasObj(pi, null, null, 0, 0);
     }
 
     private static PartitionIterator fetchRowsAbd(List<SinglePartitionReadCommand> commands, ConsistencyLevel consistencyLevel, long queryStartNanoTime)
@@ -3539,7 +3541,7 @@ public class StorageProxy implements StorageProxyMBean
             // Write our own log to the file
             if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
                 int operation = opID.getAndIncrement();
-                org.apache.cassandra.Treas.Logger.getLogger().writeStats("WRITE", queryStartNanoTime, currentTime, printValue, operation);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("WRITE", queryStartNanoTime, currentTime, printValue, operation, queryStartNanoTime);
             }
         }
     }
@@ -3649,8 +3651,10 @@ public class StorageProxy implements StorageProxyMBean
         String printValue = null;
         String printKey = null;
         List<IMutation> mutations = new ArrayList<>();
+        Long decodeMaxTag = null;
+
         for (DoubleTreasTag doubleTreasTag : doubleTreasTagList) {
-            Long decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
+            decodeMaxTag = doubleTreasTag.getRecoverMaxTreasTag();
             DecoratedKey key = doubleTreasTag.getKey();
             TableMetadata tableMetadata = doubleTreasTag.getTableMetadata();
             String keySpace = doubleTreasTag.getKeySpace();
@@ -3694,7 +3698,7 @@ public class StorageProxy implements StorageProxyMBean
 
         //Log our Read latnecy here
         int operation = opID.getAndIncrement();
-        TreasObj o = new TreasObj(pi, printKey, printValue, operation);
+        TreasObj o = new TreasObj(pi, printKey, printValue, operation, decodeMaxTag);
 
         return o;
     }

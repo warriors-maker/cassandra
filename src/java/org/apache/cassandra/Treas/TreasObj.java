@@ -26,12 +26,14 @@ public class TreasObj
     public String printKey;
     public String printValue;
     public int opID;
+    public long timeStamp;
 
-    public TreasObj(PartitionIterator pi, String printKey, String printValue, int opID) {
+    public TreasObj(PartitionIterator pi, String printKey, String printValue, int opID, long timeStamp) {
         this.pi = pi;
         this.printKey = printKey;
         this.printValue = printValue;
         this.opID = opID;
+        this.timeStamp = timeStamp;
     }
 
 }
