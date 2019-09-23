@@ -3406,7 +3406,7 @@ public class StorageProxy implements StorageProxyMBean
     {
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-
+        consistency_level = ConsistencyLevel.TREAS;
         long startTime = System.nanoTime();
 
         //mutations.
