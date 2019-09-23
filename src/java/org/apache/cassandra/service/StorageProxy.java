@@ -3378,17 +3378,18 @@ public class StorageProxy implements StorageProxyMBean
                 DecoratedKey  decoratedKey =  mutation.key();
 
 
-                Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
-                try {
-                    for (Cell c : data.cells())
-                    {
-                        if (c.column().name.toString().equals("field0")) {
-                            printValue = ByteBufferUtil.string(c.value());
-                        }
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+//                Row data = mutation.getPartitionUpdates().iterator().next().getRow(Clustering.EMPTY);
+//                try {
+//                    for (Cell c : data.cells())
+//                    {
+//                        if (c.column().name.toString().equals("field0")) {
+//                            printValue = ByteBufferUtil.string(c.value());
+//                        }
+//                    }
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
+                printValue = "1";
 
                 SinglePartitionReadCommand tagValueRead = SinglePartitionReadCommand.fullPartitionRead(
                 tableMetadata,
