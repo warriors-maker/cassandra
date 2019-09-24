@@ -4178,6 +4178,12 @@ public class StorageProxy implements StorageProxyMBean
                 // Fetch the index from a Map
                 // byte[] myData = erasureCode[index];
                 if (hit == 1) {
+                    if (minTagColName == null) {
+                        minTagColName = "tag1";
+                    }
+                    if (minFieldColName == null) {
+                        minFieldColName = "field1";
+                    }
                     mutationBuilder.update(tableMetadata)
                                    .timestamp(timeStamp)
                                    .row()
