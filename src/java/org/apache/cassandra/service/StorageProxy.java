@@ -3353,7 +3353,6 @@ public class StorageProxy implements StorageProxyMBean
         for (IMutation mutation : mutations)
         {
             if (mutation.getKeyspaceName().equals("ycsb")) {
-                consistency_level = ConsistencyLevel.TREAS;
                 //logger.debug("Is ycsb");
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
 
