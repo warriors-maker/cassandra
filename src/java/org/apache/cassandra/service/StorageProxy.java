@@ -2117,7 +2117,7 @@ public class StorageProxy implements StorageProxyMBean
             long currentTime = System.nanoTime();
             long latency = currentTime - start;
             if (printKey != null && printValue != null) {
-                org.apache.cassandra.Treas.Logger.getLogger().writeStats("READ", queryStartNanoTime, currentTime, printValue, operation, timeStamp);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("READ", queryStartNanoTime, currentTime, printValue, operation, timeStamp, printKey);
             }
             readMetrics.addNano(latency);
             readMetricsMap.get(consistencyLevel).addNano(latency);
@@ -3448,6 +3448,12 @@ public class StorageProxy implements StorageProxyMBean
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     if (mutation.getKeyspaceName().equals("ycsb")) {
                         printMutation = mutation;
+                        try {
+                            printKey =  ByteBufferUtil.string(mutation.key().getKey());
+                        }catch (Exception e) {
+                            e.printStackTrace();
+                        }
+
                         //Include the physical timeStamp into TagOne;
                         String mutationValue = "";
                         // Read from the Mutation
@@ -3541,7 +3547,7 @@ public class StorageProxy implements StorageProxyMBean
             // Write our own log to the file
             if (printMutation != null && printMutation.getKeyspaceName().equals("ycsb")) {
                 int operation = opID.getAndIncrement();
-                org.apache.cassandra.Treas.Logger.getLogger().writeStats("WRITE", queryStartNanoTime, currentTime, printValue, operation, queryStartNanoTime);
+                org.apache.cassandra.Treas.Logger.getLogger().writeStats("WRITE", queryStartNanoTime, currentTime, printValue, operation, queryStartNanoTime, printKey);
             }
         }
     }
