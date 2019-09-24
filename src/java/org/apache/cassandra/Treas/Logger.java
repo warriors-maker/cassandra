@@ -33,7 +33,7 @@ public class Logger
         }
     }
 
-    public synchronized void writeStats(String action, long startTime, long endTime, String value, int opID, String tag) {
+    public synchronized void writeStats(String action, long startTime, long endTime, String value, int opID, String tag, String key) {
 
         String myAddr = FBUtilities.getJustLocalAddress().toString().substring(1);
         int index = TreasConfig.getAddressMap().get(FBUtilities.getJustLocalAddress().toString().substring(1));
@@ -48,7 +48,7 @@ public class Logger
         }
         BufferedWriter printWriter = new BufferedWriter (writer);
         try {
-            printWriter.write(action +  ' '+ myAddr + '/' + opID + ' ' + startTime + ' ' + endTime + ' ' + tag + ' ');
+            printWriter.write(action +  ' '+ myAddr + '/' + opID + ' ' + startTime + ' ' + endTime + ' ' + tag + ' ' + key + ' ');
             printWriter.write(value +  ' ');
             printWriter.newLine();
             printWriter.close();
