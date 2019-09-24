@@ -3406,7 +3406,6 @@ public class StorageProxy implements StorageProxyMBean
     {
         Tracing.trace("Determining replicas for mutation");
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
-        consistency_level = ConsistencyLevel.TREAS;
         long startTime = System.nanoTime();
 
         //mutations.
@@ -3428,6 +3427,7 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     if (mutation.getKeyspaceName().equals("ycsb")) {
+                        consistency_level = ConsistencyLevel.TREAS;
                         //printMutation = mutation;
                         //Include the physical timeStamp into TagOne;
                         String mutationValue = "";
