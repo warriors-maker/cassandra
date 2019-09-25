@@ -56,6 +56,8 @@ public class DigestResolver extends ResponseResolver
 {
     private volatile ReadResponse dataResponse;
 
+    //private static final org.slf4j.Logger logger = LoggerFactory.getLogger(DigestResolver.class);
+
     public DigestResolver(Keyspace keyspace, ReadCommand command, ConsistencyLevel consistency, ReadRepair readRepair, int maxResponseCount)
     {
         super(keyspace, command, consistency, readRepair, maxResponseCount);
@@ -266,7 +268,7 @@ public class DigestResolver extends ResponseResolver
                             Cell tagCell = row.getCell(columnMetadata);
                             TreasTag treasTag = TreasTag.deserialize(tagCell.value());
 
-                            logger.debug(treasTag.toString());
+                            //logger.debug(treasTag.toString());
 
                             if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
                                 int count = decodeCountMap.get(decodeTagMax) + 1;
