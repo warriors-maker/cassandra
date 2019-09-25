@@ -44,6 +44,7 @@ import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.ABDColomns;
 import org.apache.cassandra.service.ABDTag;
+import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.utils.ByteBufferUtil;
 
@@ -187,7 +188,8 @@ public class DigestResolver extends ResponseResolver
 
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
-            //logger.debug("*************************************************************");
+            logger.debug("*************************************************************");
+            logger.debug(StorageProxy.opID+"");
             numMessage++;
             String address = message.from.address.toString();
             if (!address.startsWith("local")) {
@@ -227,22 +229,22 @@ public class DigestResolver extends ResponseResolver
                     {
                         String colName = c.column().name.toString();
 
-//                        if (colName.startsWith("tag")) {
-//                            Long curTag = TreasUtil.getLong(c.value());
-//                            logger.debug(curTag+"");
-//                        } else if (colName.startsWith("field")) {
-//                            String  value = "";
-//                            try {
-//                                value = ByteBufferUtil.string(c.value());
-//                                logger.debug(value);
-//                            } catch (Exception e) {
-//                                e.printStackTrace();
-//                            }
-//
-//
-//                        } else {
-//                            logger.debug(colName);
-//                        }
+                        if (colName.startsWith("tag")) {
+                            Long curTag = TreasUtil.getLong(c.value());
+                            logger.debug(curTag+"");
+                        } else if (colName.startsWith("field")) {
+                            String  value = "";
+                            try {
+                                value = ByteBufferUtil.string(c.value());
+                                logger.debug(value);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+
+
+                        } else {
+                            logger.debug(colName);
+                        }
 
                         // if it is a timeStamp field, we need to check it
                         if (colName.startsWith("tag"))

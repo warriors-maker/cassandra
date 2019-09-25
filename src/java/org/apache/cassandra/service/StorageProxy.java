@@ -3726,8 +3726,6 @@ public class StorageProxy implements StorageProxyMBean
         if (mutations.size() == 0) {
             return;
         }
-        
-        logger.debug("Write back");
 
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
 
@@ -3735,7 +3733,6 @@ public class StorageProxy implements StorageProxyMBean
         {
             for (IMutation mutation : mutations)
             {
-                logger.debug("Need to writeback");
                 if (mutation instanceof CounterMutation)
                 {
                     responseHandlers.add(mutateCounter((CounterMutation)mutation, localDataCenter, queryStartNanoTime));
