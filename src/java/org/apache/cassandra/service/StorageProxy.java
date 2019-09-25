@@ -3713,10 +3713,10 @@ public class StorageProxy implements StorageProxyMBean
     {
         // this function is the same as the original mutate function
         Tracing.trace("Determining replicas for mutation");
-        if (mutations.size() != 0)
-        {
-            logger.debug("Need to writeback");
-        }
+//        if (mutations.size() != 0)
+//        {
+//            logger.debug("Need to writeback");
+//        }
         consistency_level = ConsistencyLevel.TREAS;
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 

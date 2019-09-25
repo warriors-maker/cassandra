@@ -266,12 +266,12 @@ public class DigestResolver extends ResponseResolver
                             Cell tagCell = row.getCell(columnMetadata);
                             TreasTag treasTag = TreasTag.deserialize(tagCell.value());
 
-                            logger.debug(treasTag.toString());
+                            //logger.debug(treasTag.toString());
 
                             if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
                                 int count = decodeCountMap.get(decodeTagMax) + 1;
                                 decodeCountMap.put(decodeTagMax, count);
-                                if (count == TreasConfig.QUORUM) {
+                                if (count == TreasConfig.num_server) {
                                     doubleTreasTag.setNeedWriteBack(false);
                                 }
                                 continue;
@@ -328,7 +328,7 @@ public class DigestResolver extends ResponseResolver
                                         decodeValMax = codelist;
                                     }
                                 }
-                                if (TreasConfig.QUORUM == 1) {
+                                if (TreasConfig.num_server == 1) {
                                     doubleTreasTag.setNeedWriteBack(false);
                                 }
                             }
