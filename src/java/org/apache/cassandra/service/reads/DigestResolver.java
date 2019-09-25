@@ -185,10 +185,13 @@ public class DigestResolver extends ResponseResolver
         //logger.debug("Message size is" + this.getMessages().size());
         // Each readResponse represents a response from a Replica
 
+        int numMessage = 0;
+
         HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
 
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
+            numMessage++;
             String address = message.from.address.toString().substring(1);
             //logger.debug("Address are" + address);
             int id = addressMap.get(address);
@@ -335,6 +338,16 @@ public class DigestResolver extends ResponseResolver
                         }
                     }
                 }
+            }
+        }
+
+        logger.debug(numMessage+"");
+        if (decodeTagMax.getTime() != -1 ){
+            logger.debug(numMessage +"," + decodeCountMap.get(decodeTagMax));
+            if (decodeCountMap.get(decodeTagMax) == numMessage) {
+                doubleTreasTag.setNeedWriteBack(false);
+            } else {
+                doubleTreasTag.setNeedWriteBack(true);
             }
         }
 
