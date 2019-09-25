@@ -4244,8 +4244,6 @@ public class StorageProxy implements StorageProxyMBean
                 TableMetadata tableMetadata = mutation.getPartitionUpdates().iterator().next().metadata();
                 long timeStamp = FBUtilities.timestampMicros();
 
-                logger.debug(minTagColName + " " +mutationTreasTag.toString());
-
                 // Fetch the index from a Map
                 // byte[] myData = erasureCode[index];
                 if (hit == 1) {

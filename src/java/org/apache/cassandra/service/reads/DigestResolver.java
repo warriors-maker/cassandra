@@ -341,9 +341,8 @@ public class DigestResolver extends ResponseResolver
             }
         }
 
-        logger.debug(numMessage+"");
         if (decodeTagMax.getTime() != -1 ){
-            logger.debug(numMessage +"," + decodeCountMap.get(decodeTagMax));
+            //logger.debug(numMessage +"," + decodeCountMap.get(decodeTagMax));
             if (decodeCountMap.get(decodeTagMax) == numMessage) {
                 doubleTreasTag.setNeedWriteBack(false);
             } else {
