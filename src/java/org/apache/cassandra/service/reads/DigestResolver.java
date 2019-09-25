@@ -55,7 +55,6 @@ import org.apache.cassandra.utils.FBUtilities;
 public class DigestResolver extends ResponseResolver
 {
     private volatile ReadResponse dataResponse;
-    private static final org.slf4j.Logger logger = LoggerFactory.getLogger(DigestResolver.class);
 
     public DigestResolver(Keyspace keyspace, ReadCommand command, ConsistencyLevel consistency, ReadRepair readRepair, int maxResponseCount)
     {
