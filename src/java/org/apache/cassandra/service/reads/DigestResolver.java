@@ -180,6 +180,7 @@ public class DigestResolver extends ResponseResolver
         String keySpaceName = "";
         DecoratedKey key = null;
         TableMetadata tableMetadata = null;
+        int numMessage = 0;
 
         //logger.debug("Before Digest Match");
         //logger.debug("Message size is" + this.getMessages().size());
@@ -189,6 +190,7 @@ public class DigestResolver extends ResponseResolver
 
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
+            numMessage++;
             String address = message.from.address.toString();
             if (!address.startsWith("local")) {
                 address = address.substring(1);
@@ -363,6 +365,14 @@ public class DigestResolver extends ResponseResolver
 //            logger.debug(count+"");
 //            TreasUtil.printTags(decodeMap,decodeCountMap);
 //        }
+        if (decodeTagMax == null ){
+            logger.debug(numMessage +"," + decodeCountMap.get(decodeTagMax));
+            if (decodeCountMap.get(decodeTagMax) == numMessage) {
+                doubleTreasTag.setNeedWriteBack(false);
+            } else {
+                doubleTreasTag.setNeedWriteBack(true);
+            }
+        }
 
         // Either one of them is not satisfied stop the procedure;
         if (quorumTagMax == null || decodeTagMax == null)
