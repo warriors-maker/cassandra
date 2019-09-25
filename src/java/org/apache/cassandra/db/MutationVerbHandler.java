@@ -94,8 +94,6 @@ public class MutationVerbHandler implements IVerbHandler<Mutation>
                 mutationTag = TreasUtil.getLong(c.value());
             } else if (c.column().name.toString().equals("field1")) {
                 mutationValue = ByteBufferUtil.string(c.value());
-            } else if (c.column().name.toString().equals("field0")) {
-                logger.debug(ByteBufferUtil.string(c.value()));
             }
         }
 
