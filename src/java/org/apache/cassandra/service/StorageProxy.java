@@ -3726,6 +3726,8 @@ public class StorageProxy implements StorageProxyMBean
         if (mutations.size() == 0) {
             return;
         }
+        
+        logger.debug("Write back");
 
         List<AbstractWriteResponseHandler<IMutation>> responseHandlers = new ArrayList<>(mutations.size());
 
