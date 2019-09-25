@@ -17,12 +17,7 @@
  */
 package org.apache.cassandra.service.reads;
 
-import java.net.InetAddress;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.sql.Blob;
-import java.time.chrono.Era;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -51,7 +46,6 @@ import org.apache.cassandra.service.ABDColomns;
 import org.apache.cassandra.service.ABDTag;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.utils.ByteBufferUtil;
-import org.apache.tools.ant.taskdefs.EchoXML;
 
 
 public class DigestResolver extends ResponseResolver
