@@ -367,7 +367,7 @@ public class DigestResolver extends ResponseResolver
 //            logger.debug(count+"");
 //            TreasUtil.printTags(decodeMap,decodeCountMap);
 //        }
-        if (decodeTagMax == null ){
+        if (decodeTagMax != null ){
             logger.debug(numMessage +"," + decodeCountMap.get(decodeTagMax));
             if (decodeCountMap.get(decodeTagMax) == numMessage) {
                 doubleTreasTag.setNeedWriteBack(false);
