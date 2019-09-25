@@ -3426,7 +3426,6 @@ public class StorageProxy implements StorageProxyMBean
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
         long startTime = System.nanoTime();
-        consistency_level = ConsistencyLevel.TREAS;
 
         //mutations.
 
@@ -3447,6 +3446,7 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     if (mutation.getKeyspaceName().equals("ycsb")) {
+                        consistency_level = ConsistencyLevel.TREAS;
                         printMutation = mutation;
                         try {
                             printKey =  ByteBufferUtil.string(mutation.key().getKey());

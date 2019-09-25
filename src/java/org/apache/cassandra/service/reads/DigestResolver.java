@@ -30,10 +30,12 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.base.Preconditions;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.TreasConfig;
-import org.apache.cassandra.Treas.TreasTag;
 import org.apache.cassandra.Treas.TreasUtil;
 import org.apache.cassandra.cql3.ColumnIdentifier;
 import org.apache.cassandra.db.*;
@@ -47,14 +49,14 @@ import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.ABDColomns;
 import org.apache.cassandra.service.ABDTag;
-import org.apache.cassandra.service.EchoVerbHandler;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.utils.ByteBufferUtil;
-import org.apache.cassandra.utils.FBUtilities;
+
 
 public class DigestResolver extends ResponseResolver
 {
     private volatile ReadResponse dataResponse;
+    private static final Logger logger = LoggerFactory.getLogger(DigestResolver.class);
 
     public DigestResolver(Keyspace keyspace, ReadCommand command, ConsistencyLevel consistency, ReadRepair readRepair, int maxResponseCount)
     {
