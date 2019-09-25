@@ -172,7 +172,7 @@ public class DigestResolver extends ResponseResolver
         // String is just the value
         List<String> decodeValMax = null;
 
-
+        int numMessage = 0;
         String keySpaceName = "";
         DecoratedKey key = null;
         TableMetadata tableMetadata = null;
@@ -185,6 +185,7 @@ public class DigestResolver extends ResponseResolver
 
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
+            numMessage++;
             String address = message.from.address.toString().substring(1);
             //logger.debug("Address are" + address);
             int id = addressMap.get(address);
@@ -334,6 +335,15 @@ public class DigestResolver extends ResponseResolver
         //logger.debug("Finish reading Quorum and Decodable");
         //System.out.println(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
         //logger.debug(quorumTagMax.getTime() + "," + decodeTagMax.getTime());
+
+        if (decodeTagMax.getTime() != -1 ){
+            //logger.debug(numMessage +"," + decodeCountMap.get(decodeTagMax));
+            if (decodeCountMap.get(decodeTagMax) == numMessage) {
+                doubleTreasTag.setNeedWriteBack(false);
+            } else {
+                doubleTreasTag.setNeedWriteBack(true);
+            }
+        }
 
         // Either one of them is not satisfied stop the procedure;
         if (quorumTagMax.getTime() == -1 || decodeTagMax.getTime() == -1)
