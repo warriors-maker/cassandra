@@ -186,9 +186,11 @@ public class DigestResolver extends ResponseResolver
         // Each readResponse represents a response from a Replica
 
         HashMap<String, Integer> addressMap = TreasConfig.getAddressMap();
+        int numMessage = 0;
 
         for (MessageIn<ReadResponse> message : this.getMessages())
         {
+            numMessage += 1;
             String address = message.from.address.toString();
             if (!address.startsWith("local")) {
                 address = address.substring(1);
@@ -365,6 +367,16 @@ public class DigestResolver extends ResponseResolver
 //        }
 
         // Either one of them is not satisfied stop the procedure;
+
+        if (decodeTagMax != null ){
+            logger.debug(numMessage +"," + decodeCountMap.get(decodeTagMax));
+            if (decodeCountMap.get(decodeTagMax) == numMessage) {
+                doubleTreasTag.setNeedWriteBack(false);
+            } else {
+                doubleTreasTag.setNeedWriteBack(true);
+            }
+        }
+
         if (quorumTagMax == null || decodeTagMax == null)
         {
             doubleTreasTag.setReadResult(null);
