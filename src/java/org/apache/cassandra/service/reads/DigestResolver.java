@@ -30,7 +30,6 @@ import com.google.common.base.Preconditions;
 
 import org.slf4j.LoggerFactory;
 
-import com.sun.media.jfxmedia.logging.Logger;
 import org.apache.cassandra.Treas.DoubleTreasTag;
 import org.apache.cassandra.Treas.ErasureCode;
 import org.apache.cassandra.Treas.TreasConfig;
@@ -47,7 +46,6 @@ import org.apache.cassandra.schema.ColumnMetadata;
 import org.apache.cassandra.schema.TableMetadata;
 import org.apache.cassandra.service.ABDColomns;
 import org.apache.cassandra.service.ABDTag;
-import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.service.reads.repair.ReadRepair;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -56,7 +54,7 @@ public class DigestResolver extends ResponseResolver
 {
     private volatile ReadResponse dataResponse;
 
-    //private static final org.slf4j.Logger logger = LoggerFactory.getLogger(DigestResolver.class);
+    private static final org.slf4j.Logger logger = LoggerFactory.getLogger(DigestResolver.class);
 
     public DigestResolver(Keyspace keyspace, ReadCommand command, ConsistencyLevel consistency, ReadRepair readRepair, int maxResponseCount)
     {
@@ -268,7 +266,7 @@ public class DigestResolver extends ResponseResolver
                             Cell tagCell = row.getCell(columnMetadata);
                             TreasTag treasTag = TreasTag.deserialize(tagCell.value());
 
-                            //logger.debug(treasTag.toString());
+                            logger.debug(treasTag.toString());
 
                             if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
                                 int count = decodeCountMap.get(decodeTagMax) + 1;
