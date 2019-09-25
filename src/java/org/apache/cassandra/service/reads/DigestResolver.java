@@ -271,7 +271,7 @@ public class DigestResolver extends ResponseResolver
                             if (decodeCountMap.get(decodeTagMax) != null && treasTag.equals(decodeTagMax) && decodeCountMap.get(decodeTagMax) >= TreasConfig.num_recover) {
                                 int count = decodeCountMap.get(decodeTagMax) + 1;
                                 decodeCountMap.put(decodeTagMax, count);
-                                if (count == TreasConfig.num_server) {
+                                if (count == TreasConfig.QUORUM) {
                                     doubleTreasTag.setNeedWriteBack(false);
                                 }
                                 continue;
@@ -308,7 +308,7 @@ public class DigestResolver extends ResponseResolver
                                     }
                                 }
 
-                                if (count == TreasConfig.num_server) {
+                                if (count == TreasConfig.QUORUM) {
                                     logger.debug("No need to writeback");
                                     doubleTreasTag.setNeedWriteBack(false);
                                 }
@@ -328,7 +328,7 @@ public class DigestResolver extends ResponseResolver
                                         decodeValMax = codelist;
                                     }
                                 }
-                                if (TreasConfig.num_server == 1) {
+                                if (TreasConfig.QUORUM == 1) {
                                     doubleTreasTag.setNeedWriteBack(false);
                                 }
                             }
