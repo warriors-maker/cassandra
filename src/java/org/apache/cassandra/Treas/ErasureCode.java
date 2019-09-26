@@ -141,104 +141,104 @@ public class ErasureCode
     }
 
 
-    public static void test(String value) {
-        //logger.debug("The value is" + value);
-        System.out.println(value);
-        ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
-        final int valueSize =  value.length();
-        //logger.debug("Inside encodeData");
-
-        // Figure out how big each shard will be.  The total size stored
-        // will be the file size (8 bytes) plus the file.
-        final int storedSize = valueSize + BYTES_IN_INT;
-        final int shardSize = (storedSize + DATA_SHARDS - 1) / DATA_SHARDS;
-
-
-        // Create a buffer holding the file size, followed by
-        // the contents of the file.
-        final int bufferSize = shardSize * DATA_SHARDS;
-        final byte [] allBytes = new byte[bufferSize];
-
-
-        ByteBuffer.wrap(allBytes).putInt(valueSize);
-        InputStream in = new ByteArrayInputStream(value.getBytes(Charset.forName("UTF-8")));
-
-        try {
-            in.read(allBytes, BYTES_IN_INT, valueSize);
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally
-        {
-            try
-            {
-                in.close();
-            }
-            catch (IOException e)
-            {
-                e.printStackTrace();
-            }
-        }
-
-        // Make the buffers to hold the shards.
-        byte [] [] shards = new byte [TOTAL_SHARDS] [shardSize];
-
-        // Fill in the data shards
-        for (int i = 0; i < DATA_SHARDS; i++) {
-            System.arraycopy(allBytes, i * shardSize, shards[i], 0, shardSize);
-        }
-
-        // Use Reed-Solomon to calculate the parity.
-        //logger.debug("Before Encode Parity");
-        reedSolomon.encodeParity(shards, 0, shardSize);
-
-        boolean[] present = new boolean[TOTAL_SHARDS];
-        for (int i = 0; i < TOTAL_SHARDS; i++) {
-            present[i] = true;
-        }
-
-        //Decode
-        reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
-        reedSolomon.decodeMissing(shards, present, 0, shardSize);
-
-        byte [] decodeBytes = new byte[shardSize * DATA_SHARDS];
-
-        //System.out.println("valueSize is" + shardSize);
-        for (int i = 0; i < DATA_SHARDS; i++) {
-            System.arraycopy(shards[i], 0, decodeBytes, shardSize * i, shardSize);
-        }
-
-//        int valueSize = ByteBuffer.wrap(decodeBytes).getInt();
-
-        OutputStream out = new ByteArrayOutputStream();
-        System.out.println(out.toString());
-
-        try
-        {
-            //logger.debug(decodeBytes.length + " " + valueSize + " " + key);
-            out.write(decodeBytes, BYTES_IN_INT, valueSize);
-        }
-        catch (IOException e)
-        {
-            e.printStackTrace();
-        }
-
-
-    }
-
-    public static void main (String[] args) {
-        ErasureCode ec = new ErasureCode();
-        int count = 5;
-        int length = 5000;
-        Random rd = new Random();
-        byte[] arr = new byte[5000];
-        rd.nextBytes(arr);
-        long start = System.nanoTime();
-        String value = null;
-        for (int i = 0; i < count; i++) {
-            value = Base64.getEncoder().encodeToString(arr);
-            test(value);
-        }
-        long latency = (System.nanoTime() - start)/count;
-        System.out.println(latency);
-    }
+//    public static void test(String value) {
+//        //logger.debug("The value is" + value);
+//        System.out.println(value);
+//        ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
+//        final int valueSize =  value.length();
+//        //logger.debug("Inside encodeData");
+//
+//        // Figure out how big each shard will be.  The total size stored
+//        // will be the file size (8 bytes) plus the file.
+//        final int storedSize = valueSize + BYTES_IN_INT;
+//        final int shardSize = (storedSize + DATA_SHARDS - 1) / DATA_SHARDS;
+//
+//
+//        // Create a buffer holding the file size, followed by
+//        // the contents of the file.
+//        final int bufferSize = shardSize * DATA_SHARDS;
+//        final byte [] allBytes = new byte[bufferSize];
+//
+//
+//        ByteBuffer.wrap(allBytes).putInt(valueSize);
+//        InputStream in = new ByteArrayInputStream(value.getBytes(Charset.forName("UTF-8")));
+//
+//        try {
+//            in.read(allBytes, BYTES_IN_INT, valueSize);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        } finally
+//        {
+//            try
+//            {
+//                in.close();
+//            }
+//            catch (IOException e)
+//            {
+//                e.printStackTrace();
+//            }
+//        }
+//
+//        // Make the buffers to hold the shards.
+//        byte [] [] shards = new byte [TOTAL_SHARDS] [shardSize];
+//
+//        // Fill in the data shards
+//        for (int i = 0; i < DATA_SHARDS; i++) {
+//            System.arraycopy(allBytes, i * shardSize, shards[i], 0, shardSize);
+//        }
+//
+//        // Use Reed-Solomon to calculate the parity.
+//        //logger.debug("Before Encode Parity");
+//        reedSolomon.encodeParity(shards, 0, shardSize);
+//
+//        boolean[] present = new boolean[TOTAL_SHARDS];
+//        for (int i = 0; i < TOTAL_SHARDS; i++) {
+//            present[i] = true;
+//        }
+//
+//        //Decode
+//        reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
+//        reedSolomon.decodeMissing(shards, present, 0, shardSize);
+//
+//        byte [] decodeBytes = new byte[shardSize * DATA_SHARDS];
+//
+//        //System.out.println("valueSize is" + shardSize);
+//        for (int i = 0; i < DATA_SHARDS; i++) {
+//            System.arraycopy(shards[i], 0, decodeBytes, shardSize * i, shardSize);
+//        }
+//
+////        int valueSize = ByteBuffer.wrap(decodeBytes).getInt();
+//
+//        OutputStream out = new ByteArrayOutputStream();
+//        System.out.println(out.toString());
+//
+//        try
+//        {
+//            //logger.debug(decodeBytes.length + " " + valueSize + " " + key);
+//            out.write(decodeBytes, BYTES_IN_INT, valueSize);
+//        }
+//        catch (IOException e)
+//        {
+//            e.printStackTrace();
+//        }
+//
+//
+//    }
+//
+//    public static void main (String[] args) {
+//        ErasureCode ec = new ErasureCode();
+//        int count = 5;
+//        int length = 5000;
+//        Random rd = new Random();
+//        byte[] arr = new byte[5000];
+//        rd.nextBytes(arr);
+//        long start = System.nanoTime();
+//        String value = null;
+//        for (int i = 0; i < count; i++) {
+//            value = Base64.getEncoder().encodeToString(arr);
+//            test(value);
+//        }
+//        long latency = (System.nanoTime() - start)/count;
+//        System.out.println(latency);
+//    }
 }
