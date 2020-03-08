@@ -141,10 +141,10 @@ public class ErasureCode
     }
 
 
-//    public static void test(String value) {
+//    public static void test(String value, ReedSolomon reedSolomon) {
 //        //logger.debug("The value is" + value);
-//        System.out.println(value);
-//        ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
+//        //System.out.println(value);
+//
 //        final int valueSize =  value.length();
 //        //logger.debug("Inside encodeData");
 //
@@ -210,7 +210,7 @@ public class ErasureCode
 ////        int valueSize = ByteBuffer.wrap(decodeBytes).getInt();
 //
 //        OutputStream out = new ByteArrayOutputStream();
-//        System.out.println(out.toString());
+//        //System.out.println(out.toString());
 //
 //        try
 //        {
@@ -227,16 +227,17 @@ public class ErasureCode
 //
 //    public static void main (String[] args) {
 //        ErasureCode ec = new ErasureCode();
-//        int count = 5;
-//        int length = 5000;
+//        int count = 5000;
+//        int length = 8192;
 //        Random rd = new Random();
-//        byte[] arr = new byte[5000];
+//        byte[] arr = new byte[length];
 //        rd.nextBytes(arr);
 //        long start = System.nanoTime();
 //        String value = null;
+//        ReedSolomon reedSolomon = ReedSolomon.create(TreasConfig.num_recover, TreasConfig.num_server - TreasConfig.num_recover);
 //        for (int i = 0; i < count; i++) {
 //            value = Base64.getEncoder().encodeToString(arr);
-//            test(value);
+//            test(value,reedSolomon);
 //        }
 //        long latency = (System.nanoTime() - start)/count;
 //        System.out.println(latency);
