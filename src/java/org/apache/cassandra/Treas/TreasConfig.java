@@ -25,7 +25,7 @@ import org.apache.cassandra.cql3.ColumnIdentifier;
 
 public class TreasConfig
 {
-    public final static int num_server = 11;
+    public final static int num_server = 5;
     public final static int num_intersect = 5;
     public final static int num_recover = 2;
     public final static int num_concurrecy = 3;
@@ -45,15 +45,15 @@ public class TreasConfig
 
     //public static final String[] ADDRESSES = {"10.142.0.17", "10.142.0.18","10.142.0.19","10.142.0.20","10.142.0.21"};
 
-    //public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.2","10.0.0.3","10.0.0.4","10.0.0.5"};
+    public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.2","10.0.0.3","10.0.0.4","10.0.0.5"};
 
     //public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5", "10.0.0.6", "10.0.0.7"};
 
 //    public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5", "10.0.0.6", "10.0.0.7",
 //                                              "10.0.0.8", "10.0.0.9"};
 //
-    public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5", "10.0.0.6", "10.0.0.7",
-                                              "10.0.0.8", "10.0.0.9", "10.0.0.10", "10.0.0.11"};
+//    public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.2", "10.0.0.3", "10.0.0.4", "10.0.0.5", "10.0.0.6", "10.0.0.7",
+//                                              "10.0.0.8", "10.0.0.9", "10.0.0.10", "10.0.0.11"};
 
     private static HashMap<String, Integer> map = new HashMap<>();
 
