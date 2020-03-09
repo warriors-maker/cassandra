@@ -369,10 +369,11 @@ public class DigestResolver extends ResponseResolver
         // Either one of them is not satisfied stop the procedure;
 
         if (decodeTagMax != null ){
-            //logger.debug(numMessage +"," + decodeCountMap.get(decodeTagMax));
+            logger.debug(numMessage +"," + decodeCountMap.get(decodeTagMax));
             if (decodeCountMap.get(decodeTagMax) == numMessage) {
                 doubleTreasTag.setNeedWriteBack(false);
             } else {
+                //logger.debug(decodeCountMap.get(decodeTagMax) + " " + numMessage);
                 doubleTreasTag.setNeedWriteBack(true);
             }
         }
