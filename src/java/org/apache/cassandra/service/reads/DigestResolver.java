@@ -373,7 +373,7 @@ public class DigestResolver extends ResponseResolver
             if (decodeCountMap.get(decodeTagMax) == numMessage) {
                 doubleTreasTag.setNeedWriteBack(false);
             } else {
-                //logger.debug(decodeCountMap.get(decodeTagMax) + " " + numMessage);
+                logger.debug(decodeCountMap.get(decodeTagMax) + " " + numMessage);
                 doubleTreasTag.setNeedWriteBack(true);
             }
         }
