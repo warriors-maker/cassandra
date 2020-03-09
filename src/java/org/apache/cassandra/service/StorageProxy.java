@@ -3687,7 +3687,6 @@ public class StorageProxy implements StorageProxyMBean
     {
         // this function is the same as the original mutate function
         Tracing.trace("Determining replicas for mutation");
-        logger.debug("Write back!");
         consistency_level = ConsistencyLevel.TREAS;
         final String localDataCenter = DatabaseDescriptor.getEndpointSnitch().getDatacenter(FBUtilities.getBroadcastAddressAndPort());
 
@@ -3712,7 +3711,7 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 else
                 {
-                    //logger.debug("Prepare to Write back");
+                    logger.debug("Prepare to Write back");
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt, queryStartNanoTime, true));
                 }
