@@ -43,7 +43,9 @@ public class TreasConfig
 
     //public static final String[] ADDRESSES = {"localhost/127.0.0.1"};
 
-    public static final String[] ADDRESSES = {"10.142.0.98", "10.142.0.95","10.142.0.96","10.142.0.94","10.142.0.97"};
+    public static final String[] ADDRESSES = {"10.142.0.98", "10.142.0.95","10.142.0.96","10.142.0.94","10.142.0.97"
+                                                ,"10.142.0.100", "10.142.0.99", "10.142.0.102", "10.142.0.103", "10.142.0.101",
+                                              "10.142.0.104"};
 
     //public static final String[] ADDRESSES = {"10.0.0.1", "10.0.0.2","10.0.0.3","10.0.0.4","10.0.0.5"};
 
